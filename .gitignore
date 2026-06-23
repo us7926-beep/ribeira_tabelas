@@ -1,0 +1,31 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Streamlit secrets (NUNCA versionar)
+.streamlit/secrets.toml
+
+# Cache e arquivos temporários
+cache/
+tmp/
+*.tmp
+logs/
+*.log
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Ambiente
+.env
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Uploads temporários de exemplo gerados em runtime
+exemplos/_gerados/

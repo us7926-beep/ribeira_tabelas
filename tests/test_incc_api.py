@@ -1,0 +1,38 @@
+from decimal import Decimal
+from unittest.mock import MagicMock, patch
+
+from src.incc import buscar_indices_incc_di
+
+
+def _resposta_falsa(dados_json):
+    resposta = MagicMock()
+    resposta.json.return_value = dados_json
+    resposta.raise_for_status.return_value = None
+    return resposta
+
+
+@patch("src.incc.requests.get")
+def test_buscar_indices_incc_di_acumula_variacoes(mock_get):
+    mock_get.return_value = _resposta_falsa(
+        [
+            {"data": "01/01/2024", "valor": "0.50"},
+            {"data": "01/02/2024", "valor": "1.00"},
+        ]
+    )
+
+    indices = buscar_indices_incc_di("01/01/2024", "01/02/2024")
+
+    assert indices["2024-01"] == Decimal("100.5000")
+    # 100.5 * 1.01 = 101.505
+    assert indices["2024-02"] == Decimal("101.5050")
+
+
+@patch("src.incc.requests.get")
+def test_buscar_indices_incc_di_sem_dados_levanta_erro(mock_get):
+    mock_get.return_value = _resposta_falsa([])
+
+    try:
+        buscar_indices_incc_di("01/01/2024", "01/02/2024")
+        assert False, "deveria ter levantado ValueError"
+    except ValueError:
+        pass

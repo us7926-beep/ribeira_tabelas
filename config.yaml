@@ -1,0 +1,7 @@
+# Configurações gerais não-sensíveis do app (segredos ficam em secrets.toml).
+empresa:
+  nome: "Ribeira Empreendimentos"
+
+uploads:
+  formatos_aceitos: [xlsx, xls, csv]
+  limite_mb: 50
