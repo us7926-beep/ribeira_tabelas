@@ -9,6 +9,13 @@ Nada de segredo no código (repo público). No deploy (Railway/Render) defina:
 """
 import json
 import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# Carrega api/.env em desenvolvimento (gitignored). Em produção, as variáveis
+# vêm do painel (Railway/Render) e este load não acha arquivo — sem efeito.
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 
 def users() -> dict:
