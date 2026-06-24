@@ -7,7 +7,7 @@ from io import BytesIO
 import plotly.express as px
 import streamlit as st
 
-from src.auth import fazer_logout, usuario_atual, verificar_login
+from src.auth import fazer_logout, get_cookie_manager, usuario_atual, verificar_login
 from src.comparador import comparar_versoes
 from src.dashboard import calcular_kpis, classificar_status, comparar_tabelas_kpis
 from src.detector import detectar_padrao
@@ -16,7 +16,8 @@ from src.utils import gerar_pdf_executivo, ler_planilha
 
 st.set_page_config(page_title="Ribeira Tabelas", page_icon="📊", layout="wide")
 
-verificar_login()  # bloqueia tudo abaixo até o login ser feito
+cookies = get_cookie_manager()  # instanciado uma vez; persiste o login no refresh
+verificar_login(cookies)  # bloqueia tudo abaixo até o login ser feito
 
 # ---------------------------------------------------------------------------
 # Cabeçalho de boas-vindas
@@ -29,7 +30,7 @@ with col_titulo:
     st.caption(f"Última atualização do app: {datetime.now():%d/%m/%Y %H:%M}")
 with col_logout:
     if st.button("Sair", use_container_width=True):
-        fazer_logout()
+        fazer_logout(cookies)
 
 st.divider()
 
@@ -231,7 +232,10 @@ with aba_reajustar:
             buscar = st.button("Buscar últimos índices do INCC-DI", use_container_width=True)
         with col_atualizar:
             if st.button("🔄 Forçar atualização", use_container_width=True):
-                buscar_variacoes_incc_di.clear()
+                try:
+                    buscar_variacoes_incc_di.clear()
+                except Exception:  # noqa: BLE001 — limpar cache não deve quebrar a tela
+                    pass
                 st.session_state.pop("variacoes_incc", None)
                 buscar = True
         if buscar:
