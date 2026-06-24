@@ -25,9 +25,43 @@ from src.mercado import (
     posicionamento_por_padrao,
 )
 from src.mercado_store import obter_base, persistir, sheets_configurado
+from src.pdf_extract import extrair_tabelas_pdf
 from src.utils import gerar_pdf_executivo, ler_planilha
 
 st.set_page_config(page_title="TabLM", page_icon="📊", layout="wide")
+
+
+@st.cache_data(show_spinner=False)
+def _extrair_tabelas_pdf_cache(conteudo: bytes, cabecalho: bool):
+    """Cacheia a extração de tabelas do PDF (evita reparsear a cada interação)."""
+    return extrair_tabelas_pdf(conteudo, cabecalho)
+
+
+def _carregar_tabela_mercado(arquivo):
+    """Lê o arquivo enviado (Excel/CSV direto; PDF via extração + seleção)."""
+    if not arquivo.name.lower().endswith(".pdf"):
+        return ler_planilha(arquivo.getvalue(), arquivo.name)
+
+    cabecalho = st.checkbox("Primeira linha da tabela é o cabeçalho", value=True, key="pdf_hdr")
+    with st.spinner("Lendo o PDF (todas as páginas)..."):
+        tabelas = _extrair_tabelas_pdf_cache(arquivo.getvalue(), cabecalho)
+
+    if not tabelas:
+        st.warning(
+            "Não encontrei tabelas neste PDF. Se for um PDF escaneado (imagem), "
+            "ele não tem texto extraível — me avise que adiciono OCR."
+        )
+        return None
+
+    rotulos = [
+        f"Tabela {i + 1} — {desc} ({len(df)} linhas × {df.shape[1]} col.)"
+        for i, (desc, df) in enumerate(tabelas)
+    ]
+    escolha = st.selectbox(
+        "Tabela extraída do PDF", range(len(rotulos)),
+        format_func=lambda i: rotulos[i], key="pdf_tab_sel",
+    )
+    return tabelas[escolha][1]
 
 cookies = get_cookie_manager()  # instanciado uma vez; persiste o login no refresh
 verificar_login(cookies)  # bloqueia tudo abaixo até o login ser feito
@@ -80,10 +114,11 @@ with aba_mercado:
     # --- adicionar tabela à base --------------------------------------------
     with sub_add:
         arquivo_mkt = st.file_uploader(
-            "Tabela (Excel ou CSV)", type=["xlsx", "xls", "csv"], key="mkt_upload"
+            "Tabela (Excel, CSV ou PDF)", type=["xlsx", "xls", "csv", "pdf"], key="mkt_upload"
         )
-        if arquivo_mkt:
-            df_mkt = ler_planilha(arquivo_mkt.getvalue(), arquivo_mkt.name)
+        df_mkt = _carregar_tabela_mercado(arquivo_mkt) if arquivo_mkt else None
+
+        if df_mkt is not None and not df_mkt.empty:
             st.dataframe(df_mkt.head(8), use_container_width=True)
 
             st.markdown("**Marcação (aplica-se a toda a tabela)**")
