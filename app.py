@@ -11,7 +11,7 @@ from src.auth import fazer_logout, usuario_atual, verificar_login
 from src.comparador import comparar_versoes
 from src.dashboard import calcular_kpis, classificar_status, comparar_tabelas_kpis
 from src.detector import detectar_padrao
-from src.incc import buscar_variacoes_incc_di, reajustar_tabela_mensal
+from src.incc import SERIE_INCC_DI, buscar_variacoes_incc_di, reajustar_tabela_mensal
 from src.utils import gerar_pdf_executivo, ler_planilha
 
 st.set_page_config(page_title="Ribeira Tabelas", page_icon="📊", layout="wide")
@@ -225,7 +225,16 @@ with aba_reajustar:
 
     if modo_incc == "Buscar da API oficial (BCB/FGV)":
         hoje = date.today()
-        if st.button("Buscar últimos índices do INCC-DI"):
+        st.caption(f"Fonte: Banco Central — série {SERIE_INCC_DI} (INCC-DI da FGV, confere com a SindusCon).")
+        col_busca, col_atualizar = st.columns([3, 1])
+        with col_busca:
+            buscar = st.button("Buscar últimos índices do INCC-DI", use_container_width=True)
+        with col_atualizar:
+            if st.button("🔄 Forçar atualização", use_container_width=True):
+                buscar_variacoes_incc_di.clear()
+                st.session_state.pop("variacoes_incc", None)
+                buscar = True
+        if buscar:
             try:
                 with st.spinner("Consultando API do Banco Central..."):
                     variacoes = buscar_variacoes_incc_di(

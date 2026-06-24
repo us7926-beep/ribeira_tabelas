@@ -40,6 +40,7 @@ def _resposta_falsa(dados_json, status=200):
 
 @patch("src.incc.requests.get")
 def test_buscar_variacoes_incc_di_parseia_mensal(mock_get):
+    buscar_variacoes_incc_di.clear()  # evita colisão de cache entre testes
     mock_get.return_value = _resposta_falsa(
         [
             {"data": "01/04/2026", "valor": "0.90"},

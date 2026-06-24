@@ -19,6 +19,7 @@ def _resposta_falsa(dados_json, status=200):
 
 @patch("src.incc.requests.get")
 def test_buscar_indices_incc_di_acumula_variacoes(mock_get):
+    buscar_indices_incc_di.clear()  # evita colisão de cache entre testes
     mock_get.return_value = _resposta_falsa(
         [
             {"data": "01/01/2024", "valor": "0.50"},
@@ -35,10 +36,11 @@ def test_buscar_indices_incc_di_acumula_variacoes(mock_get):
 
 @patch("src.incc.requests.get")
 def test_buscar_indices_incc_di_sem_dados_levanta_erro(mock_get):
+    buscar_indices_incc_di.clear()
     mock_get.return_value = _resposta_falsa([])
 
     try:
-        buscar_indices_incc_di("01/01/2024", "01/02/2024")
+        buscar_indices_incc_di("01/03/2024", "01/04/2024")
         assert False, "deveria ter levantado ValueError"
     except ValueError:
         pass
@@ -46,6 +48,7 @@ def test_buscar_indices_incc_di_sem_dados_levanta_erro(mock_get):
 
 @patch("src.incc.requests.get")
 def test_buscar_indices_incc_di_404_mensagem_amigavel(mock_get):
+    buscar_indices_incc_di.clear()
     mock_get.return_value = _resposta_falsa([], status=404)
 
     try:
