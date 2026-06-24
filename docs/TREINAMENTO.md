@@ -170,8 +170,9 @@ No plano gratuito, o app "hiberna" após alguns dias sem uso. O primeiro acesso
 "acorda" o app e leva alguns segundos.
 
 **Os índices do INCC são oficiais?**
-Sim. Vêm direto da API do Banco Central (série 7456 do SGS), que publica o
-INCC-DI calculado pela FGV.
+Sim. Vêm direto da API do Banco Central (série 192 do SGS), que publica o
+INCC-DI calculado pela FGV. Os valores conferem com a tabela oficial da
+FGV/SindusCon.
 
 **Posso acessar do celular?**
 Sim. É só abrir o link no navegador do celular e fazer login.

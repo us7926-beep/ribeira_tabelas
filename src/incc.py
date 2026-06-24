@@ -3,9 +3,11 @@
 A FGV não disponibiliza uma API pública própria para o INCC-DI. A fonte
 oficial gratuita e sem necessidade de chave de acesso é o SGS (Sistema
 Gerenciador de Séries Temporais) do Banco Central, que redistribui a série
-do INCC-DI calculada pela FGV sob o código 7456 (variação % mensal):
+do INCC-DI calculada pela FGV sob o código 192 (variação % mensal). Os
+valores batem exatamente com a tabela oficial da FGV/SindusCon. (A série
+7456 é uma variante diferente — INCC-M, de Mercado — e NÃO deve ser usada.)
 
-    https://api.bcb.gov.br/dados/serie/bcdata.sgs.7456/dados?formato=json
+    https://api.bcb.gov.br/dados/serie/bcdata.sgs.192/dados?formato=json
 
 ``INDICES_EXEMPLO`` continua disponível como placeholder ilustrativo para
 testes quando a API estiver fora do ar ou para uso offline — NÃO usar para
@@ -21,7 +23,7 @@ import streamlit as st
 getcontext().prec = 16
 
 URL_BCB_SGS_INCC_DI = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{serie}/dados"
-SERIE_INCC_DI = 7456  # INCC-DI (FGV), variação % mensal, via BCB SGS
+SERIE_INCC_DI = 192  # INCC-DI (FGV), variação % mensal, via BCB SGS — confere com a FGV
 
 INDICES_EXEMPLO: dict[str, Decimal] = {
     "2023-01": Decimal("850.00"),

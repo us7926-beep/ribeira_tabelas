@@ -89,11 +89,13 @@ leonardo = "8f3b...hash..."
 
 A FGV não publica uma API própria do INCC-DI. Os índices oficiais reais vêm
 do **SGS (Sistema Gerenciador de Séries Temporais) do Banco Central**, que
-redistribui gratuitamente a série calculada pela FGV (código `7456`, sem
-necessidade de chave de acesso):
+redistribui gratuitamente a série calculada pela FGV (código `192`, sem
+necessidade de chave de acesso). Os valores conferem com a tabela oficial da
+FGV/SindusCon. (⚠️ A série `7456` é o INCC-**M** de Mercado — variante
+diferente — e não deve ser usada para reajuste por INCC-DI.)
 
 ```
-https://api.bcb.gov.br/dados/serie/bcdata.sgs.7456/dados?formato=json&dataInicial=DD/MM/AAAA&dataFinal=DD/MM/AAAA
+https://api.bcb.gov.br/dados/serie/bcdata.sgs.192/dados?formato=json&dataInicial=DD/MM/AAAA&dataFinal=DD/MM/AAAA
 ```
 
 Na aba "Reajustar por INCC", escolha **"API oficial (BCB/FGV INCC-DI)"** e

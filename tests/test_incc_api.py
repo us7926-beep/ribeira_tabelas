@@ -1,7 +1,12 @@
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
-from src.incc import buscar_indices_incc_di
+from src.incc import SERIE_INCC_DI, buscar_indices_incc_di
+
+
+def test_serie_incc_di_e_192():
+    # Série 192 = INCC-DI (FGV), confere com a tabela oficial. NÃO usar 7456 (INCC-M).
+    assert SERIE_INCC_DI == 192
 
 
 def _resposta_falsa(dados_json, status=200):
