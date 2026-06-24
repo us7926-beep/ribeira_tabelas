@@ -46,8 +46,12 @@ def ler_planilha(conteudo_bytes: bytes, nome_arquivo: str) -> pd.DataFrame:
     return pd.read_excel(buffer)
 
 
-def gerar_pdf_executivo(df: pd.DataFrame, coluna_valor: str, competencia_inicial: str, competencia_final: str):
-    """Gera um PDF executivo resumindo o reajuste aplicado a uma tabela."""
+def gerar_pdf_executivo(df: pd.DataFrame, coluna_valor: str, descricao_reajuste: str):
+    """Gera um PDF executivo resumindo o reajuste aplicado a uma tabela.
+
+    ``descricao_reajuste`` é um texto livre descrevendo o reajuste aplicado
+    (ex.: "INCC 0,88% + 1,00% adicional + R$ 500,00 por unidade").
+    """
     import io
 
     from reportlab.lib.pagesizes import A4
@@ -68,13 +72,14 @@ def gerar_pdf_executivo(df: pd.DataFrame, coluna_valor: str, competencia_inicial
     total_depois = df[coluna_reajustada].sum() if coluna_reajustada in df.columns else None
 
     informacoes = [
-        f"Competência inicial: {competencia_inicial}",
-        f"Competência final: {competencia_final}",
-        f"Linhas processadas: {len(df)}",
+        f"Reajuste aplicado: {descricao_reajuste}",
+        f"Coluna reajustada: {coluna_valor}",
+        f"Unidades processadas: {len(df)}",
         f"Total antes do reajuste: R$ {total_antes:,.2f}",
     ]
     if total_depois is not None:
         informacoes.append(f"Total após reajuste: R$ {total_depois:,.2f}")
+        informacoes.append(f"Diferença total: R$ {total_depois - total_antes:,.2f}")
 
     for texto in informacoes:
         pdf.drawString(2 * cm, linha, texto)

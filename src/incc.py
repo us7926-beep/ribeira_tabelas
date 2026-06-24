@@ -68,6 +68,61 @@ def buscar_indices_incc_di(data_inicial: str, data_final: str) -> dict[str, Deci
     return indices
 
 
+@st.cache_data(show_spinner=False, ttl=86400)
+def buscar_variacoes_incc_di(data_inicial: str, data_final: str) -> dict[str, Decimal]:
+    """Busca a variação percentual MENSAL do INCC-DI (FGV) via API do BCB (SGS).
+
+    Diferente de ``buscar_indices_incc_di`` (que acumula em base 100), aqui
+    cada competência "AAAA-MM" recebe a variação % do próprio mês — é o número
+    que se aplica diretamente sobre os valores das unidades (ex.: 0.88).
+    """
+    url = URL_BCB_SGS_INCC_DI.format(serie=SERIE_INCC_DI)
+    params = {"formato": "json", "dataInicial": data_inicial, "dataFinal": data_final}
+
+    resposta = requests.get(url, params=params, timeout=15)
+    if resposta.status_code == 404:
+        raise ValueError(
+            "A API do BCB não tem dados do INCC-DI para esse período. "
+            "Escolha um intervalo que inclua meses já publicados "
+            "(ex.: 01/01/2023 até hoje)."
+        )
+    resposta.raise_for_status()
+    dados = resposta.json()
+
+    if not dados:
+        raise ValueError("A API do BCB não retornou dados para o período informado.")
+
+    variacoes: dict[str, Decimal] = {}
+    for item in dados:
+        dia, mes, ano = item["data"].split("/")
+        variacoes[f"{ano}-{mes}"] = Decimal(str(item["valor"]).replace(",", "."))
+
+    return variacoes
+
+
+def reajustar_valor_mensal(valor, percentual_total, valor_bruto=0) -> Decimal:
+    """Reajusta um valor por um percentual total e/ou um acréscimo bruto fixo.
+
+    novo = valor * (1 + percentual_total/100) + valor_bruto
+
+    ``percentual_total`` já é a soma do INCC do mês com qualquer % adicional.
+    ``valor_bruto`` é um acréscimo fixo em reais aplicado por unidade.
+    """
+    base = _para_decimal(valor)
+    pct = _para_decimal(percentual_total)
+    bruto = _para_decimal(valor_bruto)
+    return (base * (Decimal("1") + pct / Decimal("100")) + bruto).quantize(Decimal("0.01"))
+
+
+def reajustar_tabela_mensal(df: pd.DataFrame, coluna_valor: str, percentual_total, valor_bruto=0) -> pd.DataFrame:
+    """Aplica ``reajustar_valor_mensal`` a uma coluna de valores, retornando cópia."""
+    resultado = df.copy()
+    resultado[f"{coluna_valor}_reajustado"] = resultado[coluna_valor].apply(
+        lambda v: float(reajustar_valor_mensal(v, percentual_total, valor_bruto))
+    )
+    return resultado
+
+
 def _para_decimal(valor) -> Decimal:
     if isinstance(valor, Decimal):
         return valor

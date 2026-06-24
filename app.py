@@ -1,6 +1,7 @@
 """Ribeira Tabelas — app Streamlit com login, detecção de padrão, comparação
 de versões e reajuste por INCC."""
 from datetime import date, datetime
+from decimal import Decimal
 from io import BytesIO
 
 import streamlit as st
@@ -8,7 +9,7 @@ import streamlit as st
 from src.auth import fazer_logout, usuario_atual, verificar_login
 from src.comparador import comparar_versoes
 from src.detector import detectar_padrao
-from src.incc import INDICES_EXEMPLO, buscar_indices_incc_di, carregar_indices_csv, reajustar_tabela
+from src.incc import buscar_variacoes_incc_di, reajustar_tabela_mensal
 from src.utils import gerar_pdf_executivo, ler_planilha
 
 st.set_page_config(page_title="Ribeira Tabelas", page_icon="📊", layout="wide")
@@ -97,101 +98,107 @@ with aba_comparar:
 # ---------------------------------------------------------------------------
 with aba_reajustar:
     st.subheader("Reajustar valores por índice INCC")
+    st.caption(
+        "Aplica a variação do INCC do mês sobre todos os valores das unidades. "
+        "Você pode somar um acréscimo extra (% ou R$) além do INCC."
+    )
 
-    fonte_indices = st.radio(
-        "Fonte dos índices",
-        ["API oficial (BCB/FGV INCC-DI)", "Enviar CSV próprio", "Exemplo (apenas teste)"],
+    # --- 1. Percentual do INCC do mês ---------------------------------------
+    st.markdown("##### 1️⃣ Índice INCC do mês")
+    modo_incc = st.radio(
+        "Como definir o % do INCC?",
+        ["Buscar da API oficial (BCB/FGV)", "Digitar manualmente"],
         horizontal=True,
     )
 
-    indices: dict = {}
+    incc_pct = Decimal("0")
+    mes_ref = "manual"
 
-    if fonte_indices == "API oficial (BCB/FGV INCC-DI)":
-        st.caption(
-            "Busca a série oficial do INCC-DI (calculada pela FGV) via API do "
-            "Banco Central (SGS, série 7456) — gratuita, sem necessidade de chave."
-        )
+    if modo_incc == "Buscar da API oficial (BCB/FGV)":
         hoje = date.today()
-        col_a, col_b = st.columns(2)
-        with col_a:
-            data_inicial = st.date_input(
-                "Data inicial do período",
-                value=date(hoje.year - 3, 1, 1),
-                format="DD/MM/YYYY",
-            )
-        with col_b:
-            data_final = st.date_input(
-                "Data final do período", value=hoje, format="DD/MM/YYYY"
-            )
+        if st.button("Buscar últimos índices do INCC-DI"):
+            try:
+                with st.spinner("Consultando API do Banco Central..."):
+                    variacoes = buscar_variacoes_incc_di(
+                        date(hoje.year - 2, 1, 1).strftime("%d/%m/%Y"),
+                        hoje.strftime("%d/%m/%Y"),
+                    )
+                st.session_state["variacoes_incc"] = variacoes
+            except Exception as exc:  # noqa: BLE001
+                st.error(f"Falha ao consultar a API do BCB: {exc}")
 
-        if st.button("Buscar índices na API do BCB"):
-            if data_inicial > data_final:
-                st.error("A data inicial deve ser anterior ou igual à data final.")
-            else:
-                try:
-                    with st.spinner("Consultando API do Banco Central..."):
-                        indices = buscar_indices_incc_di(
-                            data_inicial.strftime("%d/%m/%Y"),
-                            data_final.strftime("%d/%m/%Y"),
-                        )
-                    st.session_state["indices_incc"] = indices
-                    st.success(f"{len(indices)} competências carregadas da API oficial.")
-                except Exception as exc:  # noqa: BLE001
-                    st.error(f"Falha ao consultar a API do BCB: {exc}")
-
-        indices = st.session_state.get("indices_incc", {})
-
-    elif fonte_indices == "Enviar CSV próprio":
-        arquivo_indices = st.file_uploader(
-            "Tabela de índices INCC (CSV com colunas `competencia,indice`)", type=["csv"], key="up_indices"
-        )
-        if arquivo_indices:
-            indices = carregar_indices_csv(arquivo_indices.getvalue())
-
+        variacoes = st.session_state.get("variacoes_incc", {})
+        if variacoes:
+            meses = sorted(variacoes.keys(), reverse=True)
+            mes_ref = st.selectbox("Mês de referência (padrão: último publicado)", meses, index=0)
+            incc_pct = variacoes[mes_ref]
+            st.metric(f"INCC-DI de {mes_ref}", f"{incc_pct}%")
+        else:
+            st.info("Clique em **Buscar últimos índices do INCC-DI** para carregar.")
     else:
-        st.caption("⚠️ Valores ilustrativos — não usar para reajustes reais de contrato.")
-        indices = INDICES_EXEMPLO
+        incc_pct = Decimal(
+            str(st.number_input("% do INCC do mês", value=0.0, step=0.01, format="%.2f"))
+        )
 
-    if not indices:
-        st.info("Selecione e carregue uma fonte de índices para continuar.")
-        st.stop()
-
-    competencias = sorted(indices.keys())
+    # --- 2. Acréscimo adicional ---------------------------------------------
+    st.markdown("##### 2️⃣ Acréscimo adicional (opcional, além do INCC)")
     col1, col2 = st.columns(2)
     with col1:
-        competencia_inicial = st.selectbox("Competência inicial", competencias, index=0)
+        extra_pct = Decimal(
+            str(st.number_input("% adicional", value=0.0, step=0.01, format="%.2f"))
+        )
     with col2:
-        competencia_final = st.selectbox("Competência final", competencias, index=len(competencias) - 1)
+        valor_bruto = Decimal(
+            str(st.number_input("Valor bruto adicional por unidade (R$)", value=0.0, step=10.0, format="%.2f"))
+        )
 
+    percentual_total = incc_pct + extra_pct
+    resumo_reajuste = f"INCC {incc_pct}% + {extra_pct}% adicional = {percentual_total}%"
+    if valor_bruto:
+        resumo_reajuste += f" + R$ {valor_bruto} por unidade"
+    st.info(f"**Reajuste a aplicar:** {resumo_reajuste}")
+
+    # --- 3. Tabela de unidades ----------------------------------------------
+    st.markdown("##### 3️⃣ Tabela de unidades")
     arquivo_tabela = st.file_uploader(
-        "Tabela de valores a reajustar", type=["xlsx", "xls", "csv"], key="up_reajustar"
+        "Envie a tabela de valores (Excel ou CSV, até 50 MB)",
+        type=["xlsx", "xls", "csv"],
+        key="up_reajustar",
     )
     if arquivo_tabela:
         with st.spinner("Lendo planilha..."):
             df_valores = ler_planilha(arquivo_tabela.getvalue(), arquivo_tabela.name)
+        st.dataframe(df_valores.head(10), use_container_width=True)
 
-        coluna_valor = st.selectbox("Coluna de valores", df_valores.columns)
+        coluna_valor = st.selectbox("Coluna de valores a reajustar", df_valores.columns)
 
-        if st.button("Reajustar"):
+        if percentual_total == 0 and valor_bruto == 0:
+            st.warning("Defina o INCC do mês e/ou um acréscimo antes de reajustar.")
+        elif st.button("Reajustar e gerar nova tabela", type="primary"):
             with st.spinner("Aplicando reajuste com precisão Decimal..."):
-                df_resultado = reajustar_tabela(
-                    df_valores, coluna_valor, indices[competencia_inicial], indices[competencia_final]
+                df_resultado = reajustar_tabela_mensal(
+                    df_valores, coluna_valor, percentual_total, valor_bruto
                 )
+            st.success("Reajuste aplicado!")
             st.dataframe(df_resultado, use_container_width=True)
 
-            excel_buffer = BytesIO()
-            df_resultado.to_excel(excel_buffer, index=False, engine="openpyxl")
-            st.download_button(
-                "⬇️ Baixar Excel reajustado",
-                data=excel_buffer.getvalue(),
-                file_name="tabela_reajustada.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            )
-
-            pdf_buffer = gerar_pdf_executivo(df_resultado, coluna_valor, competencia_inicial, competencia_final)
-            st.download_button(
-                "⬇️ Baixar PDF executivo",
-                data=pdf_buffer.getvalue(),
-                file_name="resumo_reajuste.pdf",
-                mime="application/pdf",
-            )
+            col_dl1, col_dl2 = st.columns(2)
+            with col_dl1:
+                excel_buffer = BytesIO()
+                df_resultado.to_excel(excel_buffer, index=False, engine="openpyxl")
+                st.download_button(
+                    "⬇️ Baixar Excel reajustado",
+                    data=excel_buffer.getvalue(),
+                    file_name="tabela_reajustada.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                )
+            with col_dl2:
+                pdf_buffer = gerar_pdf_executivo(df_resultado, coluna_valor, resumo_reajuste)
+                st.download_button(
+                    "⬇️ Baixar PDF executivo",
+                    data=pdf_buffer.getvalue(),
+                    file_name="resumo_reajuste.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                )
