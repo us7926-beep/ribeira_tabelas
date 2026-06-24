@@ -31,6 +31,23 @@ def base_vazia() -> pd.DataFrame:
     return pd.DataFrame(columns=COLUNAS_BASE)
 
 
+def _para_numero(serie: pd.Series) -> pd.Series:
+    """Converte texto em número, tolerando formato brasileiro e ruído de extração.
+
+    Trata '472.436' (milhar) -> 472436, '47,44' (decimal) -> 47.44,
+    '1.234,56' -> 1234.56 e remove espaços (ex.: '4 72.436' do PDF). Mantém
+    decimais no estilo US ('47.44') quando não há vírgula.
+    """
+    s = serie.astype(str).str.replace(r"\s+", "", regex=True)
+    com_virgula = s.str.contains(",", na=False)
+    # com vírgula decimal: ponto é milhar -> remove ponto, vírgula vira ponto
+    s = s.mask(com_virgula, s.str.replace(".", "", regex=False).str.replace(",", ".", regex=False))
+    # só pontos de milhar (ex.: 472.436 / 1.234.567) -> remove pontos
+    so_milhar = (~com_virgula) & s.str.match(r"^-?\d{1,3}(\.\d{3})+$")
+    s = s.mask(so_milhar, s.str.replace(".", "", regex=False))
+    return pd.to_numeric(s, errors="coerce")
+
+
 def normalizar_upload(
     df: pd.DataFrame,
     *,
@@ -48,8 +65,8 @@ def normalizar_upload(
 
     Calcula ``preco_m2 = valor / area`` e descarta linhas sem valor numérico.
     """
-    valor = pd.to_numeric(df[col_valor], errors="coerce")
-    area = pd.to_numeric(df[col_area], errors="coerce")
+    valor = _para_numero(df[col_valor])
+    area = _para_numero(df[col_area])
     unidade = (
         df[col_unidade].astype(str)
         if col_unidade and col_unidade in df.columns

@@ -211,6 +211,8 @@ def render_mercado() -> None:
     )
 
     with sub_add:
+        if msg_add := st.session_state.pop("mkt_msg", None):
+            st.success(msg_add)
         arquivo_mkt = st.file_uploader(
             "Tabela (Excel, CSV ou PDF)", type=["xlsx", "xls", "csv", "pdf"], key="mkt_upload"
         )
@@ -257,9 +259,18 @@ def render_mercado() -> None:
                         tipo=tipo, incorporadora=incorporadora, produto=produto,
                         cidade=cidade, bairro=bairro, padrao=padrao,
                     )
-                    persistir(adicionar_a_base(base_mercado, novo))
-                    st.success(f"{len(novo)} unidades adicionadas ({produto} — {incorporadora}).")
-                    st.rerun()
+                    if novo.empty:
+                        st.error(
+                            f"Nenhuma linha com número na coluna de valor **{col_valor}**. "
+                            "Confira o mapeamento: a *Coluna de valor (R$)* precisa ser a coluna "
+                            "que contém os **preços**, não um texto/título."
+                        )
+                    else:
+                        persistir(adicionar_a_base(base_mercado, novo))
+                        st.session_state["mkt_msg"] = (
+                            f"✅ {len(novo)} unidades adicionadas ({produto} — {incorporadora})."
+                        )
+                        st.rerun()
 
     with sub_base:
         st.metric("Unidades na base", len(base_mercado))

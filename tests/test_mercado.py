@@ -53,6 +53,24 @@ def test_deve_descartar_linhas_sem_valor_quando_normaliza():
     assert len(out) == 1
 
 
+def test_deve_interpretar_numeros_brasileiros_quando_normaliza():
+    # '472.436' (milhar), '47,44' (decimal) e '4 72.436' (ruído de PDF)
+    df = pd.DataFrame({"Preco": ["472.436", "4 72.436"], "Area": ["47,44", "47,44"]})
+    out = _normalizar(df, col_unidade=None)
+    assert out["valor"].tolist() == [472436.0, 472436.0]
+    assert round(out["area"].iloc[0], 2) == 47.44
+
+
+def test_deve_descartar_tudo_quando_coluna_valor_e_texto():
+    # mapear uma coluna de texto como valor -> 0 linhas (caso do bug reportado)
+    df = pd.DataFrame({"Titulo": ["TABELA SFH", "TORRE"], "Area": ["50", "60"]})
+    out = normalizar_upload(
+        df, col_valor="Titulo", col_area="Area", col_unidade=None,
+        tipo="Nosso", incorporadora="R", produto="P", cidade="C", bairro="B", padrao="Alto",
+    )
+    assert out.empty
+
+
 # --- acúmulo na base -------------------------------------------------------- #
 def test_deve_acumular_uploads_quando_adiciona_a_base():
     base = base_vazia()
