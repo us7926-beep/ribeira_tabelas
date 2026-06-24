@@ -4,6 +4,7 @@ O Streamlit Cloud não persiste disco entre reinícios, então qualquer arquivo
 gravado aqui é considerado descartável: vive apenas durante a sessão do
 container e some quando o app reinicia ou hiberna.
 """
+import io
 import logging
 import tempfile
 import uuid
@@ -38,22 +39,18 @@ def ler_planilha(conteudo_bytes: bytes, nome_arquivo: str) -> pd.DataFrame:
     Cachear por conteúdo (e não por caminho) evita reler o mesmo arquivo
     quando o usuário navega entre abas do app.
     """
-    import io
-
     buffer = io.BytesIO(conteudo_bytes)
     if nome_arquivo.lower().endswith(".csv"):
         return pd.read_csv(buffer)
     return pd.read_excel(buffer)
 
 
-def gerar_pdf_executivo(df: pd.DataFrame, coluna_valor: str, descricao_reajuste: str):
+def gerar_pdf_executivo(df: pd.DataFrame, coluna_valor: str, descricao_reajuste: str) -> io.BytesIO:
     """Gera um PDF executivo resumindo o reajuste aplicado a uma tabela.
 
     ``descricao_reajuste`` é um texto livre descrevendo o reajuste aplicado
     (ex.: "INCC 0,88% + 1,00% adicional + R$ 500,00 por unidade").
     """
-    import io
-
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import cm
     from reportlab.pdfgen import canvas
