@@ -39,75 +39,106 @@ st.set_page_config(
 
 
 # --------------------------------------------------------------------------- #
-# Tema e estilo
+# Identidade visual (design handoff "azul royal") — tema único royal + branco
 # --------------------------------------------------------------------------- #
-def _paleta(escuro: bool) -> dict:
-    if escuro:
-        return {
-            "bg": "#0E1117", "surface": "#161A23", "texto": "#E6EAF1",
-            "muted": "#9AA4B2", "primaria": "#5B9BE6", "borda": "#262C38",
-            "plotly": "plotly_dark",
-        }
-    return {
-        "bg": "#F4F7FB", "surface": "#FFFFFF", "texto": "#1B2330",
-        "muted": "#5B6675", "primaria": "#1F4E79", "borda": "#E3E9F2",
-        "plotly": "plotly_white",
-    }
-
-
-def aplicar_tema(tema: str) -> None:
-    """Injeta CSS de acordo com o tema e ajusta a paleta dos gráficos."""
-    p = _paleta(tema == "Escuro")
-    pio.templates.default = p["plotly"]
+def injetar_estilo() -> None:
+    """Injeta o CSS do design (fontes, paleta royal, cards, sidebar, login)."""
+    pio.templates.default = "plotly_white"
     st.markdown(
-        f"""
+        """
         <style>
-          .stApp {{ background: {p['bg']}; color: {p['texto']}; }}
-          [data-testid="stSidebar"] {{
-              background: {p['surface']}; border-right: 1px solid {p['borda']};
-          }}
-          [data-testid="stHeader"] {{ background: transparent; }}
-          .block-container {{ padding-top: 2.2rem; max-width: 1300px; }}
-          h1, h2, h3, h4 {{ color: {p['primaria']}; font-weight: 700; letter-spacing: -.3px; }}
-          .stApp, p, span, label, li {{ color: {p['texto']}; }}
-          [data-testid="stMetric"] {{
-              background: {p['surface']}; border: 1px solid {p['borda']};
-              border-radius: 14px; padding: 14px 18px;
-              box-shadow: 0 1px 4px rgba(15,30,60,.06);
-          }}
-          [data-testid="stMetricValue"] {{ color: {p['primaria']}; font-weight: 700; }}
-          [data-testid="stMetricLabel"] p {{ color: {p['muted']}; }}
-          .stButton > button {{ border-radius: 10px; font-weight: 600; border: 1px solid {p['borda']}; }}
-          .stButton > button[kind="primary"] {{ background: {p['primaria']}; border: none; }}
-          [data-testid="stFileUploaderDropzone"] {{
-              border: 1.5px dashed {p['borda']}; border-radius: 12px; background: {p['surface']};
-          }}
-          [data-testid="stDataFrame"] {{ border: 1px solid {p['borda']}; border-radius: 12px; }}
-          div[data-baseweb="tab-list"] {{ gap: 6px; }}
-          /* banner do topo */
-          .tablm-hero {{
-              background: linear-gradient(120deg, {p['primaria']}, {p['primaria']}cc);
-              color: #fff; padding: 18px 22px; border-radius: 16px; margin-bottom: 14px;
-          }}
-          .tablm-hero h1 {{ color:#fff; margin:0; font-size: 1.4rem; }}
-          .tablm-hero p {{ color:#eaf1fb; margin:.2rem 0 0; font-size:.85rem; }}
-          /* menu de navegação (radio estilizado como menu) */
-          #menu-nav [role="radiogroup"] {{ gap: 2px; }}
-          #menu-nav [role="radiogroup"] label {{
-              padding: 9px 12px; border-radius: 10px; width: 100%;
-              transition: background .15s; cursor: pointer;
-          }}
-          #menu-nav [role="radiogroup"] label:hover {{ background: {p['bg']}; }}
-          #menu-nav [role="radiogroup"] label p {{ font-weight: 600; font-size: .95rem; }}
+        @import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap');
+        :root{
+          --royal:#2347C5; --royal-hover:#1C3BAE; --royal-light:#EAF0FE;
+          --t-title:#14203A; --t-body:#2C3850; --t-sec:#6B7689; --t-ter:#97A2B5;
+          --bg:#F4F6FB; --card:#FFFFFF; --border:#E5E9F2;
+        }
+        html, body, .stApp, [data-testid="stSidebar"] *, .stMarkdown, input, button, textarea {
+          font-family:'Hanken Grotesk', system-ui, sans-serif;
+        }
+        .stApp{ background:var(--bg); color:var(--t-body); }
+        [data-testid="stHeader"]{ background:transparent; }
+        .block-container{ max-width:1160px; padding:2.1rem 2.4rem 3rem; }
+        h1,h2,h3,h4{ color:var(--t-title); font-weight:800; letter-spacing:-.4px; }
+        .stApp p, .stApp span, .stApp label, .stApp li{ color:var(--t-body); }
+        /* métricas como cards */
+        [data-testid="stMetric"]{
+          background:var(--card); border:1px solid var(--border); border-radius:15px;
+          padding:16px 20px; box-shadow:0 1px 3px rgba(20,40,90,.05);
+        }
+        [data-testid="stMetricValue"]{ color:var(--royal); font-weight:800; font-variant-numeric:tabular-nums; }
+        [data-testid="stMetricLabel"] p{ color:var(--t-sec); font-weight:600; font-size:13px; }
+        [data-testid="stMetricDelta"]{ font-weight:700; }
+        /* botões */
+        .stButton>button, .stDownloadButton>button{
+          border-radius:11px; font-weight:600; border:1px solid var(--border); color:var(--t-body);
+        }
+        .stButton>button[kind="primary"], button[kind="primaryFormSubmit"]{
+          background:var(--royal); color:#fff; border:none; box-shadow:0 6px 16px rgba(35,71,197,.28);
+        }
+        .stButton>button[kind="primary"]:hover, button[kind="primaryFormSubmit"]:hover{ background:var(--royal-hover); }
+        /* inputs / upload / tabelas */
+        .stTextInput input, [data-baseweb="select"]>div{ border-radius:12px !important; }
+        [data-testid="stFileUploaderDropzone"]{
+          border:1.5px dashed var(--border); border-radius:14px; background:var(--card);
+        }
+        [data-testid="stDataFrame"]{ border:1px solid var(--border); border-radius:14px; }
+        /* cabeçalho de página */
+        .tablm-head{ margin-bottom:.7rem; animation:rise .34s cubic-bezier(.2,.7,.3,1); }
+        .tablm-head .eyebrow{ color:var(--royal); font-weight:700; text-transform:uppercase;
+          letter-spacing:1.6px; font-size:12.5px; }
+        .tablm-head h1{ font-size:30px; font-weight:800; letter-spacing:-.7px; margin:.15rem 0 .2rem; color:var(--t-title); }
+        .tablm-head p{ color:var(--t-sec); font-size:15px; margin:0; }
+        @keyframes rise{ from{ transform:translateY(7px); } to{ transform:translateY(0); } }
+
+        /* ===== sidebar royal ===== */
+        [data-testid="stSidebar"]{ background:linear-gradient(180deg,#1F40BC,#102678); border-right:none; }
+        [data-testid="stSidebar"] *{ color:#fff; }
+        .sb-brand{ display:flex; align-items:center; gap:11px; padding:4px 2px 2px; }
+        .sb-logo{ width:36px;height:36px;border-radius:11px;background:#fff;color:#2347C5;
+          font-weight:800;font-size:18px;display:flex;align-items:center;justify-content:center; }
+        .sb-brand b{ font-size:17px; line-height:1; }
+        .sb-brand small{ color:rgba(255,255,255,.7); font-size:11.5px; }
+        .sb-eyebrow{ color:rgba(255,255,255,.55); font-weight:700; text-transform:uppercase;
+          letter-spacing:1.5px; font-size:11px; margin:18px 2px 6px; }
+        [data-testid="stSidebar"] [role="radiogroup"]{ gap:3px; }
+        [data-testid="stSidebar"] [role="radiogroup"] label{
+          padding:10px 13px; border-radius:11px; width:100%; color:rgba(255,255,255,.8); transition:background .15s; }
+        [data-testid="stSidebar"] [role="radiogroup"] label:hover{ background:rgba(255,255,255,.08); }
+        [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked){ background:rgba(255,255,255,.16); }
+        [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p{ font-weight:700; color:#fff; }
+        [data-testid="stSidebar"] [role="radiogroup"] label>div:first-child{ display:none; }
+        [data-testid="stSidebar"] .stButton>button{
+          background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.22); }
+        .sb-user{ display:flex; align-items:center; gap:10px; background:rgba(255,255,255,.1);
+          border:1px solid rgba(255,255,255,.16); border-radius:13px; padding:9px 12px; margin:4px 0 8px; }
+        .sb-avatar{ width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.22);
+          display:flex;align-items:center;justify-content:center;font-weight:700; }
+        .sb-user b{ font-size:13.5px; } .sb-user small{ color:rgba(255,255,255,.65); font-size:11px; }
+
+        /* ===== login split ===== */
+        .login-brand{ background:linear-gradient(160deg,#1A38A8,#122A82); color:#fff;
+          border-radius:18px; padding:40px 34px; min-height:460px; display:flex; flex-direction:column;
+          box-shadow:0 8px 22px rgba(35,71,197,.2); }
+        .login-brand .lb-logo{ display:flex; align-items:center; gap:11px; }
+        .login-brand h1{ color:#fff; font-size:30px; font-weight:800; line-height:1.16; letter-spacing:-.6px; margin:26px 0 0; }
+        .login-brand .sub{ color:rgba(255,255,255,.8); font-size:14.5px; margin-top:12px; }
+        .login-stats{ display:flex; gap:26px; margin-top:auto; padding-top:30px; }
+        .login-stats b{ font-size:23px; font-weight:800; display:block; font-variant-numeric:tabular-nums; }
+        .login-stats span{ color:rgba(255,255,255,.7); font-size:12px; }
+        .login-eyebrow{ color:var(--royal); font-weight:700; text-transform:uppercase; letter-spacing:1.6px; font-size:12.5px; }
+        .login-title{ color:var(--t-title); font-size:26px; font-weight:800; margin:.2rem 0 1rem; }
         </style>
         """,
         unsafe_allow_html=True,
     )
 
 
-def _hero(titulo: str, subtitulo: str) -> None:
+def cabecalho(eyebrow: str, titulo: str, subtitulo: str) -> None:
+    """Cabeçalho padrão de página: eyebrow royal + título 30px + subtítulo."""
     st.markdown(
-        f'<div class="tablm-hero"><h1>{titulo}</h1><p>{subtitulo}</p></div>',
+        f'<div class="tablm-head"><div class="eyebrow">{eyebrow}</div>'
+        f"<h1>{titulo}</h1><p>{subtitulo}</p></div>",
         unsafe_allow_html=True,
     )
 
@@ -151,8 +182,8 @@ def _carregar_tabela_mercado(arquivo):
 # Páginas
 # --------------------------------------------------------------------------- #
 def render_mercado() -> None:
-    _hero("🏢 Inteligência de Mercado e Concorrência",
-          "Compare preço/m² e preço total entre seus produtos e a concorrência.")
+    cabecalho("INTELIGÊNCIA DE MERCADO", "Inteligência de Mercado e Concorrência",
+              "Compare preço/m² e preço total entre seus produtos e a concorrência.")
 
     base_mercado = obter_base()
     if sheets_configurado():
@@ -286,8 +317,8 @@ def render_mercado() -> None:
 
 
 def render_dashboards() -> None:
-    _hero("📊 Dashboards de vendas e preços",
-          "Indicadores da tabela atual e evolução frente à tabela anterior.")
+    cabecalho("DASHBOARDS DE VENDAS", "Dashboards de vendas e preços",
+              "Indicadores da tabela atual e evolução frente à tabela anterior.")
 
     col_up1, col_up2 = st.columns(2)
     with col_up1:
@@ -365,7 +396,8 @@ def render_dashboards() -> None:
 
 
 def render_detectar() -> None:
-    _hero("🔍 Detectar padrão de tabela", "Identifica automaticamente as colunas de uma planilha.")
+    cabecalho("DETECTAR PADRÃO", "Detectar padrão de tabela",
+              "Identifica automaticamente as colunas de uma planilha.")
     arquivo = st.file_uploader("Envie a planilha (Excel ou CSV, até 50 MB)",
                                type=["xlsx", "xls", "csv"], key="up_detectar")
     if not arquivo:
@@ -382,7 +414,8 @@ def render_detectar() -> None:
 
 
 def render_comparar() -> None:
-    _hero("🔁 Comparar versões", "Veja o que mudou entre duas versões de uma tabela.")
+    cabecalho("COMPARAR VERSÕES", "Comparar versões",
+              "Veja o que mudou entre duas versões de uma tabela.")
     col_a, col_b = st.columns(2)
     with col_a:
         arq_antigo = st.file_uploader("Versão antiga", type=["xlsx", "xls", "csv"], key="up_antigo")
@@ -414,8 +447,8 @@ def render_comparar() -> None:
 
 
 def render_reajustar() -> None:
-    _hero("📈 Reajustar por INCC",
-          "Aplica a variação do INCC-DI do mês (+ acréscimo opcional) sobre os valores.")
+    cabecalho("REAJUSTAR POR INCC", "Reajustar por INCC",
+              "Aplica a variação do INCC-DI do mês (+ acréscimo opcional) sobre os valores.")
 
     st.markdown("##### 1️⃣ Índice INCC do mês")
     modo_incc = st.radio("Como definir o % do INCC?",
@@ -504,42 +537,45 @@ def render_reajustar() -> None:
                                use_container_width=True)
 
 
-# rótulo (com emoji) -> função que renderiza a página
+# rótulo de navegação -> função que renderiza a página
 PAGINAS = {
-    "🏢 Inteligência de Mercado": render_mercado,
-    "📊 Dashboards": render_dashboards,
-    "🔍 Detectar Padrão": render_detectar,
-    "🔁 Comparar Versões": render_comparar,
-    "📈 Reajustar por INCC": render_reajustar,
+    "Inteligência de Mercado": render_mercado,
+    "Dashboards de Vendas": render_dashboards,
+    "Detectar Padrão": render_detectar,
+    "Comparar Versões": render_comparar,
+    "Reajustar por INCC": render_reajustar,
 }
 
 
 # --------------------------------------------------------------------------- #
-# Sidebar + dispatch
+# Sidebar royal + dispatch
 # --------------------------------------------------------------------------- #
-def render_sidebar(cookies) -> tuple[str, str]:
+def render_sidebar(cookies) -> str:
     with st.sidebar:
-        st.markdown("## 📊 TabLM")
-        st.caption("Ribeira Empreendimentos")
-        st.divider()
-        st.markdown('<div id="menu-nav">', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="sb-brand"><div class="sb-logo">T</div>'
+            "<div><b>TabLM</b><br><small>Ribeira Empreendimentos</small></div></div>",
+            unsafe_allow_html=True,
+        )
+        st.markdown('<div class="sb-eyebrow">Menu</div>', unsafe_allow_html=True)
         selecionado = st.radio(
             "Navegação", list(PAGINAS.keys()), label_visibility="collapsed", key="nav"
         )
-        st.markdown("</div>", unsafe_allow_html=True)
-        st.divider()
-        tema = st.radio("🎨 Tema", ["Claro", "Escuro"], horizontal=True, key="tema_escolhido")
-        st.divider()
-        st.caption(f"👤 Logado como **{usuario_atual()}**")
-        st.caption(f"🕒 {datetime.now():%d/%m/%Y %H:%M}")
-        if st.button("🚪 Sair", use_container_width=True):
+        st.markdown("<div style='flex:1'></div>", unsafe_allow_html=True)
+        usuario = usuario_atual() or ""
+        st.markdown(
+            f'<div class="sb-user"><div class="sb-avatar">{usuario[:1].upper()}</div>'
+            f'<div><b>{usuario}</b><br><small>{datetime.now():%d/%m · %H:%M}</small></div></div>',
+            unsafe_allow_html=True,
+        )
+        if st.button("Sair", use_container_width=True):
             fazer_logout(cookies)
-    return selecionado, tema
+    return selecionado
 
 
+injetar_estilo()  # CSS do design (vale para login e app)
 cookies = get_cookie_manager()  # instanciado uma vez; persiste o login no refresh
 verificar_login(cookies)  # bloqueia tudo abaixo até o login ser feito
 
-pagina, tema_atual = render_sidebar(cookies)
-aplicar_tema(tema_atual)
+pagina = render_sidebar(cookies)
 PAGINAS[pagina]()

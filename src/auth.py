@@ -105,20 +105,44 @@ def fazer_logout(cookies: stx.CookieManager) -> None:
 # --------------------------------------------------------------------------- #
 # Fluxo de login
 # --------------------------------------------------------------------------- #
-def _formulario_login(cookies: stx.CookieManager) -> None:
-    st.title("🔐 TabLM")
-    st.caption("Acesso restrito — informe suas credenciais para continuar.")
+_PAINEL_MARCA = """
+<div class="login-brand">
+  <div class="lb-logo"><div class="sb-logo">T</div>
+    <div><b style="font-size:17px">TabLM</b><br>
+    <small style="color:rgba(255,255,255,.7);letter-spacing:1.5px;font-size:11px">
+    RIBEIRA EMPREENDIMENTOS</small></div></div>
+  <h1>Inteligência de tabelas para o seu portfólio imobiliário.</h1>
+  <div class="sub">Dashboards de vendas, comparação de concorrência, reajuste por
+  INCC e detecção de padrões — tudo em um só lugar.</div>
+  <div class="login-stats">
+    <div><b>5</b><span>módulos</span></div>
+    <div><b>INCC-DI</b><span>fonte oficial</span></div>
+    <div><b>Decimal</b><span>precisão exata</span></div>
+  </div>
+</div>
+"""
 
-    with st.form("login_form"):
-        usuario = st.text_input("Usuário")
-        senha = st.text_input("Senha", type="password")
-        enviado = st.form_submit_button("Entrar", use_container_width=True)
+
+def _formulario_login(cookies: stx.CookieManager) -> None:
+    col_marca, col_form = st.columns([46, 54], gap="large")
+    with col_marca:
+        st.markdown(_PAINEL_MARCA, unsafe_allow_html=True)
+
+    with col_form:
+        st.markdown('<div class="login-eyebrow">BEM-VINDO DE VOLTA</div>', unsafe_allow_html=True)
+        st.markdown('<div class="login-title">Entrar na sua conta</div>', unsafe_allow_html=True)
+        with st.form("login_form"):
+            usuario = st.text_input("Usuário")
+            senha = st.text_input("Senha", type="password")
+            manter = st.checkbox("Manter conectado", value=True)
+            enviado = st.form_submit_button("Entrar", use_container_width=True, type="primary")
 
     if not enviado:
         return
 
     if not _credenciais_validas(usuario, senha):
-        st.error("Usuário ou senha inválidos.")
+        with col_form:
+            st.error("Usuário ou senha inválidos.")
         return
 
     _marcar_autenticado(usuario)
@@ -126,14 +150,15 @@ def _formulario_login(cookies: stx.CookieManager) -> None:
     # componente do set() renderiza no navegador; um st.rerun() imediato
     # interrompe esse render e o cookie nunca chega ao navegador (era o bug do
     # "desloga no F5"). O próprio set() dispara o rerun depois de gravar.
-    try:
-        cookies.set(
-            COOKIE_NOME,
-            _gerar_token(usuario),
-            expires_at=datetime.now() + timedelta(hours=VALIDADE_HORAS),
-        )
-    except Exception:  # noqa: BLE001 — sem cookie a sessão ainda vale; só não persiste no refresh
-        pass
+    if manter:
+        try:
+            cookies.set(
+                COOKIE_NOME,
+                _gerar_token(usuario),
+                expires_at=datetime.now() + timedelta(hours=VALIDADE_HORAS),
+            )
+        except Exception:  # noqa: BLE001 — sem cookie a sessão ainda vale; só não persiste no refresh
+            pass
 
 
 def verificar_login(cookies: stx.CookieManager) -> None:
