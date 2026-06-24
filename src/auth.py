@@ -106,7 +106,7 @@ def fazer_logout(cookies: stx.CookieManager) -> None:
 # Fluxo de login
 # --------------------------------------------------------------------------- #
 def _formulario_login(cookies: stx.CookieManager) -> None:
-    st.title("🔐 Ribeira Tabelas")
+    st.title("🔐 TabLM")
     st.caption("Acesso restrito — informe suas credenciais para continuar.")
 
     with st.form("login_form"):

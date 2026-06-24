@@ -1,5 +1,5 @@
-"""Ribeira Tabelas — app Streamlit com login, detecção de padrão, comparação
-de versões, reajuste por INCC e dashboards."""
+"""TabLM — app Streamlit com login, detecção de padrão, comparação de versões,
+reajuste por INCC, dashboards e inteligência de mercado."""
 from datetime import date, datetime
 from decimal import Decimal
 from io import BytesIO
@@ -12,9 +12,21 @@ from src.comparador import comparar_versoes
 from src.dashboard import calcular_kpis, classificar_status, comparar_tabelas_kpis
 from src.detector import detectar_padrao
 from src.incc import SERIE_INCC_DI, buscar_variacoes_incc_di, reajustar_tabela_mensal
+from src.mercado import (
+    DIMENSOES,
+    PADROES,
+    TIPOS,
+    adicionar_a_base,
+    base_vazia,
+    comparar_por_dimensao,
+    gerar_insights,
+    kpis_gerais,
+    normalizar_upload,
+    posicionamento_por_padrao,
+)
 from src.utils import gerar_pdf_executivo, ler_planilha
 
-st.set_page_config(page_title="Ribeira Tabelas", page_icon="📊", layout="wide")
+st.set_page_config(page_title="TabLM", page_icon="📊", layout="wide")
 
 cookies = get_cookie_manager()  # instanciado uma vez; persiste o login no refresh
 verificar_login(cookies)  # bloqueia tudo abaixo até o login ser feito
@@ -26,7 +38,7 @@ col_logo, col_titulo, col_logout = st.columns([1, 6, 1])
 with col_logo:
     st.markdown("### 🏗️")
 with col_titulo:
-    st.markdown(f"**Ribeira Empreendimentos** — bem-vindo(a), `{usuario_atual()}`")
+    st.markdown(f"**TabLM** · Ribeira Empreendimentos — bem-vindo(a), `{usuario_atual()}`")
     st.caption(f"Última atualização do app: {datetime.now():%d/%m/%Y %H:%M}")
 with col_logout:
     if st.button("Sair", use_container_width=True):
@@ -34,9 +46,167 @@ with col_logout:
 
 st.divider()
 
-aba_dashboard, aba_detectar, aba_comparar, aba_reajustar = st.tabs(
-    ["📊 Dashboards", "🔍 Detectar Padrão", "🔁 Comparar Versões", "📈 Reajustar por INCC"]
+aba_dashboard, aba_mercado, aba_detectar, aba_comparar, aba_reajustar = st.tabs(
+    [
+        "📊 Dashboards",
+        "🏢 Inteligência de Mercado",
+        "🔍 Detectar Padrão",
+        "🔁 Comparar Versões",
+        "📈 Reajustar por INCC",
+    ]
 )
+
+# ---------------------------------------------------------------------------
+# Aba: Inteligência de Mercado e Concorrência
+# ---------------------------------------------------------------------------
+with aba_mercado:
+    st.subheader("Inteligência de Mercado e Concorrência")
+    st.caption(
+        "Envie tabelas (suas ou de concorrentes), marque incorporadora, produto, "
+        "cidade, bairro e padrão, e compare preço/m² e preço total no dashboard."
+    )
+
+    if "base_mercado" not in st.session_state:
+        st.session_state["base_mercado"] = base_vazia()
+
+    sub_add, sub_base, sub_dash = st.tabs(
+        ["➕ Adicionar tabela", "🗂️ Base atual", "📈 Dashboard de mercado"]
+    )
+
+    # --- adicionar tabela à base --------------------------------------------
+    with sub_add:
+        arquivo_mkt = st.file_uploader(
+            "Tabela (Excel ou CSV)", type=["xlsx", "xls", "csv"], key="mkt_upload"
+        )
+        if arquivo_mkt:
+            df_mkt = ler_planilha(arquivo_mkt.getvalue(), arquivo_mkt.name)
+            st.dataframe(df_mkt.head(8), use_container_width=True)
+
+            st.markdown("**Marcação (aplica-se a toda a tabela)**")
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                tipo = st.selectbox("Tipo", TIPOS, key="mkt_tipo")
+                incorporadora = st.text_input("Incorporadora", key="mkt_inc")
+            with c2:
+                produto = st.text_input("Produto/Empreendimento", key="mkt_prod")
+                cidade = st.text_input("Cidade", key="mkt_cidade")
+            with c3:
+                bairro = st.text_input("Bairro", key="mkt_bairro")
+                padrao = st.selectbox("Padrão", PADROES, key="mkt_padrao")
+
+            st.markdown("**Mapeamento de colunas**")
+            m1, m2, m3 = st.columns(3)
+            colunas = list(df_mkt.columns)
+            with m1:
+                col_valor = st.selectbox("Coluna de valor (R$)", colunas, key="mkt_val")
+            with m2:
+                col_area = st.selectbox(
+                    "Coluna de área (m²)", colunas, index=min(1, len(colunas) - 1), key="mkt_area"
+                )
+            with m3:
+                col_unidade = st.selectbox(
+                    "Coluna de unidade (opcional)", ["(nenhuma)"] + colunas, key="mkt_un"
+                )
+
+            if st.button("➕ Adicionar à base", type="primary"):
+                if not incorporadora or not produto:
+                    st.warning("Preencha ao menos Incorporadora e Produto.")
+                else:
+                    novo = normalizar_upload(
+                        df_mkt,
+                        col_valor=col_valor,
+                        col_area=col_area,
+                        col_unidade=None if col_unidade == "(nenhuma)" else col_unidade,
+                        tipo=tipo,
+                        incorporadora=incorporadora,
+                        produto=produto,
+                        cidade=cidade,
+                        bairro=bairro,
+                        padrao=padrao,
+                    )
+                    st.session_state["base_mercado"] = adicionar_a_base(
+                        st.session_state["base_mercado"], novo
+                    )
+                    st.success(f"{len(novo)} unidades adicionadas ({produto} — {incorporadora}).")
+
+    # --- base atual ----------------------------------------------------------
+    with sub_base:
+        base = st.session_state["base_mercado"]
+        st.metric("Unidades na base", len(base))
+        st.dataframe(base, use_container_width=True)
+        col_b1, col_b2 = st.columns(2)
+        with col_b1:
+            if not base.empty:
+                st.download_button(
+                    "⬇️ Baixar base (CSV)",
+                    data=base.to_csv(index=False).encode("utf-8"),
+                    file_name="base_mercado.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
+        with col_b2:
+            if st.button("🗑️ Limpar base", use_container_width=True):
+                st.session_state["base_mercado"] = base_vazia()
+                st.rerun()
+
+    # --- dashboard de mercado ------------------------------------------------
+    with sub_dash:
+        base = st.session_state["base_mercado"]
+        if base.empty:
+            st.info("Adicione ao menos uma tabela na aba **Adicionar tabela**.")
+        else:
+            kpis = kpis_gerais(base)
+            k1, k2, k3, k4 = st.columns(4)
+            k1.metric("Unidades", kpis["total_unidades"])
+            k2.metric("Incorporadoras", kpis["incorporadoras"])
+            k3.metric("Produtos", kpis["produtos"])
+            k4.metric("Cidades", kpis["cidades"])
+
+            k5, k6, k7, k8 = st.columns(4)
+            k5.metric("Preço/m² médio", f'R$ {kpis["preco_m2_medio"] or 0:,.0f}')
+            k6.metric("Preço/m² (nosso)", f'R$ {kpis["preco_m2_nosso"] or 0:,.0f}')
+            k7.metric("Preço/m² (concorrentes)", f'R$ {kpis["preco_m2_concorrentes"] or 0:,.0f}')
+            k8.metric("Ticket médio", f'R$ {kpis["ticket_medio"] or 0:,.0f}')
+
+            insights = gerar_insights(base)
+            if insights:
+                st.markdown("#### 💡 Insights")
+                for frase in insights:
+                    st.markdown(f"- {frase}")
+
+            st.markdown("#### Comparação por dimensão")
+            dimensao = st.selectbox(
+                "Dimensão", list(DIMENSOES.keys()),
+                format_func=lambda d: DIMENSOES[d], key="mkt_dim",
+            )
+            agregado = comparar_por_dimensao(base, dimensao)
+            st.dataframe(agregado, use_container_width=True)
+
+            cg1, cg2 = st.columns(2)
+            with cg1:
+                fig_pm2 = px.bar(
+                    agregado, x=dimensao, y="preco_m2_medio",
+                    title=f"Preço/m² médio por {DIMENSOES[dimensao]}",
+                )
+                st.plotly_chart(fig_pm2, use_container_width=True)
+            with cg2:
+                fig_disp = px.box(
+                    base, x="padrao", y="preco_m2", color="tipo",
+                    category_orders={"padrao": PADROES},
+                    title="Distribuição de preço/m² por padrão",
+                )
+                st.plotly_chart(fig_disp, use_container_width=True)
+
+            st.markdown("#### Posicionamento: nós vs. concorrência (por padrão)")
+            posicionamento = posicionamento_por_padrao(base)
+            st.dataframe(posicionamento, use_container_width=True)
+
+            fig_scatter = px.scatter(
+                base, x="area", y="valor", color="tipo", symbol="padrao",
+                hover_data=["incorporadora", "produto", "bairro"],
+                title="Área × Valor (cor = nosso/concorrente)",
+            )
+            st.plotly_chart(fig_scatter, use_container_width=True)
 
 # ---------------------------------------------------------------------------
 # Aba 0: Dashboards
