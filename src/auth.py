@@ -93,11 +93,13 @@ def usuario_atual() -> str | None:
 def fazer_logout(cookies: stx.CookieManager) -> None:
     for chave in ("autenticado", "usuario", "login_em"):
         st.session_state.pop(chave, None)
+    # Sem st.rerun() aqui também: deixar o delete() apagar o cookie no navegador
+    # antes do rerun que ele próprio dispara (senão o cookie sobreviveria e o
+    # usuário voltaria a logar automaticamente).
     try:
         cookies.delete(COOKIE_NOME)
     except Exception:  # noqa: BLE001 — cookie pode nem existir; logout não deve falhar
         pass
-    st.rerun()
 
 
 # --------------------------------------------------------------------------- #
@@ -120,6 +122,10 @@ def _formulario_login(cookies: stx.CookieManager) -> None:
         return
 
     _marcar_autenticado(usuario)
+    # IMPORTANTE: não chamar st.rerun() aqui. O cookie é gravado quando o
+    # componente do set() renderiza no navegador; um st.rerun() imediato
+    # interrompe esse render e o cookie nunca chega ao navegador (era o bug do
+    # "desloga no F5"). O próprio set() dispara o rerun depois de gravar.
     try:
         cookies.set(
             COOKIE_NOME,
@@ -128,7 +134,6 @@ def _formulario_login(cookies: stx.CookieManager) -> None:
         )
     except Exception:  # noqa: BLE001 — sem cookie a sessão ainda vale; só não persiste no refresh
         pass
-    st.rerun()
 
 
 def verificar_login(cookies: stx.CookieManager) -> None:
