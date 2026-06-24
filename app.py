@@ -24,6 +24,7 @@ from src.mercado import (
     normalizar_upload,
     posicionamento_por_padrao,
 )
+from src.mercado_store import obter_base, persistir, sheets_configurado
 from src.utils import gerar_pdf_executivo, ler_planilha
 
 st.set_page_config(page_title="TabLM", page_icon="📊", layout="wide")
@@ -66,8 +67,11 @@ with aba_mercado:
         "cidade, bairro e padrão, e compare preço/m² e preço total no dashboard."
     )
 
-    if "base_mercado" not in st.session_state:
-        st.session_state["base_mercado"] = base_vazia()
+    base_mercado = obter_base()  # carrega do Google Sheets se configurado
+    if sheets_configurado():
+        st.caption("🟢 Histórico persistente ativo (Google Sheets).")
+    else:
+        st.caption("🟡 Base apenas na sessão (configure o Google Sheets para salvar o histórico).")
 
     sub_add, sub_base, sub_dash = st.tabs(
         ["➕ Adicionar tabela", "🗂️ Base atual", "📈 Dashboard de mercado"]
@@ -124,34 +128,32 @@ with aba_mercado:
                         bairro=bairro,
                         padrao=padrao,
                     )
-                    st.session_state["base_mercado"] = adicionar_a_base(
-                        st.session_state["base_mercado"], novo
-                    )
+                    persistir(adicionar_a_base(base_mercado, novo))
                     st.success(f"{len(novo)} unidades adicionadas ({produto} — {incorporadora}).")
+                    st.rerun()
 
     # --- base atual ----------------------------------------------------------
     with sub_base:
-        base = st.session_state["base_mercado"]
-        st.metric("Unidades na base", len(base))
-        st.dataframe(base, use_container_width=True)
+        st.metric("Unidades na base", len(base_mercado))
+        st.dataframe(base_mercado, use_container_width=True)
         col_b1, col_b2 = st.columns(2)
         with col_b1:
-            if not base.empty:
+            if not base_mercado.empty:
                 st.download_button(
                     "⬇️ Baixar base (CSV)",
-                    data=base.to_csv(index=False).encode("utf-8"),
+                    data=base_mercado.to_csv(index=False).encode("utf-8"),
                     file_name="base_mercado.csv",
                     mime="text/csv",
                     use_container_width=True,
                 )
         with col_b2:
             if st.button("🗑️ Limpar base", use_container_width=True):
-                st.session_state["base_mercado"] = base_vazia()
+                persistir(base_vazia())
                 st.rerun()
 
     # --- dashboard de mercado ------------------------------------------------
     with sub_dash:
-        base = st.session_state["base_mercado"]
+        base = base_mercado
         if base.empty:
             st.info("Adicione ao menos uma tabela na aba **Adicionar tabela**.")
         else:

@@ -6,6 +6,8 @@ xlsxwriter==3.2.0
 plotly==5.22.0
 reportlab==4.2.0
 pyyaml==6.0.1
+gspread==6.2.1
+google-auth==2.55.0
 requests==2.32.3
 pytest==8.2.2
 pytest-mock==3.14.0
