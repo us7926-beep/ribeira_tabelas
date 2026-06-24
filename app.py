@@ -32,6 +32,7 @@ from src.mercado import (
 from src.mercado_store import obter_base, persistir, sheets_configurado
 from src.pdf_extract import extrair_tabelas_pdf
 from src.utils import gerar_pdf_executivo, ler_planilha
+from src import ui
 
 st.set_page_config(
     page_title="TabLM", page_icon="📊", layout="wide", initial_sidebar_state="expanded"
@@ -281,53 +282,80 @@ def render_mercado() -> None:
         if base.empty:
             st.info("Adicione ao menos uma tabela na aba **Adicionar tabela**.")
             return
-        kpis = kpis_gerais(base)
-        k1, k2, k3, k4 = st.columns(4)
-        k1.metric("Unidades", kpis["total_unidades"])
-        k2.metric("Incorporadoras", kpis["incorporadoras"])
-        k3.metric("Produtos", kpis["produtos"])
-        k4.metric("Cidades", kpis["cidades"])
+        k = kpis_gerais(base)
+        m2 = lambda v: ui.moeda(v) if v is not None else "—"  # noqa: E731
 
-        k5, k6, k7, k8 = st.columns(4)
-        k5.metric("Preço/m² médio", f'R$ {kpis["preco_m2_medio"] or 0:,.0f}')
-        k6.metric("Preço/m² (nosso)", f'R$ {kpis["preco_m2_nosso"] or 0:,.0f}')
-        k7.metric("Preço/m² (concorrentes)", f'R$ {kpis["preco_m2_concorrentes"] or 0:,.0f}')
-        k8.metric("Ticket médio", f'R$ {kpis["ticket_medio"] or 0:,.0f}')
+        st.markdown(ui.kpi_cards([
+            {"label": "Unidades na base", "value": str(k["total_unidades"]), "sub": f'{k["incorporadoras"]} incorporadoras'},
+            {"label": "Produtos", "value": str(k["produtos"]), "sub": f'{k["cidades"]} cidades'},
+            {"label": "Ticket médio", "value": m2(k["ticket_medio"]), "sub": "todas as praças"},
+            {"label": "Preço/m² médio", "value": m2(k["preco_m2_medio"]), "sub": "mercado geral"},
+        ]), unsafe_allow_html=True)
 
+        nosso, conc = k["preco_m2_nosso"], k["preco_m2_concorrentes"]
+        if nosso is not None and conc:
+            dif = round(100 * (nosso - conc) / conc, 1)
+            direc = "up" if dif > 0 else ("down" if dif < 0 else "flat")
+            delta_txt = f"{abs(dif)}% vs. concorrência"
+        else:
+            direc, delta_txt = "flat", "sem comparativo"
+        st.markdown(ui.kpi_delta_cards([
+            {"label": "Preço/m² — nosso", "value": m2(nosso), "delta": delta_txt, "dir": direc},
+            {"label": "Preço/m² — concorrentes", "value": m2(conc), "delta": "base comparável", "dir": "flat"},
+            {"label": "VGV total", "value": m2(k["vgv_total"]), "delta": "soma da base", "dir": "flat"},
+            {"label": "Ticket médio", "value": m2(k["ticket_medio"]), "delta": "por unidade", "dir": "flat"},
+        ]), unsafe_allow_html=True)
+
+        # barras de bairro + insights
+        por_bairro = comparar_por_dimensao(base, "bairro")
+        bairros_nossos = set(base[base["tipo"] == "Nosso"]["bairro"])
+        maxv = por_bairro["preco_m2_medio"].max()
+        maxv = maxv if maxv == maxv and maxv else 1  # guarda NaN/0
+        barras = []
+        for _, r in por_bairro.head(6).iterrows():
+            v = r["preco_m2_medio"]
+            barras.append({
+                "label": str(r["bairro"]) or "—",
+                "value": m2(v),
+                "pct": 100 * (v / maxv) if v == v else 0,
+                "ours": r["bairro"] in bairros_nossos,
+            })
         insights = gerar_insights(base)
-        if insights:
-            st.markdown("#### 💡 Insights")
-            for frase in insights:
-                st.markdown(f"- {frase}")
+        col_bar, col_ins = st.columns([1.35, 1])
+        with col_bar:
+            st.markdown(ui.barras_bairro(barras), unsafe_allow_html=True)
+        with col_ins:
+            if insights:
+                st.markdown(ui.insights_card(insights), unsafe_allow_html=True)
 
-        st.markdown("#### Comparação por dimensão")
-        dimensao = st.selectbox(
-            "Dimensão", list(DIMENSOES.keys()),
-            format_func=lambda d: DIMENSOES[d], key="mkt_dim",
+        # posicionamento por padrão
+        linhas = []
+        for _, r in posicionamento_por_padrao(base).iterrows():
+            dif = r["dif_pct"]
+            if dif is None:
+                dcell = '<span style="color:#97A2B5">—</span>'
+            elif dif >= 0:
+                dcell = f'<span style="color:#15A34A;font-weight:700">▲ {dif}%</span>'
+            else:
+                dcell = f'<span style="color:#DC2626;font-weight:700">▼ {abs(dif)}%</span>'
+            linhas.append([
+                f'<span style="font-weight:600;color:#2C3850">{r["padrao"]}</span>',
+                f'<span style="color:#14203A;font-weight:600">{m2(r["preco_m2_nosso"])}</span>',
+                f'<span style="color:#6B7689">{m2(r["preco_m2_concorrentes"])}</span>',
+                dcell,
+            ])
+        colunas = [
+            {"nome": "Padrão", "fr": "1.4fr"},
+            {"nome": "Nosso", "fr": "1fr", "align": "right"},
+            {"nome": "Concorrentes", "fr": "1fr", "align": "right"},
+            {"nome": "Diferença", "fr": "1fr", "align": "right"},
+        ]
+        st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
+        st.markdown(
+            ui.tabela("Posicionamento por padrão — nós vs. concorrência",
+                      "Preço/m² médio (R$) por faixa de padrão", colunas, linhas),
+            unsafe_allow_html=True,
         )
-        agregado = comparar_por_dimensao(base, dimensao)
-        st.dataframe(agregado, use_container_width=True)
-
-        cg1, cg2 = st.columns(2)
-        with cg1:
-            fig_pm2 = px.bar(agregado, x=dimensao, y="preco_m2_medio",
-                             title=f"Preço/m² médio por {DIMENSOES[dimensao]}")
-            st.plotly_chart(fig_pm2, use_container_width=True)
-        with cg2:
-            fig_disp = px.box(base, x="padrao", y="preco_m2", color="tipo",
-                              category_orders={"padrao": PADROES},
-                              title="Distribuição de preço/m² por padrão")
-            st.plotly_chart(fig_disp, use_container_width=True)
-
-        st.markdown("#### Posicionamento: nós vs. concorrência (por padrão)")
-        st.dataframe(posicionamento_por_padrao(base), use_container_width=True)
-
-        fig_scatter = px.scatter(
-            base, x="area", y="valor", color="tipo", symbol="padrao",
-            hover_data=["incorporadora", "produto", "bairro"],
-            title="Área × Valor (cor = nosso/concorrente)",
-        )
-        st.plotly_chart(fig_scatter, use_container_width=True)
 
 
 def render_dashboards() -> None:
