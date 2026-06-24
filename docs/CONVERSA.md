@@ -190,6 +190,30 @@ assistente resumidas abaixo de cada uma.
 - **Documentação:** `docs/TREINAMENTO.md` (este guia) e `docs/CONVERSA.md` (este
   arquivo).
 - **20/20 testes**; app validado localmente com a nova aba (plotly).
+- Commit + push a partir do HD E:; re-deploy dos dashboards confirmado no ar.
+
+---
+
+## 10. Bug crítico: série errada do INCC-DI
+
+> **Usuário:** (tela da SindusCon-PR com a tabela oficial FGV vs. tela do app)
+> "porque o indice não está batendo?" — o app mostrava maio/2026 = 0,77%, mas a
+> FGV mostrava 0,88%.
+
+**Ações:**
+- Investiguei consultando várias séries do BCB e comparando com os valores da
+  FGV (jan–mai/2026). Descoberta:
+  - **Série 7456** (que o app usava) = **INCC-M (Mercado)** → valores divergentes
+    (0,63 / 0,34 / 0,36 / 1,04 / 0,77). **Errada.**
+  - **Série 192** = **INCC-DI** → bate **exatamente** com a FGV
+    (0,72 / 0,28 / 0,54 / 1,00 / 0,88). **Correta.**
+- Troquei `SERIE_INCC_DI` de 7456 → **192** em `src/incc.py`; atualizei README e
+  documentação; adicionei **teste de regressão** travando a série em 192.
+- **21/21 testes**; validado contra a API real; commit + push; re-deploy no ar.
+
+> 🔑 Lição: era um bug sério (afeta reajuste real de contratos), pego pelo
+> usuário ao conferir com a fonte oficial (SindusCon/FGV). Recomendação: conferir
+> o % com a SindusCon-PR na primeira aplicação de cada mês.
 
 ---
 
@@ -200,3 +224,6 @@ assistente resumidas abaixo de cada uma.
 - **App:** https://ribeira-tabelas.streamlit.app (Python 3.11)
 - **Abas:** 📊 Dashboards · 🔍 Detectar Padrão · 🔁 Comparar Versões · 📈 Reajustar por INCC
 - **Login:** protegido por SHA-256 (secrets só no Streamlit Cloud)
+- **INCC-DI:** API do BCB **série 192** (confere com a FGV); reajuste = variação
+  mensal + acréscimo opcional (% ou R$), com exportação Excel + PDF.
+- **Testes:** 21/21 passando.
