@@ -1,0 +1,154 @@
+"""App FastAPI do TabLM — expõe a lógica Python via REST para o frontend Next.js.
+
+Fase 1: auth (JWT), análise/ficha via Gemini e CRUD da hierarquia
+(incorporadoras → empreendimentos) + eventos. Upload de arquivos para o
+Supabase Storage e migração das telas de mercado/vendas/INCC vêm nas próximas
+fases.
+"""
+from fastapi import Depends, FastAPI, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+from . import config, db, gemini, security
+
+app = FastAPI(title="TabLM API", version="0.1.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=config.cors_origins(),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# --------------------------------------------------------------------------- #
+# Schemas
+# --------------------------------------------------------------------------- #
+class LoginIn(BaseModel):
+    usuario: str
+    senha: str
+
+
+class LoginOut(BaseModel):
+    token: str
+    usuario: str
+
+
+class IncorporadoraIn(BaseModel):
+    nome: str
+
+
+class EmpreendimentoIn(BaseModel):
+    incorporadora_id: str
+    nome: str
+    cidade: str | None = None
+    bairro: str | None = None
+    padrao: str | None = None
+
+
+class EventoIn(BaseModel):
+    empreendimento_id: str
+    documento_id: str | None = None
+    descricao: str | None = None
+    data_inicio: str | None = None
+    data_fim: str | None = None
+    condicoes_comerciais: str | None = None
+
+
+def _db_ou_503(funcao, *args, **kwargs):
+    try:
+        return funcao(*args, **kwargs)
+    except RuntimeError as exc:  # Supabase não configurado / indisponível
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
+# --------------------------------------------------------------------------- #
+# Saúde e autenticação
+# --------------------------------------------------------------------------- #
+@app.get("/health")
+def health():
+    return {
+        "status": "ok",
+        "gemini": bool(config.gemini_api_key()),
+        "supabase": bool(config.supabase_url() and config.supabase_key()),
+    }
+
+
+@app.post("/auth/login", response_model=LoginOut)
+def login(dados: LoginIn):
+    if not security.credenciais_validas(dados.usuario, dados.senha):
+        raise HTTPException(status_code=401, detail="Usuário ou senha inválidos")
+    return LoginOut(token=security.criar_token(dados.usuario), usuario=dados.usuario)
+
+
+@app.get("/me")
+def me(usuario: str = Depends(security.usuario_autenticado)):
+    return {"usuario": usuario}
+
+
+# --------------------------------------------------------------------------- #
+# Gemini (análise de flyer e ficha técnica)
+# --------------------------------------------------------------------------- #
+@app.post("/gemini/analisar-flyer")
+async def analisar_flyer(arquivo: UploadFile, _: str = Depends(security.usuario_autenticado)):
+    conteudo = await arquivo.read()
+    try:
+        return gemini.analisar_flyer(conteudo, arquivo.filename or "flyer.pdf")
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=str(exc))
+
+
+@app.post("/gemini/ficha")
+async def extrair_ficha(arquivo: UploadFile, _: str = Depends(security.usuario_autenticado)):
+    conteudo = await arquivo.read()
+    try:
+        return gemini.extrair_ficha(conteudo, arquivo.filename or "doc.pdf")
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=str(exc))
+
+
+# --------------------------------------------------------------------------- #
+# Hierarquia: incorporadoras -> empreendimentos
+# --------------------------------------------------------------------------- #
+@app.get("/incorporadoras")
+def listar_incorporadoras(_: str = Depends(security.usuario_autenticado)):
+    return _db_ou_503(db.listar, "incorporadoras")
+
+
+@app.post("/incorporadoras")
+def criar_incorporadora(dados: IncorporadoraIn, _: str = Depends(security.usuario_autenticado)):
+    return _db_ou_503(db.inserir, "incorporadoras", dados.model_dump())
+
+
+@app.get("/empreendimentos")
+def listar_empreendimentos(
+    incorporadora_id: str | None = None, _: str = Depends(security.usuario_autenticado)
+):
+    filtros = {"incorporadora_id": incorporadora_id} if incorporadora_id else {}
+    return _db_ou_503(db.listar, "empreendimentos", **filtros)
+
+
+@app.post("/empreendimentos")
+def criar_empreendimento(dados: EmpreendimentoIn, _: str = Depends(security.usuario_autenticado)):
+    return _db_ou_503(db.inserir, "empreendimentos", dados.model_dump(exclude_none=True))
+
+
+@app.get("/empreendimentos/{id_}")
+def obter_empreendimento(id_: str, _: str = Depends(security.usuario_autenticado)):
+    registro = _db_ou_503(db.obter, "empreendimentos", id_)
+    if registro is None:
+        raise HTTPException(status_code=404, detail="Empreendimento não encontrado")
+    return registro
+
+
+# --------------------------------------------------------------------------- #
+# Eventos / promoções (benchmark)
+# --------------------------------------------------------------------------- #
+@app.get("/benchmark/eventos")
+def listar_eventos(_: str = Depends(security.usuario_autenticado)):
+    return _db_ou_503(db.listar, "eventos_promocionais")
+
+
+@app.post("/benchmark/eventos")
+def criar_evento(dados: EventoIn, _: str = Depends(security.usuario_autenticado)):
+    return _db_ou_503(db.inserir, "eventos_promocionais", dados.model_dump(exclude_none=True))
