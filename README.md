@@ -1,12 +1,15 @@
 # Ribeira Tabelas
 
-Aplicativo Streamlit para a Ribeira Empreendimentos com três funcionalidades:
+Aplicativo Streamlit para a Ribeira Empreendimentos com quatro funcionalidades:
 
+- 📊 **Dashboards** — KPIs de vendas e preços (VGV, VSO, ticket médio, situação) e comparação com a tabela anterior (vendidas no período, retornos à disponibilidade, aumento de preços).
 - 🔍 **Detectar padrão de tabela** — identifica colunas (unidade, bloco, valor, data, cliente) em planilhas enviadas.
 - 🔁 **Comparar versões** — compara duas versões de uma tabela e mostra linhas adicionadas, removidas e alteradas.
-- 📈 **Reajustar por INCC** — reajusta valores monetários entre duas competências, com precisão `Decimal`.
+- 📈 **Reajustar por INCC** — aplica a variação mensal do INCC-DI (API oficial do BCB/FGV) mais acréscimo opcional (% ou R$), com precisão `Decimal`, e exporta Excel + PDF.
 
 Protegido por login (usuário + senha com hash SHA-256).
+
+📚 **Guia de uso passo a passo:** [docs/TREINAMENTO.md](docs/TREINAMENTO.md) · 💬 **Histórico do projeto:** [docs/CONVERSA.md](docs/CONVERSA.md)
 
 ## 🚀 Rodando localmente
 

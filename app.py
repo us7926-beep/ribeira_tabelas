@@ -1,13 +1,15 @@
 """Ribeira Tabelas — app Streamlit com login, detecção de padrão, comparação
-de versões e reajuste por INCC."""
+de versões, reajuste por INCC e dashboards."""
 from datetime import date, datetime
 from decimal import Decimal
 from io import BytesIO
 
+import plotly.express as px
 import streamlit as st
 
 from src.auth import fazer_logout, usuario_atual, verificar_login
 from src.comparador import comparar_versoes
+from src.dashboard import calcular_kpis, classificar_status, comparar_tabelas_kpis
 from src.detector import detectar_padrao
 from src.incc import buscar_variacoes_incc_di, reajustar_tabela_mensal
 from src.utils import gerar_pdf_executivo, ler_planilha
@@ -31,9 +33,116 @@ with col_logout:
 
 st.divider()
 
-aba_detectar, aba_comparar, aba_reajustar = st.tabs(
-    ["🔍 Detectar Padrão", "🔁 Comparar Versões", "📈 Reajustar por INCC"]
+aba_dashboard, aba_detectar, aba_comparar, aba_reajustar = st.tabs(
+    ["📊 Dashboards", "🔍 Detectar Padrão", "🔁 Comparar Versões", "📈 Reajustar por INCC"]
 )
+
+# ---------------------------------------------------------------------------
+# Aba 0: Dashboards
+# ---------------------------------------------------------------------------
+with aba_dashboard:
+    st.subheader("Dashboards de vendas e preços")
+    st.caption(
+        "Envie a tabela atual para ver os indicadores. Opcionalmente, envie a "
+        "tabela anterior para comparar a evolução (vendas, retornos e aumento de preços)."
+    )
+
+    col_up1, col_up2 = st.columns(2)
+    with col_up1:
+        arq_atual_dash = st.file_uploader(
+            "Tabela ATUAL", type=["xlsx", "xls", "csv"], key="dash_atual"
+        )
+    with col_up2:
+        arq_ant_dash = st.file_uploader(
+            "Tabela ANTERIOR (opcional)", type=["xlsx", "xls", "csv"], key="dash_anterior"
+        )
+
+    if not arq_atual_dash:
+        st.info("Envie ao menos a **tabela atual** para gerar os dashboards.")
+    else:
+        with st.spinner("Lendo planilha..."):
+            df_dash = ler_planilha(arq_atual_dash.getvalue(), arq_atual_dash.name)
+
+        colunas = list(df_dash.columns)
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            col_unidade = st.selectbox("Coluna de unidade", colunas, key="dash_col_un")
+        with c2:
+            col_valor = st.selectbox(
+                "Coluna de valor",
+                colunas,
+                index=min(1, len(colunas) - 1),
+                key="dash_col_val",
+            )
+        with c3:
+            col_status = st.selectbox(
+                "Coluna de situação",
+                colunas,
+                index=min(2, len(colunas) - 1),
+                key="dash_col_st",
+            )
+
+        kpis = calcular_kpis(df_dash, col_unidade, col_valor, col_status)
+
+        st.markdown("#### Visão geral (tabela atual)")
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric("Total de unidades", kpis["total_unidades"])
+        k2.metric("Disponíveis", kpis["disponiveis"], f'{kpis["pct_disponiveis"]}%')
+        k3.metric("Vendidas", kpis["vendidas"], f'{kpis["pct_vendidas"]}%')
+        k4.metric("Reservadas", kpis["reservadas"])
+
+        k5, k6, k7, k8 = st.columns(4)
+        k5.metric("VGV total", f'R$ {kpis["vgv_total"]:,.0f}')
+        k6.metric("VGV disponível", f'R$ {kpis["vgv_disponivel"]:,.0f}')
+        k7.metric("Ticket médio", f'R$ {kpis["ticket_medio"]:,.0f}')
+        k8.metric("VSO (% vendido)", f'{kpis["vso"]}%')
+
+        col_g1, col_g2 = st.columns(2)
+        with col_g1:
+            contagem = kpis["_situacoes"].value_counts().rename_axis("situacao").reset_index(name="qtd")
+            fig_pizza = px.pie(
+                contagem, names="situacao", values="qtd", title="Distribuição por situação", hole=0.4
+            )
+            st.plotly_chart(fig_pizza, use_container_width=True)
+        with col_g2:
+            fig_hist = px.histogram(
+                kpis["_valores"], nbins=20, title="Distribuição de preços"
+            )
+            fig_hist.update_layout(showlegend=False, xaxis_title="Valor (R$)", yaxis_title="Unidades")
+            st.plotly_chart(fig_hist, use_container_width=True)
+
+        # Comparação com tabela anterior
+        if arq_ant_dash:
+            with st.spinner("Comparando com a tabela anterior..."):
+                df_ant_dash = ler_planilha(arq_ant_dash.getvalue(), arq_ant_dash.name)
+            cols_ok = all(c in df_ant_dash.columns for c in (col_unidade, col_valor, col_status))
+            if not cols_ok:
+                st.warning(
+                    "A tabela anterior não tem as mesmas colunas selecionadas. "
+                    "Verifique se os nomes batem com a tabela atual."
+                )
+            else:
+                comp = comparar_tabelas_kpis(
+                    df_ant_dash, df_dash, col_unidade, col_valor, col_status
+                )
+                st.markdown("#### Evolução vs. tabela anterior")
+                m1, m2, m3, m4 = st.columns(4)
+                m1.metric("Vendidas no período", comp["qtd_vendidas_no_periodo"])
+                m2.metric("Voltaram à disponibilidade", comp["qtd_retornaram_disponiveis"])
+                m3.metric("Aumento médio de preço", f'{comp["aumento_medio_pct"]}%')
+                m4.metric("Aumento total (R$)", f'R$ {comp["aumento_total_rs"]:,.0f}')
+
+                m5, m6, m7 = st.columns(3)
+                m5.metric("Novas unidades", comp["qtd_novas_unidades"])
+                m6.metric("Unidades removidas", comp["qtd_unidades_removidas"])
+                m7.metric("Unidades em ambas", comp["qtd_comuns"])
+
+                if comp["vendidas_no_periodo"]:
+                    st.markdown("**Unidades vendidas no período:** " +
+                                ", ".join(map(str, comp["vendidas_no_periodo"])))
+                if comp["retornaram_disponiveis"]:
+                    st.markdown("**Unidades que voltaram à disponibilidade:** " +
+                                ", ".join(map(str, comp["retornaram_disponiveis"])))
 
 # ---------------------------------------------------------------------------
 # Aba 1: Detectar padrão de tabela
