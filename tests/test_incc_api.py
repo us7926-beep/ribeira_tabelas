@@ -4,8 +4,9 @@ from unittest.mock import MagicMock, patch
 from src.incc import buscar_indices_incc_di
 
 
-def _resposta_falsa(dados_json):
+def _resposta_falsa(dados_json, status=200):
     resposta = MagicMock()
+    resposta.status_code = status
     resposta.json.return_value = dados_json
     resposta.raise_for_status.return_value = None
     return resposta
@@ -36,3 +37,14 @@ def test_buscar_indices_incc_di_sem_dados_levanta_erro(mock_get):
         assert False, "deveria ter levantado ValueError"
     except ValueError:
         pass
+
+
+@patch("src.incc.requests.get")
+def test_buscar_indices_incc_di_404_mensagem_amigavel(mock_get):
+    mock_get.return_value = _resposta_falsa([], status=404)
+
+    try:
+        buscar_indices_incc_di("24/06/2026", "24/06/2026")
+        assert False, "deveria ter levantado ValueError"
+    except ValueError as exc:
+        assert "período" in str(exc)

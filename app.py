@@ -1,6 +1,6 @@
 """Ribeira Tabelas — app Streamlit com login, detecção de padrão, comparação
 de versões e reajuste por INCC."""
-from datetime import datetime
+from datetime import date, datetime
 from io import BytesIO
 
 import streamlit as st
@@ -111,22 +111,33 @@ with aba_reajustar:
             "Busca a série oficial do INCC-DI (calculada pela FGV) via API do "
             "Banco Central (SGS, série 7456) — gratuita, sem necessidade de chave."
         )
+        hoje = date.today()
         col_a, col_b = st.columns(2)
         with col_a:
-            data_inicial = st.date_input("Data inicial do período")
+            data_inicial = st.date_input(
+                "Data inicial do período",
+                value=date(hoje.year - 3, 1, 1),
+                format="DD/MM/YYYY",
+            )
         with col_b:
-            data_final = st.date_input("Data final do período")
+            data_final = st.date_input(
+                "Data final do período", value=hoje, format="DD/MM/YYYY"
+            )
 
         if st.button("Buscar índices na API do BCB"):
-            try:
-                with st.spinner("Consultando API do Banco Central..."):
-                    indices = buscar_indices_incc_di(
-                        data_inicial.strftime("%d/%m/%Y"), data_final.strftime("%d/%m/%Y")
-                    )
-                st.session_state["indices_incc"] = indices
-                st.success(f"{len(indices)} competências carregadas da API oficial.")
-            except Exception as exc:  # noqa: BLE001
-                st.error(f"Falha ao consultar a API do BCB: {exc}")
+            if data_inicial > data_final:
+                st.error("A data inicial deve ser anterior ou igual à data final.")
+            else:
+                try:
+                    with st.spinner("Consultando API do Banco Central..."):
+                        indices = buscar_indices_incc_di(
+                            data_inicial.strftime("%d/%m/%Y"),
+                            data_final.strftime("%d/%m/%Y"),
+                        )
+                    st.session_state["indices_incc"] = indices
+                    st.success(f"{len(indices)} competências carregadas da API oficial.")
+                except Exception as exc:  # noqa: BLE001
+                    st.error(f"Falha ao consultar a API do BCB: {exc}")
 
         indices = st.session_state.get("indices_incc", {})
 

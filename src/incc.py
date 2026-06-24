@@ -45,6 +45,12 @@ def buscar_indices_incc_di(data_inicial: str, data_final: str) -> dict[str, Deci
     params = {"formato": "json", "dataInicial": data_inicial, "dataFinal": data_final}
 
     resposta = requests.get(url, params=params, timeout=15)
+    if resposta.status_code == 404:
+        raise ValueError(
+            "A API do BCB não tem dados do INCC-DI para esse período. "
+            "Escolha um intervalo que inclua meses já publicados "
+            "(ex.: 01/01/2023 até hoje)."
+        )
     resposta.raise_for_status()
     dados = resposta.json()
 
