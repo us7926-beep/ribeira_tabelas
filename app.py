@@ -14,6 +14,7 @@ import streamlit as st
 
 from src.auth import fazer_logout, get_cookie_manager, usuario_atual, verificar_login
 from src.extracao import CAMPOS_FICHA, extrair_ficha, ficha_vazia, ia_configurada
+from src.supabase_store import limpar_base, listar_fichas, salvar_ficha, supabase_configurado
 from src.comparador import comparar_versoes
 from src.dashboard import calcular_kpis, comparar_tabelas_kpis
 from src.detector import detectar_padrao
@@ -732,6 +733,11 @@ def render_extracao() -> None:
                    "automaticamente (grátis). Sem isso, você ainda pode preencher os campos "
                    "manualmente.")
 
+    if supabase_configurado():
+        st.caption("🗄️ Base persistida no **Supabase** (sobrevive a recarregar a página).")
+    else:
+        st.caption("⚠️ Sem banco configurado — a base fica só nesta sessão.")
+
     arquivos = st.file_uploader(
         "Books / flyers (PDF ou imagem) — pode enviar vários de uma vez",
         type=["pdf", "png", "jpg", "jpeg"], accept_multiple_files=True, key="ext_upload",
@@ -763,13 +769,14 @@ def render_extracao() -> None:
             if st.button("💾 Salvar na base de benchmark", key=f"save_{arq.name}", type="primary"):
                 registro = dict(valores)
                 registro["entrega_mais_180"] = mais180
-                registro["_arquivo"] = arq.name
-                st.session_state["fichas_benchmark"].append(registro)
-                st.success(f"Ficha de {valores.get('nome_empreendimento') or arq.name} salva na base.")
+                registro["arquivo"] = arq.name
+                destino = salvar_ficha(registro)
+                onde = "Supabase" if destino == "supabase" else "sessão"
+                st.success(f"Ficha de {valores.get('nome_empreendimento') or arq.name} salva ({onde}).")
 
-    base = st.session_state["fichas_benchmark"]
+    base = listar_fichas()
     if base:
-        st.markdown("#### Base de benchmark (sessão)")
+        st.markdown("#### Base de benchmark")
         df_bench = pd.DataFrame(base)
         st.dataframe(df_bench, use_container_width=True)
         col_b1, col_b2 = st.columns(2)
@@ -779,7 +786,7 @@ def render_extracao() -> None:
                                file_name="benchmark.csv", mime="text/csv", use_container_width=True)
         with col_b2:
             if st.button("🗑️ Limpar benchmark", use_container_width=True):
-                st.session_state["fichas_benchmark"] = []
+                limpar_base()
                 st.rerun()
 
 
