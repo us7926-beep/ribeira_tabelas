@@ -13,7 +13,7 @@ import plotly.io as pio
 import streamlit as st
 
 from src.auth import fazer_logout, get_cookie_manager, usuario_atual, verificar_login
-from src.extracao import CAMPOS_FICHA, extrair_ficha, ficha_vazia, ia_configurada, rotulo_provedor
+from src.extracao import CAMPOS_FICHA, extrair_ficha, ficha_vazia, ia_configurada
 from src.comparador import comparar_versoes
 from src.dashboard import calcular_kpis, comparar_tabelas_kpis
 from src.detector import detectar_padrao
@@ -726,11 +726,11 @@ def render_extracao() -> None:
     st.session_state.setdefault("fichas_benchmark", [])
 
     if ia_configurada():
-        st.success(f"🟢 IA conectada — **{rotulo_provedor()}** (lê PDF e imagem).", icon="✅")
+        st.success("🟢 IA conectada — **Google Gemini (grátis)** lê PDF e imagem.", icon="✅")
     else:
-        st.warning("🟡 IA não configurada. Adicione `[gemini] api_key` (grátis) ou `[anthropic] "
-                   "api_key` nos Secrets para extrair automaticamente. Sem isso, você ainda pode "
-                   "preencher os campos manualmente.")
+        st.warning("🟡 IA não configurada. Adicione `[gemini] api_key` nos Secrets para extrair "
+                   "automaticamente (grátis). Sem isso, você ainda pode preencher os campos "
+                   "manualmente.")
 
     arquivos = st.file_uploader(
         "Books / flyers (PDF ou imagem) — pode enviar vários de uma vez",
