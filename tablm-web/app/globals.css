@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+/* Design system TabLM — azul royal Ribeira */
+@theme {
+  --color-royal: #2347c5;
+  --color-royal-dark: #1c3bae;
+  --color-surface: #f7f8fc;
+  --color-sidebar: #111827;
+  --color-sidebar-soft: #1b2436;
+  --color-ink: #14203a;
+  --color-ink-soft: #2c3850;
+  --color-muted: #6b7689;
+  --color-line: #e5e9f2;
+  --color-pos: #15a34a;
+  --color-neg: #dc2626;
+  --color-amber: #e0b23a;
+
+  --font-sans: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: #ffffff;
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+/* transições suaves padrão (150ms) */
+a,
+button {
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
