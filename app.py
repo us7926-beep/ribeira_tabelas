@@ -8,10 +8,12 @@ from datetime import date, datetime
 from decimal import Decimal
 from io import BytesIO
 
+import pandas as pd
 import plotly.io as pio
 import streamlit as st
 
 from src.auth import fazer_logout, get_cookie_manager, usuario_atual, verificar_login
+from src.extracao import CAMPOS_FICHA, extrair_ficha, ficha_vazia, ia_configurada
 from src.comparador import comparar_versoes
 from src.dashboard import calcular_kpis, comparar_tabelas_kpis
 from src.detector import detectar_padrao
@@ -707,9 +709,83 @@ def render_reajustar() -> None:
                                use_container_width=True)
 
 
+def _mais_180_dias(data_str: str) -> str:
+    """Entrega + 180 dias (praxe de mercado). Aceita DD/MM/AAAA, MM/AAAA, DD/MM/AA."""
+    from datetime import datetime, timedelta
+    for fmt in ("%d/%m/%Y", "%d/%m/%y", "%m/%Y"):
+        try:
+            return (datetime.strptime((data_str or "").strip(), fmt) + timedelta(days=180)).strftime("%d/%m/%Y")
+        except ValueError:
+            continue
+    return ""
+
+
+def render_extracao() -> None:
+    cabecalho("EXTRAÇÃO (IA)", "Extração de books, flyers e tabelas",
+              "Suba os materiais; a IA extrai a ficha técnica e você revisa antes de salvar.")
+    st.session_state.setdefault("fichas_benchmark", [])
+
+    if ia_configurada():
+        st.success("🟢 IA conectada — Claude lê PDF e imagem (Opus 4.8).", icon="✅")
+    else:
+        st.warning("🟡 IA não configurada. Adicione **ANTHROPIC_API_KEY** nos Secrets para extrair "
+                   "automaticamente. Sem ela, você ainda pode preencher os campos manualmente.")
+
+    arquivos = st.file_uploader(
+        "Books / flyers (PDF ou imagem) — pode enviar vários de uma vez",
+        type=["pdf", "png", "jpg", "jpeg"], accept_multiple_files=True, key="ext_upload",
+    )
+
+    for arq in arquivos or []:
+        chave_ficha = f"ficha_{arq.name}"
+        with st.expander(f"📄 {arq.name}", expanded=len(arquivos) == 1):
+            if ia_configurada() and st.button("🤖 Extrair com IA", key=f"btn_{arq.name}"):
+                try:
+                    with st.spinner("Lendo o documento com a IA..."):
+                        st.session_state[chave_ficha] = extrair_ficha(arq.getvalue(), arq.name)
+                    st.success("Extraído! Revise os campos abaixo.")
+                except Exception as exc:  # noqa: BLE001
+                    st.error(f"Falha na extração: {exc}")
+
+            ficha = st.session_state.get(chave_ficha, ficha_vazia())
+            st.markdown("**Revisão da ficha técnica** (edite o que precisar)")
+            colunas = st.columns(3)
+            valores = {}
+            for i, (campo, rotulo) in enumerate(CAMPOS_FICHA.items()):
+                with colunas[i % 3]:
+                    valores[campo] = st.text_input(rotulo, value=ficha.get(campo, ""),
+                                                   key=f"f_{arq.name}_{campo}")
+            mais180 = _mais_180_dias(valores.get("data_entrega", ""))
+            if mais180:
+                st.caption(f"📅 Entrega + 180 dias (praxe de mercado): **{mais180}**")
+
+            if st.button("💾 Salvar na base de benchmark", key=f"save_{arq.name}", type="primary"):
+                registro = dict(valores)
+                registro["entrega_mais_180"] = mais180
+                registro["_arquivo"] = arq.name
+                st.session_state["fichas_benchmark"].append(registro)
+                st.success(f"Ficha de {valores.get('nome_empreendimento') or arq.name} salva na base.")
+
+    base = st.session_state["fichas_benchmark"]
+    if base:
+        st.markdown("#### Base de benchmark (sessão)")
+        df_bench = pd.DataFrame(base)
+        st.dataframe(df_bench, use_container_width=True)
+        col_b1, col_b2 = st.columns(2)
+        with col_b1:
+            st.download_button("⬇️ Baixar benchmark (CSV)",
+                               data=df_bench.to_csv(index=False).encode("utf-8"),
+                               file_name="benchmark.csv", mime="text/csv", use_container_width=True)
+        with col_b2:
+            if st.button("🗑️ Limpar benchmark", use_container_width=True):
+                st.session_state["fichas_benchmark"] = []
+                st.rerun()
+
+
 # rótulo de navegação -> função que renderiza a página
 PAGINAS = {
     "Inteligência de Mercado": render_mercado,
+    "Extração (IA)": render_extracao,
     "Dashboards de Vendas": render_dashboards,
     "Detectar Padrão": render_detectar,
     "Comparar Versões": render_comparar,
