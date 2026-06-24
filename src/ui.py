@@ -170,6 +170,41 @@ def tabela(titulo: str, subtitulo: str, colunas: list[dict], linhas: list[list[s
     )
 
 
+def histograma(titulo: str, subtitulo: str, barras: list[dict]) -> str:
+    """Histograma de barras verticais (gradiente royal). barras: {pct(0-100), label}."""
+    colunas = "".join(
+        '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;'
+        'height:100%;justify-content:flex-end">'
+        f'<div style="width:100%;border-radius:6px 6px 2px 2px;'
+        f'background:linear-gradient(180deg,#2347C5,#4D6FE0);height:{b["pct"]:.0f}%"></div>'
+        f'<div style="font-size:10.5px;color:#97A2B5;white-space:nowrap">{b["label"]}</div></div>'
+        for b in barras
+    )
+    return (
+        f'<div style="{CARD_BIG}">'
+        f'<div style="font-size:16px;font-weight:700;color:#14203A">{titulo}</div>'
+        f'<div style="font-size:13px;color:#97A2B5;margin-bottom:20px">{subtitulo}</div>'
+        f'<div style="display:flex;align-items:flex-end;gap:10px;height:150px">{colunas}</div></div>'
+    )
+
+
+def eyebrow(texto: str) -> str:
+    """Rótulo de seção (cinza, caixa alta) do design."""
+    return (
+        f'<div style="font-size:13px;font-weight:700;color:#6B7689;text-transform:uppercase;'
+        f'letter-spacing:.6px;margin:6px 0 12px">{texto}</div>'
+    )
+
+
+def cartao_resumo(rotulo: str, valor: str, cor: str, borda: str) -> str:
+    """Card-resumo (Adicionadas/Removidas/Alteradas) com borda colorida."""
+    return (
+        f'<div style="background:#fff;border:1px solid {borda};border-radius:15px;padding:18px 20px">'
+        f'<div style="font-size:12.5px;font-weight:700;color:{cor};text-transform:uppercase;letter-spacing:.4px">{rotulo}</div>'
+        f'<div style="font-size:32px;font-weight:800;color:{cor};margin-top:4px;font-variant-numeric:tabular-nums">{valor}</div></div>'
+    )
+
+
 def banner(texto: str, tom: str = "verde") -> str:
     """Banner de status (verde=ok, ambar=atencao)."""
     estilos = {

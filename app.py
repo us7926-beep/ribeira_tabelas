@@ -8,7 +8,6 @@ from datetime import date, datetime
 from decimal import Decimal
 from io import BytesIO
 
-import plotly.express as px
 import plotly.io as pio
 import streamlit as st
 
@@ -18,7 +17,6 @@ from src.dashboard import calcular_kpis, comparar_tabelas_kpis
 from src.detector import detectar_padrao
 from src.incc import SERIE_INCC_DI, buscar_variacoes_incc_di, reajustar_tabela_mensal
 from src.mercado import (
-    DIMENSOES,
     PADROES,
     TIPOS,
     adicionar_a_base,
@@ -54,8 +52,12 @@ def injetar_estilo() -> None:
           --t-title:#14203A; --t-body:#2C3850; --t-sec:#6B7689; --t-ter:#97A2B5;
           --bg:#F4F6FB; --card:#FFFFFF; --border:#E5E9F2;
         }
-        html, body, .stApp, [data-testid="stSidebar"] *, .stMarkdown, input, button, textarea {
+        html, body, .stApp, [data-testid="stSidebar"], .stMarkdown, input, button, textarea {
           font-family:'Hanken Grotesk', system-ui, sans-serif;
+        }
+        /* preserva os ícones Material do Streamlit (senão aparece o NOME do ícone como texto) */
+        [data-testid="stIconMaterial"], span.material-icons, span[class*="material-symbols"]{
+          font-family:'Material Symbols Rounded','Material Symbols Outlined','Material Icons' !important;
         }
         .stApp{ background:var(--bg); color:var(--t-body); }
         [data-testid="stHeader"]{ background:transparent; }
@@ -397,29 +399,51 @@ def render_dashboards() -> None:
 
     kpis = calcular_kpis(df_dash, col_unidade, col_valor, col_status)
 
-    st.markdown("#### Visão geral (tabela atual)")
-    k1, k2, k3, k4 = st.columns(4)
-    k1.metric("Total de unidades", kpis["total_unidades"])
-    k2.metric("Disponíveis", kpis["disponiveis"], f'{kpis["pct_disponiveis"]}%')
-    k3.metric("Vendidas", kpis["vendidas"], f'{kpis["pct_vendidas"]}%')
-    k4.metric("Reservadas", kpis["reservadas"])
+    total = kpis["total_unidades"] or 1
+    st.markdown(ui.eyebrow("Visão geral — tabela atual"), unsafe_allow_html=True)
+    st.markdown(ui.kpi_cards([
+        {"label": "Total de unidades", "value": str(kpis["total_unidades"]), "sub": "tabela atual"},
+        {"label": "Disponíveis", "value": str(kpis["disponiveis"]), "sub": f'{kpis["pct_disponiveis"]}% do total'},
+        {"label": "Vendidas", "value": str(kpis["vendidas"]), "sub": f'{kpis["pct_vendidas"]}% do total'},
+        {"label": "Reservadas", "value": str(kpis["reservadas"]), "sub": f'{round(100 * kpis["reservadas"] / total)}% do total'},
+    ]), unsafe_allow_html=True)
+    st.markdown(ui.kpi_delta_cards([
+        {"label": "VGV total", "value": ui.moeda(kpis["vgv_total"]), "delta": "valor geral de venda", "dir": "flat"},
+        {"label": "VGV disponível", "value": ui.moeda(kpis["vgv_disponivel"]), "delta": f'{kpis["disponiveis"]} unidades', "dir": "flat"},
+        {"label": "Ticket médio", "value": ui.moeda(kpis["ticket_medio"]), "delta": "por unidade", "dir": "flat"},
+        {"label": "VSO", "value": f'{kpis["vso"]}%', "delta": "velocidade de vendas", "dir": "up"},
+    ]), unsafe_allow_html=True)
 
-    k5, k6, k7, k8 = st.columns(4)
-    k5.metric("VGV total", f'R$ {kpis["vgv_total"]:,.0f}')
-    k6.metric("VGV disponível", f'R$ {kpis["vgv_disponivel"]:,.0f}')
-    k7.metric("Ticket médio", f'R$ {kpis["ticket_medio"]:,.0f}')
-    k8.metric("VSO (% vendido)", f'{kpis["vso"]}%')
+    # rosca por situação + histograma
+    outros = max(total - kpis["vendidas"] - kpis["disponiveis"] - kpis["reservadas"], 0)
+    legenda = [
+        {"label": "Vendidas", "value": str(kpis["vendidas"]), "pct": 100 * kpis["vendidas"] / total, "color": "#15A34A"},
+        {"label": "Disponíveis", "value": str(kpis["disponiveis"]), "pct": 100 * kpis["disponiveis"] / total, "color": "#2347C5"},
+        {"label": "Reservadas", "value": str(kpis["reservadas"]), "pct": 100 * kpis["reservadas"] / total, "color": "#E0B23A"},
+    ]
+    if outros:
+        legenda.append({"label": "Outros", "value": str(outros), "pct": 100 * outros / total, "color": "#D4DAE6"})
 
-    col_g1, col_g2 = st.columns(2)
+    vals = sorted(float(v) for v in kpis["_valores"].dropna())
+    barras_hist = []
+    if vals:
+        lo, hi = vals[0], vals[-1]
+        largura = (hi - lo) / 7 or 1
+        contagens = [0] * 7
+        for v in vals:
+            contagens[min(int((v - lo) / largura), 6)] += 1
+        maxc = max(contagens) or 1
+        barras_hist = [
+            {"pct": 100 * c / maxc, "label": f"{(lo + i * largura) / 1000:.0f}k"}
+            for i, c in enumerate(contagens)
+        ]
+
+    col_g1, col_g2 = st.columns([1, 1.25])
     with col_g1:
-        contagem = kpis["_situacoes"].value_counts().rename_axis("situacao").reset_index(name="qtd")
-        fig_pizza = px.pie(contagem, names="situacao", values="qtd",
-                           title="Distribuição por situação", hole=0.4)
-        st.plotly_chart(fig_pizza, use_container_width=True)
+        st.markdown(ui.donut(legenda, kpis["total_unidades"]), unsafe_allow_html=True)
     with col_g2:
-        fig_hist = px.histogram(kpis["_valores"], nbins=20, title="Distribuição de preços")
-        fig_hist.update_layout(showlegend=False, xaxis_title="Valor (R$)", yaxis_title="Unidades")
-        st.plotly_chart(fig_hist, use_container_width=True)
+        st.markdown(ui.histograma("Distribuição de preços", "Unidades por faixa de valor (R$)", barras_hist),
+                    unsafe_allow_html=True)
 
     if not arq_ant_dash:
         return
@@ -430,22 +454,19 @@ def render_dashboards() -> None:
         return
 
     comp = comparar_tabelas_kpis(df_ant_dash, df_dash, col_unidade, col_valor, col_status)
-    st.markdown("#### Evolução vs. tabela anterior")
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Vendidas no período", comp["qtd_vendidas_no_periodo"])
-    m2.metric("Voltaram à disponibilidade", comp["qtd_retornaram_disponiveis"])
-    m3.metric("Aumento médio de preço", f'{comp["aumento_medio_pct"]}%')
-    m4.metric("Aumento total (R$)", f'R$ {comp["aumento_total_rs"]:,.0f}')
-
-    m5, m6, m7 = st.columns(3)
-    m5.metric("Novas unidades", comp["qtd_novas_unidades"])
-    m6.metric("Unidades removidas", comp["qtd_unidades_removidas"])
-    m7.metric("Unidades em ambas", comp["qtd_comuns"])
-
-    if comp["vendidas_no_periodo"]:
-        st.markdown("**Unidades vendidas no período:** " + ", ".join(map(str, comp["vendidas_no_periodo"])))
-    if comp["retornaram_disponiveis"]:
-        st.markdown("**Unidades que voltaram à disponibilidade:** " + ", ".join(map(str, comp["retornaram_disponiveis"])))
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    st.markdown(ui.eyebrow("Evolução vs. tabela anterior"), unsafe_allow_html=True)
+    st.markdown(ui.kpi_delta_cards([
+        {"label": "Vendidas no período", "value": str(comp["qtd_vendidas_no_periodo"]), "delta": "novas vendas", "dir": "up"},
+        {"label": "Voltaram à disponib.", "value": str(comp["qtd_retornaram_disponiveis"]), "delta": "distratos", "dir": "down" if comp["qtd_retornaram_disponiveis"] else "flat"},
+        {"label": "Aumento médio", "value": f'{comp["aumento_medio_pct"]}%', "delta": "reajuste de preços", "dir": "up" if comp["aumento_medio_pct"] > 0 else "flat"},
+        {"label": "Aumento total", "value": ui.moeda(comp["aumento_total_rs"]), "delta": "na tabela", "dir": "up" if comp["aumento_total_rs"] > 0 else "flat"},
+    ]), unsafe_allow_html=True)
+    st.markdown(ui.kpi_cards([
+        {"label": "Novas unidades", "value": str(comp["qtd_novas_unidades"]), "sub": "entraram na tabela"},
+        {"label": "Unidades removidas", "value": str(comp["qtd_unidades_removidas"]), "sub": "saíram da tabela"},
+        {"label": "Unidades em ambas", "value": str(comp["qtd_comuns"]), "sub": "comparáveis"},
+    ]), unsafe_allow_html=True)
 
 
 def render_detectar() -> None:
@@ -460,10 +481,53 @@ def render_detectar() -> None:
     st.dataframe(df.head(20), use_container_width=True)
     with st.spinner("Detectando padrão..."):
         resultado = detectar_padrao(df)
-    st.metric("Confiança da detecção", f"{resultado['confianca'] * 100:.0f}%")
-    st.json(resultado["mapeamento"])
-    if resultado["colunas_nao_mapeadas"]:
-        st.caption("Colunas não mapeadas: " + ", ".join(map(str, resultado["colunas_nao_mapeadas"])))
+
+    mapeados = {p: c for p, c in resultado["mapeamento"].items() if c is not None}
+    conf = int(resultado["confianca"] * 100)
+    total_campos = len(resultado["mapeamento"])
+
+    col_esq, col_dir = st.columns([1, 1.1])
+    with col_esq:
+        st.markdown(
+            f'<div style="{ui.ROYAL_CARD}">'
+            '<div style="font-size:13px;font-weight:600;color:rgba(255,255,255,.7);letter-spacing:.4px">CONFIANÇA DA DETECÇÃO</div>'
+            '<div style="display:flex;align-items:baseline;gap:8px;margin:8px 0 16px">'
+            f'<div style="font-size:48px;font-weight:800;letter-spacing:-1.5px">{conf}</div>'
+            '<div style="font-size:22px;font-weight:700">%</div></div>'
+            '<div style="height:9px;background:rgba(255,255,255,.18);border-radius:6px;overflow:hidden">'
+            f'<div style="height:100%;width:{conf}%;border-radius:6px;background:#fff"></div></div>'
+            f'<div style="font-size:13px;color:rgba(255,255,255,.78);margin-top:14px;line-height:1.5">'
+            f'{len(mapeados)} de {total_campos} campos-chave identificados automaticamente.</div></div>',
+            unsafe_allow_html=True,
+        )
+    with col_dir:
+        linhas_map = "".join(
+            '<div style="display:flex;align-items:center;gap:12px;padding:13px 15px;border:1px solid #EDF0F6;'
+            'border-radius:12px;margin-bottom:10px">'
+            f'<div style="font-size:13.5px;font-weight:700;color:#2347C5;width:92px;flex-shrink:0">{papel}</div>'
+            '<div style="color:#C6D0E0;flex-shrink:0">→</div>'
+            f'<div style="font-size:14px;color:#2C3850;flex:1;font-weight:500">{coluna}</div>'
+            '<div style="font-size:11.5px;font-weight:700;color:#157A3D;background:#E9FBF0;padding:3px 9px;border-radius:20px">OK</div></div>'
+            for papel, coluna in mapeados.items()
+        ) or '<div style="color:#97A2B5;font-size:14px">Nenhum campo reconhecido.</div>'
+        chips = "".join(
+            '<span style="font-size:13px;color:#8A6A1E;background:#FBF3DD;border:1px solid #F0E0B4;'
+            'padding:5px 12px;border-radius:20px;margin:0 8px 8px 0;display:inline-block">' + str(c) + "</span>"
+            for c in resultado["colunas_nao_mapeadas"]
+        )
+        bloco_chips = (
+            '<div style="margin-top:18px;padding-top:16px;border-top:1px solid #EDF0F6">'
+            '<div style="font-size:12.5px;font-weight:600;color:#6B7689;margin-bottom:9px">Colunas não mapeadas</div>'
+            f'<div style="display:flex;flex-wrap:wrap">{chips}</div></div>'
+            if chips else ""
+        )
+        st.markdown(
+            f'<div style="{ui.CARD_BIG}">'
+            '<div style="font-size:16px;font-weight:700;color:#14203A;margin-bottom:4px">Mapeamento detectado</div>'
+            '<div style="font-size:13px;color:#97A2B5;margin-bottom:18px">Campo do sistema → coluna da planilha</div>'
+            f'{linhas_map}{bloco_chips}</div>',
+            unsafe_allow_html=True,
+        )
 
 
 def render_comparar() -> None:
@@ -487,16 +551,38 @@ def render_comparar() -> None:
     if st.button("Comparar", type="primary"):
         with st.spinner("Comparando versões..."):
             resultado = comparar_versoes(df_antigo, df_novo, coluna_chave)
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Adicionadas", resultado["total_adicionadas"])
-        c2.metric("Removidas", resultado["total_removidas"])
-        c3.metric("Alteradas", resultado["total_alteradas"])
-        st.markdown("**Linhas adicionadas**")
-        st.dataframe(resultado["adicionadas"], use_container_width=True)
-        st.markdown("**Linhas removidas**")
-        st.dataframe(resultado["removidas"], use_container_width=True)
-        st.markdown("**Linhas alteradas**")
-        st.json(resultado["alteradas"])
+
+        cards = (
+            ui.cartao_resumo("Adicionadas", str(resultado["total_adicionadas"]), "#15A34A", "#BDEDCF")
+            + ui.cartao_resumo("Removidas", str(resultado["total_removidas"]), "#DC2626", "#F3C7C7")
+            + ui.cartao_resumo("Alteradas", str(resultado["total_alteradas"]), "#2347C5", "#CBD8F5")
+        )
+        st.markdown(
+            f'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px">{cards}</div>',
+            unsafe_allow_html=True,
+        )
+
+        linhas = []
+        for item in resultado["alteradas"][:80]:
+            for campo, (de, para) in item["diferencas"].items():
+                linhas.append([
+                    f'<span style="font-weight:700;color:#2347C5">{item["chave"]}</span>',
+                    f'<span style="color:#6B7689">{campo}</span>',
+                    f'<span style="color:#97A2B5;text-decoration:line-through">{de}</span>',
+                    f'<span style="color:#14203A;font-weight:600">{para}</span>',
+                ])
+        colunas = [
+            {"nome": "Unidade", "fr": ".8fr"}, {"nome": "Campo", "fr": "1fr"},
+            {"nome": "De", "fr": "1.1fr"}, {"nome": "Para", "fr": "1.1fr"},
+        ]
+        if linhas:
+            st.markdown(ui.tabela("Linhas alteradas", "Campos que mudaram entre as versões", colunas, linhas),
+                        unsafe_allow_html=True)
+        with st.expander("Ver linhas adicionadas / removidas"):
+            st.markdown("**Adicionadas**")
+            st.dataframe(resultado["adicionadas"], use_container_width=True)
+            st.markdown("**Removidas**")
+            st.dataframe(resultado["removidas"], use_container_width=True)
 
 
 def render_reajustar() -> None:
@@ -552,9 +638,17 @@ def render_reajustar() -> None:
 
     percentual_total = incc_pct + extra_pct
     resumo_reajuste = f"INCC {incc_pct}% + {extra_pct}% adicional = {percentual_total}%"
+    detalhe = f"INCC {incc_pct}% + {extra_pct}% adicional"
     if valor_bruto:
         resumo_reajuste += f" + R$ {valor_bruto} por unidade"
-    st.info(f"**Reajuste a aplicar:** {resumo_reajuste}")
+        detalhe += f" + R$ {valor_bruto}/unid."
+    st.markdown(
+        f'<div style="{ui.ROYAL_CARD};margin:6px 0 18px">'
+        '<div style="font-size:12.5px;color:rgba(255,255,255,.72);font-weight:600">REAJUSTE A APLICAR</div>'
+        f'<div style="font-size:32px;font-weight:800;margin:4px 0;letter-spacing:-.5px">{percentual_total}%</div>'
+        f'<div style="font-size:13px;color:rgba(255,255,255,.78)">{detalhe}</div></div>',
+        unsafe_allow_html=True,
+    )
 
     st.markdown("##### 3️⃣ Tabela de unidades")
     arquivo_tabela = st.file_uploader("Envie a tabela de valores (Excel ou CSV, até 50 MB)",
@@ -572,8 +666,31 @@ def render_reajustar() -> None:
     if st.button("Reajustar e gerar nova tabela", type="primary"):
         with st.spinner("Aplicando reajuste com precisão Decimal..."):
             df_resultado = reajustar_tabela_mensal(df_valores, coluna_valor, percentual_total, valor_bruto)
-        st.success("Reajuste aplicado!")
-        st.dataframe(df_resultado, use_container_width=True)
+
+        col_reaj = f"{coluna_valor}_reajustado"
+        linhas = []
+        for i, (_, r) in enumerate(df_resultado.head(120).iterrows(), 1):
+            atual, novo = r[coluna_valor], r[col_reaj]
+            try:
+                dif = float(novo) - float(atual)
+                dcell = f'<span style="color:#15A34A;font-weight:700">+{ui.moeda(dif)}</span>'
+            except (TypeError, ValueError):
+                dcell = '<span style="color:#97A2B5">—</span>'
+            unidade = str(r.iloc[0]) if len(df_resultado.columns) > 1 else str(i)
+            linhas.append([
+                f'<span style="font-weight:600;color:#2C3850">{unidade}</span>',
+                f'<span style="color:#6B7689">{ui.moeda(atual)}</span>',
+                f'<span style="color:#14203A;font-weight:700">{ui.moeda(novo)}</span>',
+                dcell,
+            ])
+        colunas = [
+            {"nome": "Unidade", "fr": "1fr"}, {"nome": "Valor atual", "fr": "1fr", "align": "right"},
+            {"nome": "Reajustado", "fr": "1fr", "align": "right"}, {"nome": "Diferença", "fr": "1fr", "align": "right"},
+        ]
+        st.markdown(
+            ui.tabela("Tabela reajustada", f"Precisão Decimal · {len(df_resultado)} unidades", colunas, linhas),
+            unsafe_allow_html=True,
+        )
 
         col_dl1, col_dl2 = st.columns(2)
         with col_dl1:
