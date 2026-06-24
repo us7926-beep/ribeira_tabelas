@@ -11,7 +11,6 @@ from io import BytesIO
 import plotly.express as px
 import plotly.io as pio
 import streamlit as st
-from streamlit_option_menu import option_menu
 
 from src.auth import fazer_logout, get_cookie_manager, usuario_atual, verificar_login
 from src.comparador import comparar_versoes
@@ -37,15 +36,6 @@ from src.utils import gerar_pdf_executivo, ler_planilha
 st.set_page_config(
     page_title="TabLM", page_icon="📊", layout="wide", initial_sidebar_state="expanded"
 )
-
-# Páginas: rótulo -> (emoji, ícone bootstrap usado no menu lateral)
-PAGINAS = {
-    "Inteligência de Mercado": "buildings",
-    "Dashboards": "bar-chart-line",
-    "Detectar Padrão": "search",
-    "Comparar Versões": "arrow-repeat",
-    "Reajustar por INCC": "graph-up-arrow",
-}
 
 
 # --------------------------------------------------------------------------- #
@@ -101,23 +91,18 @@ def aplicar_tema(tema: str) -> None:
           }}
           .tablm-hero h1 {{ color:#fff; margin:0; font-size: 1.4rem; }}
           .tablm-hero p {{ color:#eaf1fb; margin:.2rem 0 0; font-size:.85rem; }}
+          /* menu de navegação (radio estilizado como menu) */
+          #menu-nav [role="radiogroup"] {{ gap: 2px; }}
+          #menu-nav [role="radiogroup"] label {{
+              padding: 9px 12px; border-radius: 10px; width: 100%;
+              transition: background .15s; cursor: pointer;
+          }}
+          #menu-nav [role="radiogroup"] label:hover {{ background: {p['bg']}; }}
+          #menu-nav [role="radiogroup"] label p {{ font-weight: 600; font-size: .95rem; }}
         </style>
         """,
         unsafe_allow_html=True,
     )
-
-
-def _estilos_menu(escuro: bool) -> dict:
-    p = _paleta(escuro)
-    return {
-        "container": {"padding": "4px 0", "background-color": "transparent"},
-        "icon": {"color": p["primaria"], "font-size": "16px"},
-        "nav-link": {
-            "font-size": "14px", "font-weight": "600", "color": p["texto"],
-            "border-radius": "10px", "margin": "3px 0", "--hover-color": p["bg"],
-        },
-        "nav-link-selected": {"background-color": p["primaria"], "color": "#fff"},
-    }
 
 
 def _hero(titulo: str, subtitulo: str) -> None:
@@ -519,12 +504,13 @@ def render_reajustar() -> None:
                                use_container_width=True)
 
 
-RENDERIZADORES = {
-    "Inteligência de Mercado": render_mercado,
-    "Dashboards": render_dashboards,
-    "Detectar Padrão": render_detectar,
-    "Comparar Versões": render_comparar,
-    "Reajustar por INCC": render_reajustar,
+# rótulo (com emoji) -> função que renderiza a página
+PAGINAS = {
+    "🏢 Inteligência de Mercado": render_mercado,
+    "📊 Dashboards": render_dashboards,
+    "🔍 Detectar Padrão": render_detectar,
+    "🔁 Comparar Versões": render_comparar,
+    "📈 Reajustar por INCC": render_reajustar,
 }
 
 
@@ -535,15 +521,14 @@ def render_sidebar(cookies) -> tuple[str, str]:
     with st.sidebar:
         st.markdown("## 📊 TabLM")
         st.caption("Ribeira Empreendimentos")
-        tema = st.radio("🎨 Tema", ["Claro", "Escuro"], horizontal=True, key="tema_escolhido")
         st.divider()
-        selecionado = option_menu(
-            menu_title=None,
-            options=list(PAGINAS.keys()),
-            icons=list(PAGINAS.values()),
-            default_index=0,
-            styles=_estilos_menu(tema == "Escuro"),
+        st.markdown('<div id="menu-nav">', unsafe_allow_html=True)
+        selecionado = st.radio(
+            "Navegação", list(PAGINAS.keys()), label_visibility="collapsed", key="nav"
         )
+        st.markdown("</div>", unsafe_allow_html=True)
+        st.divider()
+        tema = st.radio("🎨 Tema", ["Claro", "Escuro"], horizontal=True, key="tema_escolhido")
         st.divider()
         st.caption(f"👤 Logado como **{usuario_atual()}**")
         st.caption(f"🕒 {datetime.now():%d/%m/%Y %H:%M}")
@@ -557,4 +542,4 @@ verificar_login(cookies)  # bloqueia tudo abaixo até o login ser feito
 
 pagina, tema_atual = render_sidebar(cookies)
 aplicar_tema(tema_atual)
-RENDERIZADORES[pagina]()
+PAGINAS[pagina]()
