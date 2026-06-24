@@ -60,7 +60,9 @@ def injetar_estilo() -> None:
         [data-testid="stHeader"]{ background:transparent; }
         .block-container{ max-width:1160px; padding:2.1rem 2.4rem 3rem; }
         h1,h2,h3,h4{ color:var(--t-title); font-weight:800; letter-spacing:-.4px; }
-        .stApp p, .stApp span, .stApp label, .stApp li{ color:var(--t-body); }
+        /* texto escuro só na área principal (não na sidebar royal) */
+        [data-testid="stMain"] p, [data-testid="stMain"] span,
+        [data-testid="stMain"] label, [data-testid="stMain"] li{ color:var(--t-body); }
         /* métricas como cards */
         [data-testid="stMetric"]{
           background:var(--card); border:1px solid var(--border); border-radius:15px;
@@ -83,6 +85,17 @@ def injetar_estilo() -> None:
           border:1.5px dashed var(--border); border-radius:14px; background:var(--card);
         }
         [data-testid="stDataFrame"]{ border:1px solid var(--border); border-radius:14px; }
+        /* sub-abas como segmented control royal */
+        [data-testid="stMain"] div[data-baseweb="tab-list"]{
+          background:var(--card); border:1px solid var(--border); border-radius:12px;
+          padding:4px; gap:3px; }
+        [data-testid="stMain"] div[data-baseweb="tab-list"] button[data-baseweb="tab"]{
+          border-radius:9px; padding:6px 14px; }
+        [data-testid="stMain"] button[data-baseweb="tab"][aria-selected="true"]{
+          background:var(--royal); }
+        [data-testid="stMain"] button[data-baseweb="tab"][aria-selected="true"] p{ color:#fff !important; font-weight:700; }
+        [data-testid="stMain"] div[data-baseweb="tab-highlight"],
+        [data-testid="stMain"] div[data-baseweb="tab-border"]{ display:none; }
         /* cabeçalho de página */
         .tablm-head{ margin-bottom:.7rem; animation:rise .34s cubic-bezier(.2,.7,.3,1); }
         .tablm-head .eyebrow{ color:var(--royal); font-weight:700; text-transform:uppercase;
@@ -103,10 +116,11 @@ def injetar_estilo() -> None:
           letter-spacing:1.5px; font-size:11px; margin:18px 2px 6px; }
         [data-testid="stSidebar"] [role="radiogroup"]{ gap:3px; }
         [data-testid="stSidebar"] [role="radiogroup"] label{
-          padding:10px 13px; border-radius:11px; width:100%; color:rgba(255,255,255,.8); transition:background .15s; }
+          padding:10px 13px; border-radius:11px; width:100%; transition:background .15s; }
+        [data-testid="stSidebar"] [role="radiogroup"] label p{ color:rgba(255,255,255,.82) !important; font-weight:600; }
         [data-testid="stSidebar"] [role="radiogroup"] label:hover{ background:rgba(255,255,255,.08); }
-        [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked){ background:rgba(255,255,255,.16); }
-        [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p{ font-weight:700; color:#fff; }
+        [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked){ background:rgba(255,255,255,.18); }
+        [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p{ color:#fff !important; font-weight:700; }
         [data-testid="stSidebar"] [role="radiogroup"] label>div:first-child{ display:none; }
         [data-testid="stSidebar"] .stButton>button{
           background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.22); }
@@ -121,7 +135,7 @@ def injetar_estilo() -> None:
           border-radius:18px; padding:40px 34px; min-height:460px; display:flex; flex-direction:column;
           box-shadow:0 8px 22px rgba(35,71,197,.2); }
         .login-brand .lb-logo{ display:flex; align-items:center; gap:11px; }
-        .login-brand h1{ color:#fff; font-size:30px; font-weight:800; line-height:1.16; letter-spacing:-.6px; margin:26px 0 0; }
+        .login-brand h1{ color:#fff !important; font-size:30px; font-weight:800; line-height:1.16; letter-spacing:-.6px; margin:26px 0 0; }
         .login-brand .sub{ color:rgba(255,255,255,.8); font-size:14.5px; margin-top:12px; }
         .login-stats{ display:flex; gap:26px; margin-top:auto; padding-top:30px; }
         .login-stats b{ font-size:23px; font-weight:800; display:block; font-variant-numeric:tabular-nums; }
