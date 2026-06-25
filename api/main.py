@@ -9,7 +9,7 @@ from fastapi import Depends, FastAPI, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from . import config, db, gemini, mercado_api, security
+from . import config, db, gemini, incc_api, mercado_api, security
 
 app = FastAPI(title="TabLM API", version="0.1.0")
 app.add_middleware(
@@ -179,3 +179,32 @@ async def mercado_comparativo(
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=f"Falha ao processar a planilha: {exc}")
+
+
+# --------------------------------------------------------------------------- #
+# Reajuste por INCC-DI (BCB série 192)
+# --------------------------------------------------------------------------- #
+@app.get("/incc/variacoes")
+def incc_variacoes(meses: int = 18, _: str = Depends(security.usuario_autenticado)):
+    try:
+        return incc_api.variacoes_recentes(meses)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"Falha ao consultar o BCB: {exc}")
+
+
+@app.post("/incc/reajustar")
+async def incc_reajustar(
+    arquivo: UploadFile,
+    variacao_pct: float = Form(...),
+    extra_pct: float = Form(0.0),
+    extra_valor: float = Form(0.0),
+    _: str = Depends(security.usuario_autenticado),
+):
+    conteudo = await arquivo.read()
+    try:
+        df = mercado_api.ler_planilha(conteudo, arquivo.filename or "tabela.xlsx")
+        return incc_api.reajustar(df, variacao_pct, extra_pct, extra_valor)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"Falha ao reajustar: {exc}")
