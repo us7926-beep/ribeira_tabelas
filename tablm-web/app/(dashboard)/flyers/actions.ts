@@ -14,7 +14,10 @@ function paraISO(br: string): string | null {
 export interface EntradaEvento {
   empreendimentoId: string | null;
   novoNome: string;
+  /** ID de incorporadora existente. Quando vazio, cria uma nova com novoNomeIncorporadora. */
   novaIncorporadoraId: string;
+  /** Usado só quando novaIncorporadoraId vem vazio: nome para cadastrar a incorporadora. */
+  novoNomeIncorporadora?: string;
   descricao: string;
   dataInicio: string;
   dataFim: string;
@@ -35,15 +38,39 @@ export async function registrarEventoDeFlyer(entrada: EntradaEvento): Promise<Re
   let empId = entrada.empreendimentoId;
   let empCriado = false;
   if (!empId) {
-    if (!entrada.novoNome.trim() || !entrada.novaIncorporadoraId) {
-      return { ok: false, erro: "Para criar um empreendimento, informe o nome e a incorporadora." };
+    if (!entrada.novoNome.trim()) {
+      return { ok: false, erro: "Informe o nome do empreendimento." };
+    }
+    let incId = entrada.novaIncorporadoraId;
+    if (!incId) {
+      const nomeInc = (entrada.novoNomeIncorporadora ?? "").trim();
+      if (!nomeInc) {
+        return {
+          ok: false,
+          erro: "Selecione uma incorporadora existente ou informe o nome de uma nova.",
+        };
+      }
+      // Cria a incorporadora se ela ainda não existe. Se o passo seguinte
+      // (criar empreendimento) falhar, ela fica cadastrada mesmo assim — o
+      // backend não expõe DELETE /incorporadoras/{id}; numa nova tentativa ela
+      // já aparece no select e o usuário escolhe direto.
+      try {
+        const inc = await api<{ id: string }>("/incorporadoras", {
+          method: "POST",
+          token,
+          body: JSON.stringify({ nome: nomeInc }),
+        });
+        incId = inc.id;
+      } catch (err) {
+        return { ok: false, erro: (err as Error).message };
+      }
     }
     try {
       const emp = await api<{ id: string }>("/empreendimentos", {
         method: "POST",
         token,
         body: JSON.stringify({
-          incorporadora_id: entrada.novaIncorporadoraId,
+          incorporadora_id: incId,
           nome: entrada.novoNome.trim(),
         }),
       });
