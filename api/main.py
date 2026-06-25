@@ -5,11 +5,11 @@ Fase 1: auth (JWT), análise/ficha via Gemini e CRUD da hierarquia
 Supabase Storage e migração das telas de mercado/vendas/INCC vêm nas próximas
 fases.
 """
-from fastapi import Depends, FastAPI, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from . import config, db, gemini, security
+from . import config, db, gemini, mercado_api, security
 
 app = FastAPI(title="TabLM API", version="0.1.0")
 app.add_middleware(
@@ -152,3 +152,30 @@ def listar_eventos(_: str = Depends(security.usuario_autenticado)):
 @app.post("/benchmark/eventos")
 def criar_evento(dados: EventoIn, _: str = Depends(security.usuario_autenticado)):
     return _db_ou_503(db.inserir, "eventos_promocionais", dados.model_dump(exclude_none=True))
+
+
+# --------------------------------------------------------------------------- #
+# Mercado (comparativo de preço/m² a partir de uma planilha)
+# --------------------------------------------------------------------------- #
+@app.post("/mercado/comparativo")
+async def mercado_comparativo(
+    arquivo: UploadFile,
+    tipo: str = Form("Concorrente"),
+    incorporadora: str = Form(""),
+    produto: str = Form(""),
+    cidade: str = Form(""),
+    bairro: str = Form(""),
+    padrao: str = Form(""),
+    _: str = Depends(security.usuario_autenticado),
+):
+    conteudo = await arquivo.read()
+    try:
+        df = mercado_api.ler_planilha(conteudo, arquivo.filename or "tabela.xlsx")
+        return mercado_api.comparativo(
+            df, tipo=tipo, incorporadora=incorporadora, produto=produto,
+            cidade=cidade, bairro=bairro, padrao=padrao,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"Falha ao processar a planilha: {exc}")
