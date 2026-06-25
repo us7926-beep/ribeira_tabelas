@@ -60,6 +60,7 @@ export default function AnaliseFlyer({
   const [empId, setEmpId] = useState("");
   const [novoNome, setNovoNome] = useState("");
   const [incId, setIncId] = useState("");
+  const [novaIncNome, setNovaIncNome] = useState("");
   const [descricao, setDescricao] = useState("");
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
@@ -84,10 +85,21 @@ export default function AnaliseFlyer({
       setDataInicio(det.data_inicio ?? "");
       setDataFim(det.data_fim ?? "");
       setCondicoes(det.condicoes_comerciais ?? "");
+      const detIncNome = (det.incorporadora ?? "").trim();
       const match = incorporadoras.find(
-        (i) => i.nome.toLowerCase() === (det.incorporadora ?? "").toLowerCase(),
+        (i) => i.nome.toLowerCase() === detIncNome.toLowerCase(),
       );
-      setIncId(match?.id ?? "");
+      if (match) {
+        setIncId(match.id);
+        setNovaIncNome("");
+      } else if (detIncNome) {
+        // IA identificou uma incorporadora que não está cadastrada — pré-seleciona "criar nova".
+        setIncId("__criar__");
+        setNovaIncNome(detIncNome);
+      } else {
+        setIncId("");
+        setNovaIncNome("");
+      }
       setModo(empreendimentos.length ? "existente" : "novo");
     } catch (e) {
       setErro((e as Error).message);
@@ -102,15 +114,26 @@ export default function AnaliseFlyer({
       setErro("Selecione o empreendimento para vincular.");
       return;
     }
-    if (modo === "novo" && (!novoNome.trim() || !incId)) {
-      setErro("Para criar um empreendimento, informe o nome e a incorporadora.");
-      return;
+    if (modo === "novo") {
+      if (!novoNome.trim()) {
+        setErro("Informe o nome do empreendimento.");
+        return;
+      }
+      if (!incId) {
+        setErro("Selecione a incorporadora ou cadastre uma nova.");
+        return;
+      }
+      if (incId === "__criar__" && !novaIncNome.trim()) {
+        setErro("Informe o nome da nova incorporadora.");
+        return;
+      }
     }
     startSalvar(async () => {
       const res = await registrarEventoDeFlyer({
         empreendimentoId: modo === "existente" ? empId || null : null,
         novoNome,
-        novaIncorporadoraId: incId,
+        novaIncorporadoraId: incId === "__criar__" ? "" : incId,
+        novoNomeIncorporadora: incId === "__criar__" ? novaIncNome : undefined,
         descricao,
         dataInicio,
         dataFim,
@@ -209,7 +232,17 @@ export default function AnaliseFlyer({
                         {inc.nome}
                       </option>
                     ))}
+                    <option value="__criar__">+ Cadastrar nova incorporadora…</option>
                   </select>
+                  {incId === "__criar__" && (
+                    <input
+                      value={novaIncNome}
+                      onChange={(e) => setNovaIncNome(e.target.value)}
+                      placeholder="Nome da nova incorporadora"
+                      className={campo}
+                      autoFocus
+                    />
+                  )}
                 </div>
               )}
             </div>
