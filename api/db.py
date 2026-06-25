@@ -48,7 +48,10 @@ def upload_storage(caminho: str, conteudo: bytes, content_type: str) -> None:
 
 def url_assinada(caminho: str, segundos: int = 3600) -> str:
     resposta = cliente().storage.from_(BUCKET).create_signed_url(caminho, segundos)
-    return resposta.get("signedURL") or resposta.get("signedUrl") or ""
+    url = resposta.get("signedURL") or resposta.get("signedUrl") or ""
+    if not url:
+        raise RuntimeError("Supabase não retornou URL assinada para o documento.")
+    return url
 
 
 def remover_storage(caminho: str) -> None:

@@ -11,6 +11,7 @@ export async function POST(req: Request) {
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: form,
+    signal: AbortSignal.timeout(25_000),
   });
   const dados = await resposta.json().catch(() => ({ detail: "Resposta inválida do backend" }));
   return NextResponse.json(dados, { status: resposta.status });

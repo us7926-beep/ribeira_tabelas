@@ -3,16 +3,19 @@
 import { useState, useTransition } from "react";
 
 import { registrarEventoDeFlyer } from "@/app/(dashboard)/flyers/actions";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Dropzone } from "@/components/ui/Dropzone";
 import type { DeteccaoFlyer, Empreendimento, Incorporadora } from "@/types";
 
 const campo =
-  "w-full rounded-lg border border-line bg-white px-3 py-2 outline-none focus:border-royal text-sm";
+  "w-full px-[15px] py-[12px] rounded-[12px] border border-line bg-white text-[14px] outline-none focus:border-royal focus:ring-[3px] focus:ring-royal/[0.12] transition";
 
 function Info({ rotulo, valor }: { rotulo: string; valor: string }) {
   return (
-    <div className="bg-surface rounded-lg px-3 py-2">
-      <div className="text-[11px] font-semibold text-muted">{rotulo}</div>
-      <div className="text-ink font-semibold">{valor || "—"}</div>
+    <div className="bg-thead border border-line-soft rounded-[12px] px-3 py-2.5">
+      <div className="text-[11px] font-bold tracking-[0.5px] uppercase text-muted">{rotulo}</div>
+      <div className="text-ink font-bold mt-0.5">{valor || "—"}</div>
     </div>
   );
 }
@@ -29,9 +32,11 @@ function Aba({
   return (
     <button
       onClick={onClick}
-      className={`text-sm font-semibold px-3 py-1.5 rounded-lg ${
-        ativo ? "bg-royal text-white" : "bg-surface text-ink-soft"
-      }`}
+      className={
+        ativo
+          ? "px-[14px] py-[7px] rounded-[9px] bg-royal text-white text-[13px] font-bold"
+          : "px-[14px] py-[7px] rounded-[9px] bg-thead text-muted text-[13px] font-semibold hover:bg-royal-tint hover:text-royal transition-colors"
+      }
     >
       {children}
     </button>
@@ -93,51 +98,58 @@ export default function AnaliseFlyer({
 
   function confirmar() {
     setErro("");
+    if (modo === "existente" && !empId) {
+      setErro("Selecione o empreendimento para vincular.");
+      return;
+    }
+    if (modo === "novo" && (!novoNome.trim() || !incId)) {
+      setErro("Para criar um empreendimento, informe o nome e a incorporadora.");
+      return;
+    }
     startSalvar(async () => {
-      try {
-        await registrarEventoDeFlyer({
-          empreendimentoId: modo === "existente" ? empId || null : null,
-          novoNome,
-          novaIncorporadoraId: incId,
-          descricao,
-          dataInicio,
-          dataFim,
-          condicoes,
-        });
-        setSucesso("Evento registrado no benchmark! ✅");
-        setDeteccao(null);
-        setArquivo(null);
-      } catch (e) {
-        setErro((e as Error).message);
+      const res = await registrarEventoDeFlyer({
+        empreendimentoId: modo === "existente" ? empId || null : null,
+        novoNome,
+        novaIncorporadoraId: incId,
+        descricao,
+        dataInicio,
+        dataFim,
+        condicoes,
+      });
+      if (!res.ok) {
+        setErro(res.erro);
+        return;
       }
+      setSucesso("Evento registrado no benchmark.");
+      setDeteccao(null);
+      setArquivo(null);
     });
   }
 
   return (
-    <div className="max-w-2xl">
-      <div className="bg-white rounded-2xl border border-line p-6">
-        <input
-          type="file"
-          accept=".pdf,.png,.jpg,.jpeg"
-          onChange={(e) => setArquivo(e.target.files?.[0] ?? null)}
-          className="block w-full text-sm text-ink-soft file:mr-4 file:rounded-lg file:border-0 file:bg-royal file:text-white file:px-4 file:py-2 file:font-semibold hover:file:bg-royal-dark"
+    <div className="max-w-[640px]">
+      <Card variant="lg">
+        <Dropzone
+          arquivo={arquivo}
+          onArquivo={setArquivo}
+          aceitar=".pdf,.png,.jpg,.jpeg"
+          titulo="Arraste o flyer aqui"
+          dica="PDF, PNG ou JPG · até 50 MB"
         />
-        <button
-          onClick={analisar}
-          disabled={!arquivo || analisando}
-          className="mt-4 rounded-lg bg-royal hover:bg-royal-dark text-white font-semibold px-5 py-2.5 disabled:opacity-50"
-        >
-          {analisando ? "Analisando com IA..." : "🤖 Analisar flyer"}
-        </button>
-      </div>
+        <div className="mt-4 flex justify-end">
+          <Button onClick={analisar} disabled={!arquivo || analisando}>
+            {analisando ? "Analisando..." : "Analisar flyer"}
+          </Button>
+        </div>
+      </Card>
 
       {erro && (
-        <div className="mt-4 rounded-lg bg-red-50 text-neg text-sm px-3 py-2 border border-red-100">
+        <div className="mt-4 rounded-[12px] bg-down-bg text-down-strong text-[13.5px] px-4 py-3 border border-down-line">
           {erro}
         </div>
       )}
       {sucesso && (
-        <div className="mt-4 rounded-lg bg-green-50 text-pos text-sm px-3 py-2 border border-green-100">
+        <div className="mt-4 rounded-[12px] bg-up-bg text-up-strong text-[13.5px] px-4 py-3 border border-up-line">
           {sucesso}
         </div>
       )}
@@ -148,11 +160,17 @@ export default function AnaliseFlyer({
           onClick={() => setDeteccao(null)}
         >
           <div
-            className="bg-white rounded-2xl border border-line w-full max-w-lg p-6 max-h-[90vh] overflow-auto"
+            className="bg-white rounded-[16px] border border-line w-full max-w-[560px] p-[22px] max-h-[90vh] overflow-auto shadow-[0_8px_22px_rgba(35,71,197,0.2)]"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-extrabold text-ink">A IA detectou</h3>
-            <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="text-[11px] font-bold tracking-[1.6px] uppercase text-royal mb-1">
+              Análise por IA
+            </div>
+            <h3 className="text-[18px] font-extrabold text-ink mb-4">
+              Revise e registre no benchmark
+            </h3>
+
+            <div className="grid grid-cols-2 gap-2.5">
               <Info rotulo="Empreendimento" valor={deteccao.nome_empreendimento} />
               <Info rotulo="Incorporadora" valor={deteccao.incorporadora} />
             </div>
@@ -169,7 +187,7 @@ export default function AnaliseFlyer({
 
               {modo === "existente" ? (
                 <select value={empId} onChange={(e) => setEmpId(e.target.value)} className={campo}>
-                  <option value="">Selecione o empreendimento...</option>
+                  <option value="">Selecione o empreendimento…</option>
                   {empreendimentos.map((emp) => (
                     <option key={emp.id} value={emp.id}>
                       {emp.nome}
@@ -185,7 +203,7 @@ export default function AnaliseFlyer({
                     className={campo}
                   />
                   <select value={incId} onChange={(e) => setIncId(e.target.value)} className={campo}>
-                    <option value="">Incorporadora...</option>
+                    <option value="">Incorporadora…</option>
                     {incorporadoras.map((inc) => (
                       <option key={inc.id} value={inc.id}>
                         {inc.nome}
@@ -197,7 +215,9 @@ export default function AnaliseFlyer({
             </div>
 
             <div className="mt-4 grid gap-2">
-              <label className="text-xs font-semibold text-muted">Evento / promoção</label>
+              <label className="text-[11px] font-bold tracking-[0.5px] uppercase text-muted">
+                Evento / promoção
+              </label>
               <textarea
                 value={descricao}
                 onChange={(e) => setDescricao(e.target.value)}
@@ -218,7 +238,9 @@ export default function AnaliseFlyer({
                   className={campo}
                 />
               </div>
-              <label className="text-xs font-semibold text-muted">Condições comerciais</label>
+              <label className="text-[11px] font-bold tracking-[0.5px] uppercase text-muted">
+                Condições comerciais
+              </label>
               <textarea
                 value={condicoes}
                 onChange={(e) => setCondicoes(e.target.value)}
@@ -228,19 +250,12 @@ export default function AnaliseFlyer({
             </div>
 
             <div className="mt-6 flex justify-end gap-2">
-              <button
-                onClick={() => setDeteccao(null)}
-                className="rounded-lg border border-line px-4 py-2 text-ink-soft"
-              >
+              <Button variante="secondary" onClick={() => setDeteccao(null)}>
                 Cancelar
-              </button>
-              <button
-                onClick={confirmar}
-                disabled={salvando}
-                className="rounded-lg bg-royal hover:bg-royal-dark text-white font-semibold px-5 py-2 disabled:opacity-50"
-              >
+              </Button>
+              <Button onClick={confirmar} disabled={salvando}>
                 {salvando ? "Salvando..." : "Confirmar e registrar"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

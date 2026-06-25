@@ -30,7 +30,10 @@ def users() -> dict:
 
 
 def jwt_secret() -> str:
-    return os.environ.get("JWT_SECRET", "dev-inseguro-troque-no-deploy")
+    v = os.environ.get("JWT_SECRET", "")
+    if not v:
+        raise RuntimeError("JWT_SECRET não configurado — defina a variável de ambiente.")
+    return v
 
 
 def jwt_expire_hours() -> int:

@@ -1,5 +1,9 @@
 import Link from "next/link";
 
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Chip } from "@/components/ui/Chip";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { api } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import type { Incorporadora } from "@/types";
@@ -7,6 +11,9 @@ import type { Incorporadora } from "@/types";
 import { criarIncorporadora } from "./actions";
 
 export const dynamic = "force-dynamic";
+
+const campo =
+  "flex-1 rounded-[12px] border border-line bg-white px-[15px] py-[12px] text-[14px] outline-none focus:border-royal focus:ring-[3px] focus:ring-royal/[0.12] transition";
 
 export default async function IncorporadorasPage() {
   let lista: Incorporadora[] = [];
@@ -18,47 +25,60 @@ export default async function IncorporadorasPage() {
   }
 
   return (
-    <div className="max-w-3xl">
-      <h1 className="text-2xl font-extrabold text-ink">Incorporadoras</h1>
-      <p className="text-muted mt-1">
-        Cadastre e navegue pelas incorporadoras e seus empreendimentos.
-      </p>
+    <>
+      <PageHeader
+        eyebrow="Carteira"
+        title="Incorporadoras"
+        subtitle="Navegue pela hierarquia de incorporadoras e seus empreendimentos. A Ribeira aparece destacada com bolinha royal; concorrentes em cinza."
+      />
 
-      <form action={criarIncorporadora} className="mt-6 flex gap-2">
-        <input
-          name="nome"
-          required
-          placeholder="Nome da incorporadora..."
-          className="flex-1 rounded-lg border border-line bg-white px-3 py-2 outline-none focus:border-royal"
-        />
-        <button className="rounded-lg bg-royal hover:bg-royal-dark text-white font-semibold px-5">
-          Adicionar
-        </button>
-      </form>
+      <Card variant="lg" className="mb-5 tablm-up">
+        <form action={criarIncorporadora} className="flex gap-3">
+          <input name="nome" required placeholder="Nome da incorporadora…" className={campo} />
+          <Button type="submit">Adicionar</Button>
+        </form>
+      </Card>
 
       {erro ? (
-        <div className="mt-6 rounded-xl border border-amber/40 bg-amber/10 text-ink-soft px-4 py-3 text-sm">
+        <div className="rounded-[12px] border border-warn-line bg-warn-bg text-warn-strong px-4 py-3 text-[13.5px]">
           Não consegui carregar do backend: <b>{erro}</b>.
-          <br />
-          Ligue o Supabase no backend (`SUPABASE_URL`/`SUPABASE_KEY` no `api/.env`) e rode o SQL das tabelas.
         </div>
       ) : lista.length === 0 ? (
-        <p className="mt-6 text-muted">Nenhuma incorporadora ainda. Adicione a primeira acima.</p>
+        <Card>
+          <div className="text-[14px] text-muted">
+            Nenhuma incorporadora ainda. Adicione a primeira no formulário acima.
+          </div>
+        </Card>
       ) : (
-        <ul className="mt-6 space-y-2">
-          {lista.map((inc) => (
-            <li key={inc.id}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 tablm-up">
+          {lista.map((inc) => {
+            const nossa = inc.nome.toLowerCase().includes("ribeira");
+            return (
               <Link
+                key={inc.id}
                 href={`/incorporadoras/${inc.id}`}
-                className="flex items-center justify-between bg-white rounded-xl border border-line border-l-4 border-l-royal px-4 py-3 hover:bg-surface"
+                className="bg-white border border-line rounded-[14px] p-[18px_20px] shadow-[0_1px_3px_rgba(20,40,90,0.05)] hover:border-royal transition-colors flex items-center gap-3"
               >
-                <span className="font-semibold text-ink">{inc.nome}</span>
-                <span className="text-muted text-sm">ver empreendimentos →</span>
+                <span
+                  className={
+                    nossa
+                      ? "w-[10px] h-[10px] rounded-full bg-royal shrink-0"
+                      : "w-[10px] h-[10px] rounded-full bg-[#D4DAE6] shrink-0"
+                  }
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-ink text-[15px] truncate">{inc.nome}</div>
+                  <div className="text-[12px] text-faint mt-0.5">
+                    {nossa ? "Nossa" : "Concorrente"}
+                  </div>
+                </div>
+                {nossa && <Chip tom="royal">RIBEIRA</Chip>}
+                <span className="text-[12px] text-muted">→</span>
               </Link>
-            </li>
-          ))}
-        </ul>
+            );
+          })}
+        </div>
       )}
-    </div>
+    </>
   );
 }

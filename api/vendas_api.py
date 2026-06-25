@@ -14,6 +14,8 @@ def _detectar(df: pd.DataFrame, candidatos: list[str]) -> str | None:
 
 def kpis(df: pd.DataFrame) -> dict:
     """Detecta as colunas de unidade/valor/situação e calcula os KPIs de vendas."""
+    if df.empty or len(df.columns) == 0:
+        raise ValueError("Planilha vazia ou sem colunas.")
     col_unidade = _detectar(df, ["unid", "apto", "apt", "casa", "lote", "sala"]) or str(df.columns[0])
     col_valor = _detectar(df, ["valor", "preço", "preco", "r$"])
     col_status = _detectar(df, ["status", "situa", "disponib", "estado", "vendido"])

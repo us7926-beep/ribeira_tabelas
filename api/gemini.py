@@ -38,13 +38,21 @@ _PROMPT_FICHA = (
 )
 
 
+_MIME_SUPORTADOS = {
+    ".pdf": "application/pdf",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+}
+
+
 def _mime(nome: str) -> str:
-    nome = nome.lower()
-    if nome.endswith(".pdf"):
-        return "application/pdf"
-    if nome.endswith(".png"):
-        return "image/png"
-    return "image/jpeg"
+    ext = ("." + nome.lower().rsplit(".", 1)[-1]) if "." in nome else ""
+    mime = _MIME_SUPORTADOS.get(ext)
+    if not mime:
+        extensoes = ", ".join(_MIME_SUPORTADOS)
+        raise ValueError(f"Tipo de arquivo não suportado. Use: {extensoes}.")
+    return mime
 
 
 def _gerar(conteudo: bytes, nome: str, prompt: str) -> dict:
@@ -64,7 +72,7 @@ def _gerar(conteudo: bytes, nome: str, prompt: str) -> dict:
                 model=config.gemini_model(), contents=[parte, prompt], config=cfg
             )
             return json.loads(resposta.text)
-        except errors.ServerError as exc:  # 503 transitório do free tier
+        except (errors.ServerError, json.JSONDecodeError) as exc:
             ultimo = exc
             time.sleep(2 * (tentativa + 1))
     raise RuntimeError(f"Gemini indisponível após {_TENTATIVAS} tentativas: {ultimo}")

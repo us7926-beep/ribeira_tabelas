@@ -4,17 +4,24 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { apagarDocumento } from "@/app/(dashboard)/empreendimentos/[id]/actions";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Chip } from "@/components/ui/Chip";
+import { Dropzone } from "@/components/ui/Dropzone";
 import type { Documento } from "@/types";
 
 const TIPOS = ["flyer", "memorial", "tabela", "planta", "outro"];
 
-const ICONE: Record<string, string> = {
-  flyer: "🖼️",
-  memorial: "📄",
-  tabela: "📊",
-  planta: "📐",
-  outro: "📎",
+const TOM: Record<string, "royal" | "up" | "warn" | "neutro"> = {
+  flyer: "royal",
+  memorial: "neutro",
+  tabela: "up",
+  planta: "warn",
+  outro: "neutro",
 };
+
+const campo =
+  "rounded-[12px] border border-line bg-white px-[15px] py-[12px] text-[14px] outline-none focus:border-royal focus:ring-[3px] focus:ring-royal/[0.12] transition";
 
 export default function Documentos({
   empreendimentoId,
@@ -66,60 +73,73 @@ export default function Documentos({
   }
 
   return (
-    <div>
-      <div className="bg-white rounded-2xl border border-line p-5 grid sm:grid-cols-[1fr_auto_auto] gap-2 items-center">
-        <input
-          type="file"
-          onChange={(e) => setArquivo(e.target.files?.[0] ?? null)}
-          className="block w-full text-sm text-ink-soft file:mr-4 file:rounded-lg file:border-0 file:bg-royal file:text-white file:px-4 file:py-2 file:font-semibold hover:file:bg-royal-dark"
-        />
-        <select
-          value={tipo}
-          onChange={(e) => setTipo(e.target.value)}
-          className="rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-royal"
-        >
-          {TIPOS.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-        <button
-          onClick={enviar}
-          disabled={!arquivo || enviando}
-          className="rounded-lg bg-royal hover:bg-royal-dark text-white font-semibold px-5 py-2 disabled:opacity-50"
-        >
-          {enviando ? "Enviando..." : "Enviar"}
-        </button>
-      </div>
+    <div className="flex flex-col gap-4">
+      <Card variant="lg">
+        <div className="grid grid-cols-1 md:grid-cols-[1.6fr_auto_auto] gap-3 items-end">
+          <Dropzone
+            arquivo={arquivo}
+            onArquivo={setArquivo}
+            titulo="Arraste o documento aqui"
+            dica="PDF, imagem, Excel, CSV"
+          />
+          <select value={tipo} onChange={(e) => setTipo(e.target.value)} className={campo}>
+            {TIPOS.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+          <Button onClick={enviar} disabled={!arquivo || enviando}>
+            {enviando ? "Enviando..." : "Enviar"}
+          </Button>
+        </div>
+      </Card>
 
       {erro && (
-        <div className="mt-3 rounded-lg bg-red-50 text-neg text-sm px-3 py-2 border border-red-100">{erro}</div>
+        <div className="rounded-[12px] bg-down-bg text-down-strong text-[13.5px] px-4 py-3 border border-down-line">
+          {erro}
+        </div>
       )}
 
       {documentos.length === 0 ? (
-        <p className="mt-5 text-muted">Nenhum documento ainda. Suba o primeiro acima.</p>
+        <Card>
+          <div className="text-[14px] text-muted">
+            Nenhum documento ainda. Suba o primeiro acima.
+          </div>
+        </Card>
       ) : (
-        <ul className="mt-5 space-y-2">
+        <div className="overflow-hidden border border-line-soft rounded-[12px] bg-white">
+          <div className="grid grid-cols-[1fr_120px_180px] bg-thead text-[12px] font-bold text-muted uppercase tracking-[0.4px]">
+            <div className="px-4 py-3">Nome</div>
+            <div className="px-4 py-3">Tipo</div>
+            <div className="px-4 py-3 text-right">Ações</div>
+          </div>
           {documentos.map((doc) => (
-            <li
+            <div
               key={doc.id}
-              className="flex items-center gap-3 bg-white rounded-xl border border-line px-4 py-3"
+              className="grid grid-cols-[1fr_120px_180px] border-t border-line-soft text-[14px] items-center"
             >
-              <span className="text-lg">{ICONE[doc.tipo ?? "outro"] ?? "📎"}</span>
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-ink truncate">{doc.nome}</div>
-                <div className="text-xs text-muted">{doc.tipo}</div>
+              <div className="px-4 py-[13px] font-semibold text-ink truncate">{doc.nome}</div>
+              <div className="px-4 py-[13px]">
+                <Chip tom={TOM[doc.tipo ?? "outro"] ?? "neutro"}>{doc.tipo ?? "outro"}</Chip>
               </div>
-              <button onClick={() => baixar(doc.id)} className="text-sm font-semibold text-royal hover:underline">
-                baixar
-              </button>
-              <button onClick={() => apagar(doc.id)} className="text-sm text-neg hover:underline">
-                apagar
-              </button>
-            </li>
+              <div className="px-4 py-[13px] text-right flex justify-end gap-3">
+                <button
+                  onClick={() => baixar(doc.id)}
+                  className="text-[13px] font-bold text-royal hover:underline"
+                >
+                  Baixar
+                </button>
+                <button
+                  onClick={() => apagar(doc.id)}
+                  className="text-[13px] font-bold text-down hover:underline"
+                >
+                  Apagar
+                </button>
+              </div>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   );
