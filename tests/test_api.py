@@ -79,3 +79,18 @@ def test_incc_reajustar_aplica_percentual_via_csv(cliente):
     assert corpo["coluna_valor"] == "valor"
     assert corpo["registros"][0]["valor_reajustado"] == 110000.0  # 100000 * 1.10
     assert corpo["registros"][1]["valor_reajustado"] == 220000.0
+
+
+def test_vendas_kpis_via_csv(cliente):
+    token = _token(cliente)
+    csv = b"unidade,valor,status\n101,100000,Vendido\n102,200000,Disponivel\n103,150000,Disponivel\n"
+    resposta = cliente.post(
+        "/vendas/kpis",
+        headers={"Authorization": f"Bearer {token}"},
+        files={"arquivo": ("tabela.csv", csv, "text/csv")},
+    )
+    assert resposta.status_code == 200
+    kpis = resposta.json()["kpis"]
+    assert kpis["total_unidades"] == 3
+    assert kpis["vendidas"] == 1
+    assert kpis["disponiveis"] == 2

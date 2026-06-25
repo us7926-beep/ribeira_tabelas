@@ -9,7 +9,7 @@ from fastapi import Depends, FastAPI, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from . import config, db, gemini, incc_api, mercado_api, security
+from . import config, db, gemini, incc_api, mercado_api, security, vendas_api
 
 app = FastAPI(title="TabLM API", version="0.1.0")
 app.add_middleware(
@@ -208,3 +208,18 @@ async def incc_reajustar(
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=f"Falha ao reajustar: {exc}")
+
+
+# --------------------------------------------------------------------------- #
+# Vendas (KPIs a partir de uma tabela com situação)
+# --------------------------------------------------------------------------- #
+@app.post("/vendas/kpis")
+async def vendas_kpis(arquivo: UploadFile, _: str = Depends(security.usuario_autenticado)):
+    conteudo = await arquivo.read()
+    try:
+        df = mercado_api.ler_planilha(conteudo, arquivo.filename or "tabela.xlsx")
+        return vendas_api.kpis(df)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"Falha ao calcular KPIs: {exc}")
