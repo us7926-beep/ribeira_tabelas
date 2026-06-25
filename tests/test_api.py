@@ -47,3 +47,19 @@ def test_endpoint_de_dados_sem_supabase_retorna_503(cliente):
     token = _token(cliente)
     resposta = cliente.get("/incorporadoras", headers={"Authorization": f"Bearer {token}"})
     assert resposta.status_code == 503
+
+
+def test_mercado_comparativo_calcula_kpis_de_csv(cliente):
+    token = _token(cliente)
+    csv = b"unidade,valor,area\n101,500000,50\n102,600000,60\n"
+    resposta = cliente.post(
+        "/mercado/comparativo",
+        headers={"Authorization": f"Bearer {token}"},
+        files={"arquivo": ("tabela.csv", csv, "text/csv")},
+        data={"tipo": "Concorrente", "incorporadora": "Concorrente X"},
+    )
+    assert resposta.status_code == 200
+    corpo = resposta.json()
+    assert corpo["linhas"] == 2
+    assert corpo["kpis"]["preco_m2_medio"] == 10000  # 500000/50 e 600000/60
+    assert corpo["colunas_detectadas"]["valor"] == "valor"
