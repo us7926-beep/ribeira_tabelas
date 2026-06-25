@@ -5,6 +5,8 @@ Fase 1: auth (JWT), análise/ficha via Gemini e CRUD da hierarquia
 Supabase Storage e migração das telas de mercado/vendas/INCC vêm nas próximas
 fases.
 """
+import uuid
+
 from fastapi import Depends, FastAPI, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -223,3 +225,53 @@ async def vendas_kpis(arquivo: UploadFile, _: str = Depends(security.usuario_aut
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=f"Falha ao calcular KPIs: {exc}")
+
+
+# --------------------------------------------------------------------------- #
+# Repositório de documentos por empreendimento (Supabase Storage)
+# --------------------------------------------------------------------------- #
+@app.get("/empreendimentos/{id_}/documentos")
+def listar_documentos(id_: str, _: str = Depends(security.usuario_autenticado)):
+    return _db_ou_503(db.listar, "documentos", empreendimento_id=id_)
+
+
+@app.post("/empreendimentos/{id_}/documentos")
+async def upload_documento(
+    id_: str,
+    arquivo: UploadFile,
+    tipo: str = Form("outro"),
+    _: str = Depends(security.usuario_autenticado),
+):
+    conteudo = await arquivo.read()
+    nome = arquivo.filename or "documento"
+    caminho = f"{id_}/{uuid.uuid4().hex}-{nome}"
+    try:
+        db.upload_storage(caminho, conteudo, arquivo.content_type or "application/octet-stream")
+        return db.inserir(
+            "documentos",
+            {"empreendimento_id": id_, "nome": nome, "tipo": tipo, "storage_path": caminho},
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"Falha no upload: {exc}")
+
+
+@app.get("/documentos/{id_}/url")
+def url_documento(id_: str, _: str = Depends(security.usuario_autenticado)):
+    doc = _db_ou_503(db.obter, "documentos", id_)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Documento não encontrado")
+    return {"url": db.url_assinada(doc["storage_path"])}
+
+
+@app.delete("/documentos/{id_}")
+def deletar_documento(id_: str, _: str = Depends(security.usuario_autenticado)):
+    doc = _db_ou_503(db.obter, "documentos", id_)
+    if doc:
+        try:
+            db.remover_storage(doc["storage_path"])
+        except Exception:  # noqa: BLE001 — apaga o registro mesmo se o arquivo já sumiu
+            pass
+        db.deletar("documentos", id_)
+    return {"ok": True}
