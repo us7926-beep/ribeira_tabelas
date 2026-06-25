@@ -13,6 +13,7 @@ export async function api<T = unknown>(path: string, init: ApiInit = {}): Promis
       ...headers,
     },
     cache: "no-store",
+    signal: AbortSignal.timeout(25_000),
   });
   if (!resposta.ok) {
     let detalhe = `Erro ${resposta.status}`;

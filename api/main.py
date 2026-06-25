@@ -6,6 +6,7 @@ Supabase Storage e migração das telas de mercado/vendas/INCC vêm nas próxima
 fases.
 """
 import uuid
+from pathlib import PurePosixPath
 
 from fastapi import Depends, FastAPI, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,6 +22,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+_MAX_UPLOAD_BYTES = 25 * 1024 * 1024  # 25 MB
+
+
+async def _ler_upload(arquivo) -> bytes:
+    conteudo = await arquivo.read(_MAX_UPLOAD_BYTES + 1)
+    if len(conteudo) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Arquivo excede 25 MB")
+    return conteudo
 
 
 # --------------------------------------------------------------------------- #
@@ -93,7 +103,7 @@ def me(usuario: str = Depends(security.usuario_autenticado)):
 # --------------------------------------------------------------------------- #
 @app.post("/gemini/analisar-flyer")
 async def analisar_flyer(arquivo: UploadFile, _: str = Depends(security.usuario_autenticado)):
-    conteudo = await arquivo.read()
+    conteudo = await _ler_upload(arquivo)
     try:
         return gemini.analisar_flyer(conteudo, arquivo.filename or "flyer.pdf")
     except Exception as exc:  # noqa: BLE001
@@ -102,7 +112,7 @@ async def analisar_flyer(arquivo: UploadFile, _: str = Depends(security.usuario_
 
 @app.post("/gemini/ficha")
 async def extrair_ficha(arquivo: UploadFile, _: str = Depends(security.usuario_autenticado)):
-    conteudo = await arquivo.read()
+    conteudo = await _ler_upload(arquivo)
     try:
         return gemini.extrair_ficha(conteudo, arquivo.filename or "doc.pdf")
     except Exception as exc:  # noqa: BLE001
@@ -143,6 +153,12 @@ def obter_empreendimento(id_: str, _: str = Depends(security.usuario_autenticado
     return registro
 
 
+@app.delete("/empreendimentos/{id_}")
+def deletar_empreendimento(id_: str, _: str = Depends(security.usuario_autenticado)):
+    _db_ou_503(db.deletar, "empreendimentos", id_)
+    return {"ok": True}
+
+
 # --------------------------------------------------------------------------- #
 # Eventos / promoções (benchmark)
 # --------------------------------------------------------------------------- #
@@ -170,7 +186,7 @@ async def mercado_comparativo(
     padrao: str = Form(""),
     _: str = Depends(security.usuario_autenticado),
 ):
-    conteudo = await arquivo.read()
+    conteudo = await _ler_upload(arquivo)
     try:
         df = mercado_api.ler_planilha(conteudo, arquivo.filename or "tabela.xlsx")
         return mercado_api.comparativo(
@@ -202,7 +218,7 @@ async def incc_reajustar(
     extra_valor: float = Form(0.0),
     _: str = Depends(security.usuario_autenticado),
 ):
-    conteudo = await arquivo.read()
+    conteudo = await _ler_upload(arquivo)
     try:
         df = mercado_api.ler_planilha(conteudo, arquivo.filename or "tabela.xlsx")
         return incc_api.reajustar(df, variacao_pct, extra_pct, extra_valor)
@@ -217,7 +233,7 @@ async def incc_reajustar(
 # --------------------------------------------------------------------------- #
 @app.post("/vendas/kpis")
 async def vendas_kpis(arquivo: UploadFile, _: str = Depends(security.usuario_autenticado)):
-    conteudo = await arquivo.read()
+    conteudo = await _ler_upload(arquivo)
     try:
         df = mercado_api.ler_planilha(conteudo, arquivo.filename or "tabela.xlsx")
         return vendas_api.kpis(df)
@@ -242,19 +258,23 @@ async def upload_documento(
     tipo: str = Form("outro"),
     _: str = Depends(security.usuario_autenticado),
 ):
-    conteudo = await arquivo.read()
-    nome = arquivo.filename or "documento"
+    conteudo = await _ler_upload(arquivo)
+    nome = PurePosixPath(arquivo.filename or "documento").name or "documento"
     caminho = f"{id_}/{uuid.uuid4().hex}-{nome}"
     try:
         db.upload_storage(caminho, conteudo, arquivo.content_type or "application/octet-stream")
-        return db.inserir(
-            "documentos",
-            {"empreendimento_id": id_, "nome": nome, "tipo": tipo, "storage_path": caminho},
-        )
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=f"Falha no upload: {exc}")
+    try:
+        return db.inserir(
+            "documentos",
+            {"empreendimento_id": id_, "nome": nome, "tipo": tipo, "storage_path": caminho},
+        )
+    except Exception as exc:  # noqa: BLE001
+        db.remover_storage(caminho)
+        raise HTTPException(status_code=400, detail=f"Falha ao registrar documento: {exc}")
 
 
 @app.get("/documentos/{id_}/url")
@@ -268,10 +288,11 @@ def url_documento(id_: str, _: str = Depends(security.usuario_autenticado)):
 @app.delete("/documentos/{id_}")
 def deletar_documento(id_: str, _: str = Depends(security.usuario_autenticado)):
     doc = _db_ou_503(db.obter, "documentos", id_)
-    if doc:
-        try:
-            db.remover_storage(doc["storage_path"])
-        except Exception:  # noqa: BLE001 — apaga o registro mesmo se o arquivo já sumiu
-            pass
-        db.deletar("documentos", id_)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Documento não encontrado")
+    try:
+        db.remover_storage(doc["storage_path"])
+    except Exception:  # noqa: BLE001 — apaga o registro mesmo se o arquivo já sumiu
+        pass
+    db.deletar("documentos", id_)
     return {"ok": True}

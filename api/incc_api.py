@@ -44,7 +44,10 @@ def variacoes_recentes(meses: int = 18) -> list[dict]:
         timeout=_TIMEOUT,
     )
     resposta.raise_for_status()
-    registros = resposta.json() or []
+    try:
+        registros = resposta.json() or []
+    except Exception as exc:
+        raise RuntimeError(f"Resposta do BCB inválida (não-JSON): {exc}") from exc
     itens = [
         {"competencia": _competencia(r["data"]), "variacao": float(_decimal(r["valor"]))}
         for r in registros
