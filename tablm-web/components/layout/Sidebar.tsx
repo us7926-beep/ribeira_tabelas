@@ -10,6 +10,7 @@ const NAV = [
   { href: "/benchmark", label: "Benchmark", icone: "◷" },
   { href: "/benchmark/eventos", label: "Eventos & Promoções", icone: "◈" },
   { href: "/mercado", label: "Mercado", icone: "⊞" },
+  { href: "/incc", label: "Reajuste INCC", icone: "％" },
   { href: "/vendas", label: "Vendas", icone: "▲" },
 ];
 
