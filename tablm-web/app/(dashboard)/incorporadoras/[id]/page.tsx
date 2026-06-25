@@ -75,9 +75,10 @@ export default async function IncorporadoraDetalhe({
       ) : (
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
           {empreendimentos.map((emp) => (
-            <div
+            <Link
               key={emp.id}
-              className="bg-white rounded-xl border border-line border-l-4 border-l-royal p-4"
+              href={`/empreendimentos/${emp.id}`}
+              className="block bg-white rounded-xl border border-line border-l-4 border-l-royal p-4 hover:bg-surface"
             >
               <div className="font-semibold text-ink">{emp.nome}</div>
               <div className="text-sm text-muted mt-1">
@@ -88,7 +89,7 @@ export default async function IncorporadoraDetalhe({
                   {emp.padrao}
                 </div>
               )}
-            </div>
+            </Link>
           ))}
         </div>
       )}

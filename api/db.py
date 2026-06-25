@@ -32,3 +32,24 @@ def inserir(tabela: str, registro: dict) -> dict:
 
 def deletar(tabela: str, id_: str) -> None:
     cliente().table(tabela).delete().eq("id", id_).execute()
+
+
+# --------------------------------------------------------------------------- #
+# Storage (bucket "documentos")
+# --------------------------------------------------------------------------- #
+BUCKET = "documentos"
+
+
+def upload_storage(caminho: str, conteudo: bytes, content_type: str) -> None:
+    cliente().storage.from_(BUCKET).upload(
+        caminho, conteudo, {"content-type": content_type, "upsert": "true"}
+    )
+
+
+def url_assinada(caminho: str, segundos: int = 3600) -> str:
+    resposta = cliente().storage.from_(BUCKET).create_signed_url(caminho, segundos)
+    return resposta.get("signedURL") or resposta.get("signedUrl") or ""
+
+
+def remover_storage(caminho: str) -> None:
+    cliente().storage.from_(BUCKET).remove([caminho])
