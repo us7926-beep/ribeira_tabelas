@@ -1,0 +1,30 @@
+# Blueprint do Render para o backend FastAPI do TabLM.
+# No Render: New > Blueprint > conectar este repositório.
+# As variáveis com `sync: false` você preenche no painel (copie do api/.env).
+services:
+  - type: web
+    name: tablm-api
+    runtime: python
+    plan: free
+    region: oregon
+    rootDir: .
+    buildCommand: pip install -r api/requirements.txt
+    startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: TABLM_USERS
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
