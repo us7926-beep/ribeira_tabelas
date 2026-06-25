@@ -3,6 +3,18 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+const campo =
+  "w-full rounded-[12px] border border-line bg-white px-[15px] py-[13px] text-[15px] outline-none focus:border-royal focus:ring-[3px] focus:ring-royal/[0.12] transition";
+
+function MiniStat({ valor, rotulo }: { valor: string; rotulo: string }) {
+  return (
+    <div>
+      <div className="text-[26px] font-extrabold text-white tnum leading-none">{valor}</div>
+      <div className="text-[12px] text-white/65 mt-1.5 leading-tight">{rotulo}</div>
+    </div>
+  );
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [usuario, setUsuario] = useState("");
@@ -34,54 +46,92 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2">
-      <div className="hidden lg:flex flex-col justify-between bg-royal text-white p-12">
-        <div className="flex items-center gap-3">
-          <div className="size-10 rounded-xl bg-white/15 grid place-items-center font-extrabold text-lg">T</div>
-          <div>
-            <div className="font-bold text-lg leading-none">TabLM</div>
-            <div className="text-[11px] tracking-[0.15em] text-white/70 mt-1">RIBEIRA EMPREENDIMENTOS</div>
+    <div className="min-h-screen flex">
+      {/* Painel de marca (46%) */}
+      <div
+        className="hidden lg:flex flex-col justify-between text-white p-12 w-[46%] min-w-[420px] relative overflow-hidden"
+        style={{
+          background:
+            "linear-gradient(155deg,#2347C5 0%,#1A38A8 55%,#122A82 100%)",
+        }}
+      >
+        {/* círculo decorativo */}
+        <div
+          className="absolute -top-24 -right-24 w-[420px] h-[420px] rounded-full opacity-20"
+          style={{ background: "radial-gradient(circle,#fff 0,transparent 70%)" }}
+        />
+        <div className="relative flex items-center gap-3">
+          <div className="size-11 rounded-[12px] bg-white grid place-items-center text-royal font-extrabold text-[20px]">
+            T
+          </div>
+          <div className="leading-tight">
+            <div className="font-extrabold text-[18px]">TabLM</div>
+            <div className="text-[10.5px] tracking-[1.6px] text-white/65 mt-1 uppercase">
+              Ribeira Empreendimentos
+            </div>
           </div>
         </div>
-        <div>
-          <h1 className="text-3xl font-extrabold leading-tight">
-            Inteligência competitiva para o seu portfólio imobiliário.
+
+        <div className="relative">
+          <h1 className="text-[42px] font-extrabold leading-[1.05] tracking-[-1px] max-w-md">
+            Inteligência de tabelas para o seu portfólio imobiliário.
           </h1>
-          <p className="mt-4 text-white/75 max-w-md">
-            Hierarquia de empreendimentos, análise de flyers por IA, eventos de mercado
-            e comparação de concorrência — num só lugar.
+          <p className="mt-6 text-[15px] text-white/75 leading-relaxed max-w-md">
+            Dashboards de vendas, comparação de concorrência, reajuste por INCC e detecção de
+            padrões — tudo em um só lugar.
           </p>
         </div>
-        <div className="text-white/55 text-sm">© Ribeira Empreendimentos</div>
+
+        <div className="relative grid grid-cols-3 gap-6">
+          <MiniStat valor="5" rotulo="módulos" />
+          <MiniStat valor="248" rotulo="unidades na base" />
+          <MiniStat valor="INCC-DI" rotulo="fonte oficial BCB" />
+        </div>
       </div>
 
-      <div className="flex items-center justify-center p-8 bg-surface">
-        <form onSubmit={entrar} className="w-full max-w-sm">
-          <div className="text-xs font-bold tracking-widest text-muted">BEM-VINDO DE VOLTA</div>
-          <h2 className="text-2xl font-extrabold text-ink mt-1 mb-6">Entrar na sua conta</h2>
+      {/* Formulário (54%) */}
+      <div className="flex-1 flex items-center justify-center p-8 bg-canvas">
+        <form onSubmit={entrar} className="w-full max-w-[380px]">
+          <div className="text-[12px] font-bold tracking-[1.6px] uppercase text-royal mb-2">
+            Bem-vindo de volta
+          </div>
+          <h2 className="text-[28px] font-extrabold text-ink tracking-[-0.5px] mb-6">
+            Entrar na sua conta
+          </h2>
+
           {erro && (
-            <div className="mb-4 rounded-lg bg-red-50 text-neg text-sm px-3 py-2 border border-red-100">
+            <div className="mb-4 rounded-[12px] bg-down-bg text-down-strong text-[13.5px] px-4 py-3 border border-down-line">
               {erro}
             </div>
           )}
-          <label className="block text-sm font-semibold text-ink-soft mb-1">Usuário</label>
+
+          <label className="block text-[13px] font-semibold text-body mb-1.5">Usuário</label>
           <input
             value={usuario}
             onChange={(e) => setUsuario(e.target.value)}
             autoComplete="username"
-            className="w-full rounded-lg border border-line bg-white px-3 py-2 mb-4 outline-none focus:border-royal"
+            required
+            className={`${campo} mb-4`}
           />
-          <label className="block text-sm font-semibold text-ink-soft mb-1">Senha</label>
+
+          <label className="block text-[13px] font-semibold text-body mb-1.5">Senha</label>
           <input
             type="password"
             value={senha}
             onChange={(e) => setSenha(e.target.value)}
             autoComplete="current-password"
-            className="w-full rounded-lg border border-line bg-white px-3 py-2 mb-6 outline-none focus:border-royal"
+            required
+            className={`${campo} mb-5`}
           />
+
+          <label className="flex items-center gap-2 mb-6 text-[13px] text-muted">
+            <input type="checkbox" className="accent-royal size-4" defaultChecked />
+            Manter conectado
+          </label>
+
           <button
             disabled={carregando}
-            className="w-full rounded-lg bg-royal hover:bg-royal-dark text-white font-semibold py-2.5 disabled:opacity-60"
+            className="w-full rounded-[12px] bg-royal hover:bg-royal-hover text-white font-bold text-[15.5px] py-[14px] shadow-[0_6px_16px_rgba(35,71,197,0.28)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {carregando ? "Entrando..." : "Entrar"}
           </button>

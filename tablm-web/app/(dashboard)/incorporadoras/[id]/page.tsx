@@ -1,5 +1,9 @@
 import Link from "next/link";
 
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Chip } from "@/components/ui/Chip";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { api } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import type { Empreendimento, Incorporadora } from "@/types";
@@ -7,6 +11,9 @@ import type { Empreendimento, Incorporadora } from "@/types";
 import { criarEmpreendimento } from "../actions";
 
 export const dynamic = "force-dynamic";
+
+const campo =
+  "rounded-[12px] border border-line bg-white px-[15px] py-[12px] text-[14px] outline-none focus:border-royal focus:ring-[3px] focus:ring-royal/[0.12] transition";
 
 export default async function IncorporadoraDetalhe({
   params,
@@ -31,68 +38,68 @@ export default async function IncorporadoraDetalhe({
   }
 
   return (
-    <div className="max-w-3xl">
-      <Link href="/incorporadoras" className="text-sm text-muted hover:text-royal">
+    <>
+      <Link
+        href="/incorporadoras"
+        className="text-[13px] text-muted hover:text-royal font-semibold inline-flex items-center gap-1 mb-3"
+      >
         ← Incorporadoras
       </Link>
-      <h1 className="text-2xl font-extrabold text-ink mt-1">{nome}</h1>
-      <p className="text-muted mt-1">Empreendimentos desta incorporadora.</p>
+      <PageHeader
+        eyebrow="Carteira"
+        title={nome}
+        subtitle="Empreendimentos desta incorporadora. Use para abrir o repositório de documentos e o histórico de eventos."
+      />
 
-      <form action={criarEmpreendimento} className="mt-6 grid sm:grid-cols-2 gap-2">
-        <input type="hidden" name="incorporadora_id" value={id} />
-        <input
-          name="nome"
-          required
-          placeholder="Nome do empreendimento *"
-          className="rounded-lg border border-line bg-white px-3 py-2 outline-none focus:border-royal"
-        />
-        <input
-          name="cidade"
-          placeholder="Cidade"
-          className="rounded-lg border border-line bg-white px-3 py-2 outline-none focus:border-royal"
-        />
-        <input
-          name="bairro"
-          placeholder="Bairro"
-          className="rounded-lg border border-line bg-white px-3 py-2 outline-none focus:border-royal"
-        />
-        <input
-          name="padrao"
-          placeholder="Padrão (ex.: Médio-Alto)"
-          className="rounded-lg border border-line bg-white px-3 py-2 outline-none focus:border-royal"
-        />
-        <button className="sm:col-span-2 rounded-lg bg-royal hover:bg-royal-dark text-white font-semibold py-2.5">
-          Adicionar empreendimento
-        </button>
-      </form>
+      <Card variant="lg" className="mb-5 tablm-up">
+        <form action={criarEmpreendimento} className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <input type="hidden" name="incorporadora_id" value={id} />
+          <input
+            name="nome"
+            required
+            placeholder="Nome do empreendimento *"
+            className={`${campo} sm:col-span-2`}
+          />
+          <input name="cidade" placeholder="Cidade" className={campo} />
+          <input name="bairro" placeholder="Bairro" className={campo} />
+          <input name="padrao" placeholder="Padrão (ex.: Alto)" className={`${campo} sm:col-span-2`} />
+          <div className="sm:col-span-2 flex justify-end">
+            <Button type="submit">Adicionar empreendimento</Button>
+          </div>
+        </form>
+      </Card>
 
       {erro ? (
-        <div className="mt-6 rounded-xl border border-amber/40 bg-amber/10 text-ink-soft px-4 py-3 text-sm">
-          Não consegui carregar do backend: <b>{erro}</b>. Ligue o Supabase no `api/.env`.
+        <div className="rounded-[12px] border border-warn-line bg-warn-bg text-warn-strong px-4 py-3 text-[13.5px]">
+          Não consegui carregar do backend: <b>{erro}</b>.
         </div>
       ) : empreendimentos.length === 0 ? (
-        <p className="mt-6 text-muted">Nenhum empreendimento ainda. Adicione o primeiro acima.</p>
+        <Card>
+          <div className="text-[14px] text-muted">
+            Nenhum empreendimento ainda. Adicione o primeiro no formulário acima.
+          </div>
+        </Card>
       ) : (
-        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 tablm-up">
           {empreendimentos.map((emp) => (
             <Link
               key={emp.id}
               href={`/empreendimentos/${emp.id}`}
-              className="block bg-white rounded-xl border border-line border-l-4 border-l-royal p-4 hover:bg-surface"
+              className="bg-white border border-line rounded-[14px] p-[18px_20px] shadow-[0_1px_3px_rgba(20,40,90,0.05)] hover:border-royal transition-colors block"
             >
-              <div className="font-semibold text-ink">{emp.nome}</div>
-              <div className="text-sm text-muted mt-1">
+              <div className="font-bold text-ink text-[15px]">{emp.nome}</div>
+              <div className="text-[12.5px] text-faint mt-0.5">
                 {[emp.bairro, emp.cidade].filter(Boolean).join(" · ") || "—"}
               </div>
               {emp.padrao && (
-                <div className="inline-block mt-2 text-xs font-semibold text-royal bg-royal/10 px-2 py-0.5 rounded-full">
-                  {emp.padrao}
+                <div className="mt-2">
+                  <Chip tom="royal">{emp.padrao}</Chip>
                 </div>
               )}
             </Link>
           ))}
         </div>
       )}
-    </div>
+    </>
   );
 }

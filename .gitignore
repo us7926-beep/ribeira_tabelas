@@ -29,3 +29,6 @@ htmlcov/
 
 # Uploads temporários de exemplo gerados em runtime
 exemplos/_gerados/
+
+# Material de handoff de design (referência local, não versionar)
+/App moderno azul royalv2/

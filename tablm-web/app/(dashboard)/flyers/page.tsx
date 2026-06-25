@@ -1,4 +1,5 @@
 import AnaliseFlyer from "@/components/flyer/AnaliseFlyer";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { api } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import type { Empreendimento, Incorporadora } from "@/types";
@@ -13,19 +14,17 @@ export default async function FlyersPage() {
     incorporadoras = await api<Incorporadora[]>("/incorporadoras", { token });
     empreendimentos = await api<Empreendimento[]>("/empreendimentos", { token });
   } catch {
-    /* backend/banco indisponível — a análise ainda funciona; vínculo fica limitado */
+    /* backend/banco indisponível — análise ainda funciona; vínculo fica limitado */
   }
 
   return (
-    <div>
-      <h1 className="text-2xl font-extrabold text-ink">Análise de Flyer (IA)</h1>
-      <p className="text-muted mt-1">
-        Suba um flyer ou material promocional; a IA detecta empreendimento, incorporadora e a
-        promoção, você revisa e registra no benchmark.
-      </p>
-      <div className="mt-6">
-        <AnaliseFlyer incorporadoras={incorporadoras} empreendimentos={empreendimentos} />
-      </div>
-    </div>
+    <>
+      <PageHeader
+        eyebrow="Análise por IA"
+        title="Detecção de flyers"
+        subtitle="Suba um flyer ou material promocional — a IA identifica o empreendimento, a incorporadora e a promoção. Você revisa e registra no benchmark."
+      />
+      <AnaliseFlyer incorporadoras={incorporadoras} empreendimentos={empreendimentos} />
+    </>
   );
 }

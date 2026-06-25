@@ -2,6 +2,12 @@
 
 import { useState } from "react";
 
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { DonutConic } from "@/components/ui/DonutConic";
+import { Dropzone } from "@/components/ui/Dropzone";
+import { KpiCard } from "@/components/ui/KpiCard";
+
 interface KPIs {
   total_unidades: number;
   disponiveis: number;
@@ -24,14 +30,10 @@ function moeda(valor: number): string {
   return "R$ " + Math.round(valor).toLocaleString("pt-BR");
 }
 
-function Card({ titulo, valor, sub }: { titulo: string; valor: string; sub?: string }) {
-  return (
-    <div className="bg-white rounded-2xl border border-line border-l-4 border-l-royal p-5">
-      <div className="text-sm font-semibold text-muted">{titulo}</div>
-      <div className="text-2xl font-extrabold text-ink mt-1 tabular-nums">{valor}</div>
-      {sub && <div className="text-xs text-muted mt-1">{sub}</div>}
-    </div>
-  );
+function moedaCurta(valor: number): string {
+  if (valor >= 1_000_000_000) return `R$ ${(valor / 1_000_000_000).toFixed(1)} bi`;
+  if (valor >= 1_000_000) return `R$ ${(valor / 1_000_000).toFixed(1)} mi`;
+  return moeda(valor);
 }
 
 export default function VendasKpis() {
@@ -60,53 +62,110 @@ export default function VendasKpis() {
   }
 
   const k = res?.kpis;
-  const total = k?.total_unidades || 1;
+  const total = k?.total_unidades || 0;
+  const pctVend = total ? (k!.vendidas / total) * 100 : 0;
+  const pctDisp = total ? (k!.disponiveis / total) * 100 : 0;
+  const pctRes = total ? (k!.reservadas / total) * 100 : 0;
 
   return (
-    <div className="max-w-4xl">
-      <div className="bg-white rounded-2xl border border-line p-6">
-        <input
-          type="file"
-          accept=".csv,.xlsx,.xls"
-          onChange={(e) => setArquivo(e.target.files?.[0] ?? null)}
-          className="block w-full text-sm text-ink-soft file:mr-4 file:rounded-lg file:border-0 file:bg-royal file:text-white file:px-4 file:py-2 file:font-semibold hover:file:bg-royal-dark"
-        />
-        <button
-          onClick={calcular}
-          disabled={!arquivo || carregando}
-          className="mt-4 rounded-lg bg-royal hover:bg-royal-dark text-white font-semibold px-5 py-2.5 disabled:opacity-50"
-        >
-          {carregando ? "Calculando..." : "Calcular KPIs"}
-        </button>
-      </div>
+    <div className="flex flex-col gap-5">
+      <Card variant="lg">
+        <div className="text-[16px] font-bold text-ink mb-0.5">Subir tabela de unidades</div>
+        <div className="text-[12.5px] text-muted mb-4">
+          CSV ou Excel com situação (Disponível / Vendido / Reservado). Detectamos as colunas
+          automaticamente.
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-[1.5fr_auto] gap-4 items-end">
+          <Dropzone
+            arquivo={arquivo}
+            onArquivo={setArquivo}
+            aceitar=".csv,.xlsx,.xls"
+            titulo="Arraste a planilha de vendas aqui"
+            dica="CSV ou Excel · até 50 MB"
+          />
+          <Button onClick={calcular} disabled={!arquivo || carregando}>
+            {carregando ? "Calculando..." : "Calcular KPIs"}
+          </Button>
+        </div>
+      </Card>
 
       {erro && (
-        <div className="mt-4 rounded-lg bg-red-50 text-neg text-sm px-3 py-2 border border-red-100">{erro}</div>
+        <div className="rounded-[12px] bg-down-bg text-down-strong text-[13.5px] px-4 py-3 border border-down-line">
+          {erro}
+        </div>
       )}
 
       {k && (
-        <div className="mt-6">
-          <div className="text-sm text-muted mb-3">
-            {k.total_unidades} unidades · situação: <b>{res!.colunas.status}</b>, valor: <b>{res!.colunas.valor}</b>
+        <>
+          <div className="text-[12.5px] text-muted">
+            {k.total_unidades} unidades · situação: <b className="text-ink">{res!.colunas.status}</b>,
+            valor: <b className="text-ink">{res!.colunas.valor}</b>
           </div>
 
-          {/* barra de proporção */}
-          <div className="flex h-3 rounded-full overflow-hidden mb-5 border border-line">
-            <div className="bg-pos" style={{ width: `${(k.vendidas / total) * 100}%` }} title="Vendidas" />
-            <div className="bg-amber" style={{ width: `${(k.reservadas / total) * 100}%` }} title="Reservadas" />
-            <div className="bg-royal" style={{ width: `${(k.disponiveis / total) * 100}%` }} title="Disponíveis" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+            <KpiCard
+              rotulo="Vendidas"
+              valor={String(k.vendidas)}
+              hint={`${k.pct_vendidas}% · VSO ${k.vso}%`}
+            />
+            <KpiCard
+              rotulo="Disponíveis"
+              valor={String(k.disponiveis)}
+              hint={`${k.pct_disponiveis}%`}
+            />
+            <KpiCard rotulo="Reservadas" valor={String(k.reservadas)} />
+            <KpiCard rotulo="Total" valor={String(k.total_unidades)} />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card titulo="Vendidas" valor={String(k.vendidas)} sub={`${k.pct_vendidas}% · VSO ${k.vso}%`} />
-            <Card titulo="Disponíveis" valor={String(k.disponiveis)} sub={`${k.pct_disponiveis}%`} />
-            <Card titulo="Reservadas" valor={String(k.reservadas)} />
-            <Card titulo="Total de unidades" valor={String(k.total_unidades)} />
-            <Card titulo="VGV total" valor={moeda(k.vgv_total)} />
-            <Card titulo="VGV vendido" valor={moeda(k.vgv_vendido)} />
-            <Card titulo="Ticket médio" valor={moeda(k.ticket_medio)} />
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr] gap-4">
+            <Card variant="lg" className="flex flex-col items-center">
+              <div className="text-[14px] font-bold text-ink mb-3 self-start">
+                Situação das unidades
+              </div>
+              <DonutConic
+                fatias={[
+                  { pct: pctVend, cor: "#15A34A" },
+                  { pct: pctRes, cor: "#E0B23A" },
+                  { pct: pctDisp, cor: "#2347C5" },
+                ]}
+                miolo={
+                  <div>
+                    <div className="text-[24px] font-extrabold text-ink tnum leading-none">
+                      {k.total_unidades}
+                    </div>
+                    <div className="text-[10.5px] text-muted mt-1 tracking-[0.3px] uppercase font-bold">
+                      unidades
+                    </div>
+                  </div>
+                }
+              />
+              <div className="flex items-center gap-4 mt-5 text-[12px] font-semibold text-body">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-up" />
+                  Vendidas {k.pct_vendidas}%
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-warn" />
+                  Reservadas {Math.round(pctRes)}%
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-royal" />
+                  Disponíveis {k.pct_disponiveis}%
+                </span>
+              </div>
+            </Card>
+
+            <Card variant="lg">
+              <div className="text-[14px] font-bold text-ink mb-4">VGV e ticket</div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                <KpiCard rotulo="VGV total" valor={moedaCurta(k.vgv_total)} />
+                <KpiCard rotulo="VGV vendido" valor={moedaCurta(k.vgv_vendido)} />
+                <KpiCard rotulo="Ticket médio" valor={moedaCurta(k.ticket_medio)} />
+              </div>
+            </Card>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

@@ -1,21 +1,58 @@
 @import "tailwindcss";
 
-/* Design system TabLM — azul royal Ribeira */
-@theme {
+/**
+ * Design system TabLM (Ribeira Empreendimentos).
+ * Royal #2347C5 + branco; sinais verde/vermelho/âmbar apenas em indicadores.
+ * Tailwind v4 CSS-first: tokens em @theme viram utilitários (bg-royal, text-ink, etc.).
+ */
+@theme inline {
+  /* Royal */
   --color-royal: #2347c5;
-  --color-royal-dark: #1c3bae;
-  --color-surface: #f7f8fc;
-  --color-sidebar: #111827;
-  --color-sidebar-soft: #1b2436;
-  --color-ink: #14203a;
-  --color-ink-soft: #2c3850;
-  --color-muted: #6b7689;
-  --color-line: #e5e9f2;
-  --color-pos: #15a34a;
-  --color-neg: #dc2626;
-  --color-amber: #e0b23a;
+  --color-royal-hover: #1c3bae;
+  --color-royal-deep: #1a38a8;
+  --color-royal-deepest: #122a82;
+  --color-royal-tint: #eaf0fe;
 
-  --font-sans: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
+  /* Texto */
+  --color-ink: #14203a;
+  --color-body: #2c3850;
+  --color-muted: #6b7689;
+  --color-faint: #97a2b5;
+
+  /* Superfícies */
+  --color-canvas: #f4f6fb;
+  --color-line: #e5e9f2;
+  --color-line-soft: #edf0f6;
+  --color-thead: #f6f8fc;
+
+  /* Sinais */
+  --color-up: #15a34a;
+  --color-up-strong: #157a3d;
+  --color-up-bg: #e9fbf0;
+  --color-up-line: #bdedcf;
+
+  --color-down: #dc2626;
+  --color-down-strong: #b91c1c;
+  --color-down-bg: #fdf2f2;
+  --color-down-line: #f3c7c7;
+
+  --color-warn: #e0b23a;
+  --color-warn-strong: #8a6a1e;
+  --color-warn-bg: #fbf3dd;
+  --color-warn-line: #f0e0b4;
+
+  /* Tipografia */
+  --font-sans: var(--font-hanken), system-ui, sans-serif;
+
+  /* Raios */
+  --radius-ctl: 12px;
+  --radius-card: 16px;
+  --radius-pill: 20px;
+
+  /* Sombras */
+  --shadow-card: 0 1px 3px rgba(20, 40, 90, 0.05);
+  --shadow-btn: 0 6px 16px rgba(35, 71, 197, 0.28);
+  --shadow-royal: 0 8px 22px rgba(35, 71, 197, 0.2);
 }
 
 html,
@@ -24,13 +61,41 @@ body {
 }
 
 body {
-  background: #ffffff;
+  background: var(--color-canvas);
   color: var(--color-ink);
   font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* transições suaves padrão (150ms) */
+::selection {
+  background: var(--color-royal);
+  color: #fff;
+}
+
+/* Entrada de tela: só transform (sem opacity, evita flash). */
+@keyframes tablm-up {
+  from {
+    transform: translateY(7px);
+  }
+  to {
+    transform: none;
+  }
+}
+.tablm-up {
+  animation: tablm-up 0.34s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+/* Números tabulares — sempre que aparecerem em KPIs/tabelas. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Transição padrão (150ms) em interações. */
 a,
 button {
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }

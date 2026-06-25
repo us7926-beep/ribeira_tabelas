@@ -1,6 +1,9 @@
 import Link from "next/link";
 
 import Documentos from "@/components/empreendimento/Documentos";
+import { Card } from "@/components/ui/Card";
+import { Chip } from "@/components/ui/Chip";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { api } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import type { Documento, Empreendimento } from "@/types";
@@ -25,28 +28,42 @@ export default async function EmpreendimentoPage({
     erro = (e as Error).message;
   }
 
+  const subtitulo =
+    [emp?.bairro, emp?.cidade].filter(Boolean).join(" · ") +
+    (emp?.padrao ? ` · padrão ${emp.padrao}` : "") || "Empreendimento";
+
   return (
-    <div className="max-w-3xl">
+    <>
       <Link
         href={emp ? `/incorporadoras/${emp.incorporadora_id}` : "/incorporadoras"}
-        className="text-sm text-muted hover:text-royal"
+        className="text-[13px] text-muted hover:text-royal font-semibold inline-flex items-center gap-1 mb-3"
       >
         ← Voltar
       </Link>
-      <h1 className="text-2xl font-extrabold text-ink mt-1">{emp?.nome ?? "Empreendimento"}</h1>
-      <p className="text-muted mt-1">
-        {[emp?.bairro, emp?.cidade].filter(Boolean).join(" · ") || "—"}
-        {emp?.padrao ? ` · ${emp.padrao}` : ""}
-      </p>
+      <PageHeader
+        eyebrow="Empreendimento"
+        title={emp?.nome ?? "Empreendimento"}
+        subtitle={subtitulo}
+      />
 
-      <h2 className="text-lg font-bold text-ink mt-7 mb-3">Documentos</h2>
-      {erro ? (
-        <div className="rounded-xl border border-amber/40 bg-amber/10 text-ink-soft px-4 py-3 text-sm">
-          Não consegui carregar do backend: <b>{erro}</b>.
+      {emp && (
+        <div className="flex flex-wrap gap-2 mb-5 tablm-up">
+          {emp.padrao && <Chip tom="royal">{emp.padrao}</Chip>}
+          {emp.total_unidades && <Chip>{emp.total_unidades} unidades</Chip>}
+          {emp.torres && <Chip>{emp.torres} torres</Chip>}
         </div>
+      )}
+
+      <h2 className="text-[16px] font-bold text-ink mb-3">Repositório de documentos</h2>
+      {erro ? (
+        <Card>
+          <div className="text-[14px] text-warn-strong">
+            Não consegui carregar do backend: <b>{erro}</b>.
+          </div>
+        </Card>
       ) : (
         <Documentos empreendimentoId={id} documentos={documentos} />
       )}
-    </div>
+    </>
   );
 }

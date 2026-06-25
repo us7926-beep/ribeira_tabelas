@@ -1,4 +1,5 @@
 import ReajusteIncc from "@/components/incc/ReajusteIncc";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { api } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 
@@ -18,15 +19,13 @@ export default async function InccPage() {
   }
 
   return (
-    <div>
-      <h1 className="text-2xl font-extrabold text-ink">Reajuste por INCC</h1>
-      <p className="text-muted mt-1">
-        Escolha o INCC-DI do mês (fonte: Banco Central, série 192), suba a tabela de valores e
-        aplique o reajuste — com % ou R$ extra opcionais. Exporte o resultado em CSV.
-      </p>
-      <div className="mt-6">
-        <ReajusteIncc variacoes={variacoes} />
-      </div>
-    </div>
+    <>
+      <PageHeader
+        eyebrow="Atualização monetária"
+        title="Reajustar por INCC"
+        subtitle="Escolha o INCC-DI do mês (BCB série 192), suba a tabela e aplique o reajuste com % ou R$ extra opcionais."
+      />
+      <ReajusteIncc variacoes={variacoes} />
+    </>
   );
 }
