@@ -30,6 +30,105 @@ export interface Empreendimento {
   unidades_vendidas?: number | null;
   unidades_disponiveis?: number | null;
   kpis_atualizados_em?: string | null;
+  /** Ficha técnica expandida (PATCH /empreendimentos/{id}/ficha). */
+  metragens?: string[] | null;
+  vagas_comunidade?: number | null;
+  vagas_venda?: number | null;
+  vagas_cobertas?: number | null;
+  distancia_metro_km?: number | null;
+  tipo_uso?: string | null;
+  unidades_residenciais?: number | null;
+  unidades_comerciais?: number | null;
+  estoque?: number | null;
+}
+
+/** Linha de unidade extraída de uma tabela de preços. */
+export interface UnidadePreco {
+  andar?: string;
+  unidade?: string;
+  area_m2?: number | null;
+  vaga?: string;
+  entrada?: number | null;
+  parcelas_mensais?: number | null;
+  financiamento?: number | null;
+  preco_total?: number | null;
+  avaliacao?: number | null;
+  [k: string]: unknown;
+}
+
+export interface CondicoesComerciais {
+  avista?: { desconto_pct?: number };
+  entrada?: { pct_ato?: number; parcelas_obra?: number; valor_parcela_medio?: number };
+  financiamento?: { banco?: string; taxa_aa?: number | null; prazo_meses?: number };
+  mensais?: { descricao: string; valor: number }[];
+  anuais?: { descricao: string; valor: number }[];
+  outros?: { descricao: string; valor: number }[];
+  [k: string]: unknown;
+}
+
+export interface PromocaoTabela {
+  descricao: string;
+  data_inicio?: string;
+  data_fim?: string;
+  condicoes?: string;
+}
+
+export interface TabelaPrecos {
+  id: string;
+  empreendimento_id: string;
+  versao: string;
+  data_referencia: string;
+  unidades: UnidadePreco[] | null;
+  condicoes: CondicoesComerciais | null;
+  promocoes: PromocaoTabela[] | null;
+  raw_gemini?: Record<string, unknown> | null;
+  criado_em?: string;
+}
+
+export interface VendaMensal {
+  id: string;
+  empreendimento_id: string;
+  mes: string;
+  unidades_vendidas: number;
+  vgv_mes?: number | null;
+  fonte?: "manual" | "planilha" | "ia";
+  criado_em?: string;
+}
+
+export interface FluxoComercial {
+  tabela_id: string;
+  versao: string;
+  data_referencia?: string;
+  comparativo: {
+    tipos: string[];
+    por_tipo: Record<
+      string,
+      {
+        ticket_medio: number;
+        pct_total: number;
+        valor_medio_parcela?: number | null;
+        n_parcelas?: number | null;
+      }
+    >;
+    diferencas: { de: string; para: string; diferenca_reais: number; diferenca_pct: number }[];
+  };
+}
+
+/** Resposta de POST /gemini/buscar-empreendimento. Campos ausentes = não encontrados. */
+export interface FichaIA {
+  cnpj_spe?: string;
+  ri?: string;
+  data_lancamento?: string;
+  data_entrega?: string;
+  total_unidades?: number;
+  pavimentos?: number;
+  torres?: number;
+  metragens?: string[];
+  tipologias?: string;
+  bairro?: string;
+  distancia_metro_km?: number;
+  padrao?: string;
+  fontes?: string[];
 }
 
 export interface Documento {

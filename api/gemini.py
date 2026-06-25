@@ -136,3 +136,82 @@ def extrair_tabela_precos(conteudo: bytes, nome: str) -> dict:
         "unidades": dados.get("unidades") or [],
         "promocoes": dados.get("promocoes") or [],
     }
+
+
+_PROMPT_BUSCA_EMPREENDIMENTO = (
+    "Voce e um analista imobiliario. Pesquise dados publicos sobre o "
+    "empreendimento abaixo e responda APENAS um objeto JSON com as chaves: "
+    "cnpj_spe, ri, data_lancamento, data_entrega, total_unidades, pavimentos, "
+    "torres, metragens (array de strings, ex.: ['49 m2','64 m2']), tipologias, "
+    "bairro, distancia_metro_km (numero, em km), padrao (uma das opcoes: "
+    "Economico, Medio, Alto, Luxo), fontes (array de URLs). "
+    "Datas em DD/MM/AAAA. Use string vazia ou null nos campos que voce nao "
+    "encontrar (nunca invente)."
+)
+
+
+def buscar_dados_empreendimento(
+    nome: str, incorporadora: str = "", cidade: str = ""
+) -> dict:
+    """Busca ficha tecnica publica via Gemini.
+
+    Tenta primeiro com Google Search grounding (gemini-2.0+/2.5 com tool). Se a
+    SDK ou o modelo nao suportarem, faz fallback para prompt direto sem
+    grounding. Retorna dict com os campos encontrados (faltantes ausentes).
+    """
+    from google import genai
+    from google.genai import errors, types
+
+    if not config.gemini_api_key():
+        raise RuntimeError("GEMINI_API_KEY ausente no ambiente.")
+
+    cliente = genai.Client(api_key=config.gemini_api_key())
+    prompt = (
+        f"{_PROMPT_BUSCA_EMPREENDIMENTO}\n\n"
+        f"Nome: {nome}\n"
+        f"Incorporadora: {incorporadora or '(nao informada)'}\n"
+        f"Cidade: {cidade or '(nao informada)'}"
+    )
+
+    def _chamar(usar_grounding: bool) -> dict:
+        if usar_grounding:
+            tools = [types.Tool(google_search=types.GoogleSearch())]
+            cfg = types.GenerateContentConfig(tools=tools)
+        else:
+            cfg = types.GenerateContentConfig(response_mime_type="application/json")
+        resposta = cliente.models.generate_content(
+            model=config.gemini_model(), contents=[prompt], config=cfg
+        )
+        bruto = (resposta.text or "").strip()
+        try:
+            return json.loads(bruto)
+        except json.JSONDecodeError:
+            # Quando grounding ativo, modelo costuma incluir prosa antes do JSON.
+            inicio = bruto.find("{")
+            fim = bruto.rfind("}")
+            if inicio >= 0 and fim > inicio:
+                return json.loads(bruto[inicio : fim + 1])
+            raise
+
+    # 1) Tentativa com Google Search grounding (mais preciso, com fontes).
+    try:
+        dados = _chamar(usar_grounding=True)
+    except (errors.ServerError, errors.ClientError, json.JSONDecodeError, AttributeError, ValueError):
+        # 2) Fallback sem grounding.
+        try:
+            dados = _chamar(usar_grounding=False)
+        except (errors.ServerError, json.JSONDecodeError) as exc:
+            raise RuntimeError(f"Falha na busca: {exc}") from exc
+
+    if not isinstance(dados, dict):
+        return {}
+    chaves_lista = {"metragens", "fontes"}
+    saida: dict = {}
+    for chave, valor in dados.items():
+        if valor in (None, "", []):
+            continue
+        if chave in chaves_lista:
+            saida[chave] = valor if isinstance(valor, list) else [str(valor)]
+        else:
+            saida[chave] = valor
+    return saida

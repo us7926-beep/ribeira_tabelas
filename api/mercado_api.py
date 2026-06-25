@@ -48,6 +48,26 @@ def ultima_extracao_ia() -> dict | None:
     return _RESULTADO_IA
 
 
+def montar_condicoes_simples(kpis: dict | None) -> dict:
+    """Infere um JSON de condições básicas a partir dos KPIs (CSV/XLS).
+
+    Quando a IA não rodou, ainda assim queremos popular `tabelas_precos.condicoes`
+    com algo mínimo: à vista (sem desconto explícito) + financiamento (sem banco).
+    """
+    if not kpis:
+        return {}
+    ticket = kpis.get("ticket_medio")
+    return {
+        "avista": {},
+        "financiamento": {
+            "banco": "",
+            "taxa_aa": None,
+            "prazo_meses": 360,
+        },
+        **({"_ticket_referencia": ticket} if ticket else {}),
+    }
+
+
 def _detectar(df: pd.DataFrame, candidatos: list[str]) -> str | None:
     for coluna in df.columns:
         nome = str(coluna).lower()
