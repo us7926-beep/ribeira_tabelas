@@ -10,13 +10,27 @@ import { Chip } from "@/components/ui/Chip";
 import { Dropzone } from "@/components/ui/Dropzone";
 import type { Documento } from "@/types";
 
-const TIPOS = ["flyer", "memorial", "tabela", "planta", "outro"];
+const TIPOS = [
+  "flyer",
+  "memorial",
+  "tabela",
+  "tabela_precos",
+  "planta",
+  "book_concorrente",
+  "material_interno",
+  "ri_documento",
+  "outro",
+];
 
-const TOM: Record<string, "royal" | "up" | "warn" | "neutro"> = {
+const TOM: Record<string, "royal" | "up" | "warn" | "neutro" | "down"> = {
   flyer: "royal",
   memorial: "neutro",
   tabela: "up",
+  tabela_precos: "up",
   planta: "warn",
+  book_concorrente: "down",
+  material_interno: "royal",
+  ri_documento: "warn",
   outro: "neutro",
 };
 
