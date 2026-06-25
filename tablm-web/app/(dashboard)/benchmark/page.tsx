@@ -6,7 +6,12 @@ import type { Empreendimento, EventoPromocional, Incorporadora } from "@/types";
 
 export const dynamic = "force-dynamic";
 
-type SearchParams = Promise<{ aba?: string }>;
+type SearchParams = Promise<{
+  aba?: string;
+  territorio?: string;
+  padrao?: string;
+  concorrente?: string;
+}>;
 
 export default async function BenchmarkPage({
   searchParams,
@@ -14,7 +19,7 @@ export default async function BenchmarkPage({
   searchParams: SearchParams;
 }) {
   const token = await getToken();
-  const { aba } = await searchParams;
+  const { aba, territorio, padrao, concorrente } = await searchParams;
 
   let incorporadoras: Incorporadora[] = [];
   let empreendimentos: Empreendimento[] = [];
@@ -46,6 +51,9 @@ export default async function BenchmarkPage({
         empreendimentos={empreendimentos}
         eventos={eventos}
         abaInicial={abaInicial}
+        territorioInicial={territorio ?? "Todos"}
+        padraoInicial={padrao ?? "Todos"}
+        concorrenteInicial={concorrente ?? "Todos"}
       />
     </>
   );

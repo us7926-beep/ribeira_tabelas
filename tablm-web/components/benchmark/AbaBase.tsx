@@ -4,8 +4,10 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Chip } from "@/components/ui/Chip";
 import { Dropzone } from "@/components/ui/Dropzone";
 import { KpiCard } from "@/components/ui/KpiCard";
+import type { Empreendimento } from "@/types";
 
 interface KPIs {
   total_unidades: number;
@@ -29,7 +31,7 @@ function moeda(valor: number | null): string {
   return "R$ " + Math.round(valor).toLocaleString("pt-BR");
 }
 
-export function AbaBase() {
+export function AbaBase({ empreendimentos = [] }: { empreendimentos?: Empreendimento[] }) {
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [tipo, setTipo] = useState("Concorrente");
   const [incorporadora, setIncorporadora] = useState("");
@@ -40,10 +42,17 @@ export function AbaBase() {
   const [erro, setErro] = useState("");
   const [res, setRes] = useState<Resultado | null>(null);
 
+  // Estado da vinculação a um empreendimento (persiste KPIs no backend).
+  const [empId, setEmpId] = useState("");
+  const [tipoKpi, setTipoKpi] = useState<"mercado" | "vendas">("mercado");
+  const [vinculando, setVinculando] = useState(false);
+  const [vinculado, setVinculado] = useState("");
+
   async function analisar() {
     if (!arquivo) return;
     setErro("");
     setRes(null);
+    setVinculado("");
     setCarregando(true);
     try {
       const fd = new FormData();
@@ -61,6 +70,27 @@ export function AbaBase() {
       setErro((e as Error).message);
     } finally {
       setCarregando(false);
+    }
+  }
+
+  async function vincular() {
+    if (!arquivo || !empId) return;
+    setErro("");
+    setVinculado("");
+    setVinculando(true);
+    try {
+      const fd = new FormData();
+      fd.append("arquivo", arquivo);
+      fd.append("tipo", tipoKpi);
+      const r = await fetch(`/api/empreendimentos/${empId}/kpis`, { method: "POST", body: fd });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail ?? "Falha ao persistir KPIs");
+      const nomeEmp = empreendimentos.find((e) => e.id === empId)?.nome ?? "empreendimento";
+      setVinculado(`KPIs salvos em "${nomeEmp}" — Benchmark já reflete os números reais.`);
+    } catch (e) {
+      setErro((e as Error).message);
+    } finally {
+      setVinculando(false);
     }
   }
 
@@ -112,7 +142,7 @@ export function AbaBase() {
             />
             <div className="col-span-2 flex justify-end">
               <Button onClick={analisar} disabled={!arquivo || carregando}>
-                {carregando ? "Processando..." : "Adicionar à base"}
+                {carregando ? "Processando..." : "Analisar planilha"}
               </Button>
             </div>
           </div>
@@ -125,9 +155,15 @@ export function AbaBase() {
         </div>
       )}
 
+      {vinculado && (
+        <div className="rounded-[12px] bg-up-bg text-up-strong text-[13.5px] px-4 py-3 border border-up-line">
+          {vinculado}
+        </div>
+      )}
+
       {res && (
-        <div>
-          <div className="text-[12.5px] text-muted mb-3">
+        <>
+          <div className="text-[12.5px] text-muted">
             {res.linhas} unidades · colunas detectadas: valor=
             <b className="text-ink">{res.colunas_detectadas.valor}</b>, área=
             <b className="text-ink">{res.colunas_detectadas.area}</b>
@@ -141,7 +177,48 @@ export function AbaBase() {
             <KpiCard rotulo="VGV total" valor={moeda(res.kpis.vgv_total)} />
             <KpiCard rotulo="Unidades" valor={String(res.kpis.total_unidades)} />
           </div>
-        </div>
+
+          {/* Vincular a um empreendimento — persiste KPIs no banco */}
+          <Card variant="lg">
+            <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
+              <div>
+                <div className="text-[16px] font-bold text-ink">Vincular ao empreendimento</div>
+                <div className="text-[12.5px] text-muted mt-0.5">
+                  Salva os KPIs no empreendimento escolhido. O Benchmark passa a refletir os
+                  números reais (no Panorama, Head-to-head e Oportunidades).
+                </div>
+              </div>
+              <Chip tom="royal">Opcional</Chip>
+            </div>
+            {empreendimentos.length === 0 ? (
+              <div className="text-[13.5px] text-muted">
+                Cadastre um empreendimento em <b>Carteira</b> antes de vincular.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-[1.5fr_180px_auto] gap-2.5 items-end">
+                <select value={empId} onChange={(e) => setEmpId(e.target.value)} className={campo}>
+                  <option value="">Selecione o empreendimento…</option>
+                  {empreendimentos.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.nome}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={tipoKpi}
+                  onChange={(e) => setTipoKpi(e.target.value as "mercado" | "vendas")}
+                  className={campo}
+                >
+                  <option value="mercado">Tabela de mercado</option>
+                  <option value="vendas">Tabela de vendas</option>
+                </select>
+                <Button onClick={vincular} disabled={!empId || vinculando}>
+                  {vinculando ? "Salvando..." : "Salvar KPIs"}
+                </Button>
+              </div>
+            )}
+          </Card>
+        </>
       )}
     </div>
   );

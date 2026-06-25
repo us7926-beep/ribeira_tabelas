@@ -16,30 +16,55 @@ function hashNome(s: string): number {
   return h;
 }
 
+/**
+ * Cada getter abaixo prefere o KPI real salvo no empreendimento (preenchido
+ * pelo POST /empreendimentos/{id}/kpis). Se ainda não houver dado real, cai
+ * num valor heurístico determinístico para o protótipo continuar plausível.
+ */
+
+function temReal<T>(valor: T | null | undefined): valor is T {
+  return valor !== null && valor !== undefined && !Number.isNaN(valor as number);
+}
+
 export function precoM2(emp: Empreendimento): number {
+  if (temReal(emp.preco_m2_medio)) return Math.round(emp.preco_m2_medio as number);
   const base = 7000 + (hashNome(emp.nome) % 6000);
   return Math.round(base / 100) * 100;
 }
 
 export function vso(emp: Empreendimento): number {
+  if (temReal(emp.vso)) return Math.round(emp.vso as number);
   return 25 + (hashNome(`vso-${emp.nome}`) % 65);
 }
 
 export function ticketMedio(emp: Empreendimento): number {
+  if (temReal(emp.ticket_medio)) return Math.round(emp.ticket_medio as number);
   const base = 480_000 + (hashNome(`tic-${emp.nome}`) % 600_000);
   return Math.round(base / 10_000) * 10_000;
 }
 
 export function estoque(emp: Empreendimento): number {
+  if (temReal(emp.unidades_disponiveis)) return emp.unidades_disponiveis as number;
   return 8 + (hashNome(`est-${emp.nome}`) % 80);
 }
 
 export function unidades(emp: Empreendimento): number {
-  return emp.total_unidades ?? 80 + (hashNome(`un-${emp.nome}`) % 180);
+  if (temReal(emp.total_unidades_calc)) return emp.total_unidades_calc as number;
+  if (temReal(emp.total_unidades)) return emp.total_unidades as number;
+  return 80 + (hashNome(`un-${emp.nome}`) % 180);
+}
+
+/** Indica se o empreendimento tem KPIs persistidos (mostra "real" vs. estimativa). */
+export function temKpisReais(emp: Empreendimento): boolean {
+  return temReal(emp.preco_m2_medio) || temReal(emp.vso) || temReal(emp.ticket_medio);
 }
 
 export function score(emp: Empreendimento): number {
-  return 30 + (hashNome(`scr-${emp.nome}`) % 65);
+  // Score derivado: VSO peso 0.6 + (preco_m2 normalizado) peso 0.4.
+  const p = precoM2(emp);
+  const v = vso(emp);
+  const pNorm = Math.max(0, Math.min(100, ((p - 7000) / (13000 - 7000)) * 100));
+  return Math.round(v * 0.6 + pNorm * 0.4);
 }
 
 export type CorAmeaca = { corScore: string; corBarra: string };

@@ -1,67 +1,19 @@
-interface Quadrante {
-  title: string;
-  sub: string;
-  icon: string;
-  accent: string;
-  tint: string;
-  items: string[];
+import { analisarSwot } from "@/lib/swot";
+import type { Empreendimento, EventoPromocional, Incorporadora } from "@/types";
+
+interface Props {
+  meus: Empreendimento[];
+  concorrentes: Empreendimento[];
+  eventos: EventoPromocional[];
+  incorporadoras: Incorporadora[];
 }
 
-const QUADRANTES: Quadrante[] = [
-  {
-    title: "Forças",
-    sub: "onde você ganha",
-    icon: "F",
-    accent: "#2347C5",
-    tint: "#EAF0FE",
-    items: [
-      "Velocidade de vendas (VSO 62%) acima da média da praça.",
-      "Marca consolidada em Jardim Aurora, líder de ticket médio.",
-      "Prêmio de preço sustentado de 6,7% sobre concorrentes diretos.",
-    ],
-  },
-  {
-    title: "Fraquezas",
-    sub: "onde você perde",
-    icon: "W",
-    accent: "#DC2626",
-    tint: "#FDF2F2",
-    items: [
-      "Estoque alto no padrão Alto (38 un) frente à absorção atual.",
-      "Sem produto na faixa Luxo, cedida à Cyrela Costa.",
-      "Preço/m² 15% abaixo no Centro vs. Marina Tower.",
-    ],
-  },
-  {
-    title: "Oportunidades",
-    sub: "espaços a ocupar",
-    icon: "O",
-    accent: "#15A34A",
-    tint: "#E9FBF0",
-    items: [
-      "Demanda no padrão Alto em Vila Marina sem oferta direta.",
-      "Faixa R$ 500–650 mil subofertada em toda a praça.",
-      "Distratos da concorrência liberando clientes qualificados.",
-    ],
-  },
-  {
-    title: "Ameaças",
-    sub: "riscos a monitorar",
-    icon: "A",
-    accent: "#E0A21A",
-    tint: "#FBF3DD",
-    items: [
-      "Lançamento da Construtora Lima no Centro (mesmo padrão).",
-      "MRV Norte pressiona o preço de entrada da região.",
-      "INCC acumulado pode comprimir margem se não repassado.",
-    ],
-  },
-];
+export function AbaSwot({ meus, concorrentes, eventos, incorporadoras }: Props) {
+  const quadrantes = analisarSwot(meus, concorrentes, eventos, incorporadoras);
 
-export function AbaSwot() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 tablm-up">
-      {QUADRANTES.map((q) => (
+      {quadrantes.map((q) => (
         <div
           key={q.title}
           className="bg-white border border-line rounded-[16px] p-[22px] shadow-[0_1px_3px_rgba(20,40,90,0.05)]"
