@@ -6,6 +6,7 @@ Supabase Storage e migração das telas de mercado/vendas/INCC vêm nas próxima
 fases.
 """
 import uuid
+from datetime import datetime, timezone
 from pathlib import PurePosixPath
 
 from fastapi import Depends, FastAPI, Form, HTTPException, UploadFile
@@ -170,6 +171,55 @@ def obter_empreendimento(id_: str, _: str = Depends(security.usuario_autenticado
 def deletar_empreendimento(id_: str, _: str = Depends(security.usuario_autenticado)):
     _db_ou_503(db.deletar, "empreendimentos", id_)
     return {"ok": True}
+
+
+@app.post("/empreendimentos/{id_}/kpis")
+async def atualizar_kpis_empreendimento(
+    id_: str,
+    arquivo: UploadFile,
+    tipo: str = Form("mercado"),
+    _: str = Depends(security.usuario_autenticado),
+):
+    """Processa uma planilha (mercado ou vendas) e persiste os KPIs no empreendimento.
+
+    tipo="mercado": preco_m2_medio, ticket_medio, vgv_total, total_unidades_calc.
+    tipo="vendas":  vso, ticket_medio, vgv_total, total_unidades_calc, unidades_vendidas, unidades_disponiveis.
+    Em ambos os casos atualiza kpis_atualizados_em.
+    """
+    conteudo = await _ler_upload(arquivo)
+    atualizacao: dict = {"kpis_atualizados_em": datetime.now(timezone.utc).isoformat()}
+    try:
+        df = mercado_api.ler_planilha(conteudo, arquivo.filename or "tabela.xlsx")
+        if tipo == "vendas":
+            k = vendas_api.kpis(df)["kpis"]
+            atualizacao.update({
+                "vso": k.get("vso"),
+                "ticket_medio": k.get("ticket_medio"),
+                "vgv_total": k.get("vgv_total"),
+                "total_unidades_calc": k.get("total_unidades"),
+                "unidades_vendidas": k.get("vendidas"),
+                "unidades_disponiveis": k.get("disponiveis"),
+            })
+        else:
+            k = mercado_api.comparativo(
+                df, tipo="Nosso", incorporadora="", produto="",
+                cidade="", bairro="", padrao="",
+            )["kpis"]
+            atualizacao.update({
+                "preco_m2_medio": k.get("preco_m2_medio"),
+                "ticket_medio": k.get("ticket_medio"),
+                "vgv_total": k.get("vgv_total"),
+                "total_unidades_calc": k.get("total_unidades"),
+            })
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # Remove chaves com valor None — evita sobrescrever dados ja persistidos com NULL.
+    campos = {chave: valor for chave, valor in atualizacao.items() if valor is not None}
+    registro = _db_ou_503(db.atualizar, "empreendimentos", id_, campos)
+    if not registro:
+        raise HTTPException(status_code=404, detail="Empreendimento não encontrado")
+    return {"ok": True, "kpis_aplicados": campos, "empreendimento": registro}
 
 
 # --------------------------------------------------------------------------- #

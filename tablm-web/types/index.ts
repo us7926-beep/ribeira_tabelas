@@ -21,6 +21,15 @@ export interface Empreendimento {
   cnpj_spe?: string | null;
   ri?: string | null;
   criado_em?: string;
+  /** KPIs derivados das planilhas. Preenchidos por POST /empreendimentos/{id}/kpis. */
+  preco_m2_medio?: number | null;
+  ticket_medio?: number | null;
+  vso?: number | null;
+  vgv_total?: number | null;
+  total_unidades_calc?: number | null;
+  unidades_vendidas?: number | null;
+  unidades_disponiveis?: number | null;
+  kpis_atualizados_em?: string | null;
 }
 
 export interface Documento {

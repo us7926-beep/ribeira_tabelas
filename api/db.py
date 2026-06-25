@@ -30,6 +30,11 @@ def inserir(tabela: str, registro: dict) -> dict:
     return dados[0] if dados else {}
 
 
+def atualizar(tabela: str, id_: str, campos: dict) -> dict:
+    dados = cliente().table(tabela).update(campos).eq("id", id_).execute().data
+    return dados[0] if dados else {}
+
+
 def deletar(tabela: str, id_: str) -> None:
     cliente().table(tabela).delete().eq("id", id_).execute()
 
