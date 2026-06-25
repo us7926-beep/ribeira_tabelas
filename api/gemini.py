@@ -96,3 +96,43 @@ def extrair_ficha(conteudo: bytes, nome: str) -> dict:
     """Ficha técnica completa (mesmos campos da aba Extração do Streamlit)."""
     dados = _gerar(conteudo, nome, _PROMPT_FICHA)
     return {chave: _texto(dados.get(chave)) for chave in CAMPOS_FICHA}
+
+
+_PROMPT_TABELA_PRECOS = (
+    "Voce e um analista imobiliario. Este documento e uma tabela de precos de "
+    "lancamento de um empreendimento. Extraia TUDO em um unico objeto JSON com "
+    "exatamente estas chaves: nome_empreendimento, incorporadora, cidade, bairro, "
+    "padrao, total_unidades, unidades, promocoes. "
+    "'padrao' deve ser exatamente uma destas opcoes: 'Economico', 'Medio', 'Alto', "
+    "'Luxo' (infira pelo preco/m2 e area). "
+    "'unidades' e um array com TODAS as linhas da tabela. Cada item tem: "
+    "andar (string), unidade (string identificando o apartamento, ex.: 'Terreo 1;5'), "
+    "area_m2 (number), vaga (string), entrada (number), parcelas_mensais (number), "
+    "financiamento (number), preco_total (number), avaliacao (number). "
+    "Use null quando o campo nao constar. NUNCA pule linhas, extraia TODAS as unidades. "
+    "'promocoes' e um array de objetos com descricao (string), data_inicio "
+    "(DD/MM/AAAA ou vazio), data_fim (DD/MM/AAAA ou vazio), condicoes (string). "
+    "Liste APENAS promocoes com prazo definido ou condicao especial limitada (ex.: "
+    "ITBI por conta da incorporadora ate uma data, desconto a vista limitado). NAO "
+    "liste regras gerais do contrato (juros, INCC, IPCA, regras de financiamento). "
+    "Responda APENAS o JSON, sem comentarios nem markdown."
+)
+
+
+def extrair_tabela_precos(conteudo: bytes, nome: str) -> dict:
+    """Extrai tabela de unidades + promoes de um PDF/imagem de lançamento.
+
+    Retorna: nome_empreendimento, incorporadora, cidade, bairro, padrao,
+    total_unidades, unidades (lista), promocoes (lista).
+    """
+    dados = _gerar(conteudo, nome, _PROMPT_TABELA_PRECOS)
+    return {
+        "nome_empreendimento": _texto(dados.get("nome_empreendimento")),
+        "incorporadora": _texto(dados.get("incorporadora")),
+        "cidade": _texto(dados.get("cidade")),
+        "bairro": _texto(dados.get("bairro")),
+        "padrao": _texto(dados.get("padrao")),
+        "total_unidades": dados.get("total_unidades"),
+        "unidades": dados.get("unidades") or [],
+        "promocoes": dados.get("promocoes") or [],
+    }

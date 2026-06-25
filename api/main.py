@@ -252,10 +252,24 @@ async def mercado_comparativo(
     conteudo = await _ler_upload(arquivo)
     try:
         df = mercado_api.ler_planilha(conteudo, arquivo.filename or "tabela.xlsx")
-        return mercado_api.comparativo(
+        resultado = mercado_api.comparativo(
             df, tipo=tipo, incorporadora=incorporadora, produto=produto,
             cidade=cidade, bairro=bairro, padrao=padrao,
         )
+        # Se o arquivo foi PDF/imagem lido por IA, devolve tambem o que ela
+        # identificou (nome, incorporadora, promocoes) — frontend usa para
+        # sugerir vinculo + registrar promocoes detectadas.
+        ia = mercado_api.ultima_extracao_ia()
+        if ia:
+            resultado["ia"] = {
+                "nome_empreendimento": ia.get("nome_empreendimento"),
+                "incorporadora": ia.get("incorporadora"),
+                "cidade": ia.get("cidade"),
+                "bairro": ia.get("bairro"),
+                "padrao": ia.get("padrao"),
+                "promocoes": ia.get("promocoes"),
+            }
+        return resultado
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:  # noqa: BLE001
