@@ -132,6 +132,19 @@ def criar_incorporadora(dados: IncorporadoraIn, _: str = Depends(security.usuari
     return _db_ou_503(db.inserir, "incorporadoras", dados.model_dump())
 
 
+@app.delete("/incorporadoras/{id_}")
+def deletar_incorporadora(id_: str, _: str = Depends(security.usuario_autenticado)):
+    # Bloqueia se ja houver empreendimentos vinculados — evita orfaos.
+    vinculados = _db_ou_503(db.listar, "empreendimentos", incorporadora_id=id_)
+    if vinculados:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Incorporadora tem {len(vinculados)} empreendimento(s) vinculado(s).",
+        )
+    _db_ou_503(db.deletar, "incorporadoras", id_)
+    return {"ok": True}
+
+
 @app.get("/empreendimentos")
 def listar_empreendimentos(
     incorporadora_id: str | None = None, _: str = Depends(security.usuario_autenticado)

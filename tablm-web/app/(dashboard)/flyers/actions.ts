@@ -37,6 +37,7 @@ export async function registrarEventoDeFlyer(entrada: EntradaEvento): Promise<Re
 
   let empId = entrada.empreendimentoId;
   let empCriado = false;
+  let incCriadaId: string | null = null;
   if (!empId) {
     if (!entrada.novoNome.trim()) {
       return { ok: false, erro: "Informe o nome do empreendimento." };
@@ -50,10 +51,6 @@ export async function registrarEventoDeFlyer(entrada: EntradaEvento): Promise<Re
           erro: "Selecione uma incorporadora existente ou informe o nome de uma nova.",
         };
       }
-      // Cria a incorporadora se ela ainda não existe. Se o passo seguinte
-      // (criar empreendimento) falhar, ela fica cadastrada mesmo assim — o
-      // backend não expõe DELETE /incorporadoras/{id}; numa nova tentativa ela
-      // já aparece no select e o usuário escolhe direto.
       try {
         const inc = await api<{ id: string }>("/incorporadoras", {
           method: "POST",
@@ -61,6 +58,7 @@ export async function registrarEventoDeFlyer(entrada: EntradaEvento): Promise<Re
           body: JSON.stringify({ nome: nomeInc }),
         });
         incId = inc.id;
+        incCriadaId = inc.id;
       } catch (err) {
         return { ok: false, erro: (err as Error).message };
       }
@@ -77,6 +75,9 @@ export async function registrarEventoDeFlyer(entrada: EntradaEvento): Promise<Re
       empId = emp.id;
       empCriado = true;
     } catch (err) {
+      if (incCriadaId) {
+        await api(`/incorporadoras/${incCriadaId}`, { method: "DELETE", token }).catch(() => {});
+      }
       return { ok: false, erro: (err as Error).message };
     }
   }
@@ -96,6 +97,9 @@ export async function registrarEventoDeFlyer(entrada: EntradaEvento): Promise<Re
   } catch (err) {
     if (empCriado && empId) {
       await api(`/empreendimentos/${empId}`, { method: "DELETE", token }).catch(() => {});
+    }
+    if (incCriadaId) {
+      await api(`/incorporadoras/${incCriadaId}`, { method: "DELETE", token }).catch(() => {});
     }
     return { ok: false, erro: (err as Error).message };
   }
