@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { COOKIE_TOKEN } from "@/lib/constants";
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const token = req.cookies.get(COOKIE_TOKEN)?.value;
   const ehPublico = pathname.startsWith("/login") || pathname.startsWith("/api/auth");
