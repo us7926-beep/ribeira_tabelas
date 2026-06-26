@@ -333,15 +333,6 @@ async def analisar_flyer(arquivo: UploadFile, _: str = Depends(security.usuario_
         raise HTTPException(status_code=502, detail=str(exc))
 
 
-@app.post("/gemini/ficha")
-async def extrair_ficha(arquivo: UploadFile, _: str = Depends(security.usuario_autenticado)):
-    conteudo = await _ler_upload(arquivo)
-    try:
-        return gemini.extrair_ficha(conteudo, arquivo.filename or "doc.pdf")
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=502, detail=str(exc))
-
-
 # --------------------------------------------------------------------------- #
 # Hierarquia: incorporadoras -> empreendimentos
 # --------------------------------------------------------------------------- #

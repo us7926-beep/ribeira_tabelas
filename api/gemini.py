@@ -1,9 +1,12 @@
 """Análise de documentos via Google Gemini (nativo do backend, lê env vars).
 
-Independente do Streamlit. Dois usos:
+Independente do Streamlit. Usos principais:
 - ``analisar_flyer``: detecção rápida para o fluxo de upload (nome, incorporadora,
   evento/promoção, condições comerciais) — alimenta o modal de confirmação.
-- ``extrair_ficha``: ficha técnica completa (mesmos campos da aba Extração).
+- ``extrair_ficha_dossie``: ficha técnica completa para o dossiê (chaves
+  alinhadas ao schema atual de empreendimentos).
+- ``extrair_tabela_precos``: tabela de unidades + condições + promoções (PR #10).
+- ``buscar_dados_empreendimento``: busca pública via Google Search grounding.
 """
 import json
 import time
@@ -12,14 +15,6 @@ from . import config
 
 _TENTATIVAS = 3
 
-CAMPOS_FICHA = [
-    "nome_empreendimento", "incorporadora", "cidade", "bairro", "padrao",
-    "tipologias", "vagas_por_unidade", "vagas_cobertura", "vagas_extra_venda",
-    "vagas_visitante", "distancia_estacao", "data_lancamento", "data_entrega",
-    "total_unidades", "tipo_projeto", "pavimentos", "elevadores_por_torre",
-    "torres", "cnpj_spe", "ri",
-]
-
 _PROMPT_FLYER = (
     "Analise este flyer/material promocional imobiliário e responda APENAS um "
     "objeto JSON com as chaves: nome_empreendimento, incorporadora, evento, "
@@ -27,14 +22,6 @@ _PROMPT_FLYER = (
     "evento ou promoção pontual mencionada (lançamento, plantão, condição "
     "especial); vazio se não houver. Datas em DD/MM/AAAA. Use string vazia "
     "quando o campo não constar (não invente)."
-)
-
-_PROMPT_FICHA = (
-    "Você é um analista de inteligência de mercado imobiliário. Extraia a ficha "
-    "técnica do empreendimento e responda APENAS um objeto JSON com exatamente "
-    "estas chaves: " + ", ".join(CAMPOS_FICHA) + ". Datas em DD/MM/AAAA; "
-    "distância da estação em metros se < 1 km, senão km com 1 casa decimal; "
-    "tipo_projeto = Residencial/Comercial/Misto; string vazia quando faltar."
 )
 
 
@@ -90,12 +77,6 @@ def analisar_flyer(conteudo: bytes, nome: str) -> dict:
     chaves = ["nome_empreendimento", "incorporadora", "evento",
               "data_inicio", "data_fim", "condicoes_comerciais"]
     return {chave: _texto(dados.get(chave)) for chave in chaves}
-
-
-def extrair_ficha(conteudo: bytes, nome: str) -> dict:
-    """Ficha técnica completa (mesmos campos da aba Extração do Streamlit)."""
-    dados = _gerar(conteudo, nome, _PROMPT_FICHA)
-    return {chave: _texto(dados.get(chave)) for chave in CAMPOS_FICHA}
 
 
 _PROMPT_TABELA_PRECOS = (

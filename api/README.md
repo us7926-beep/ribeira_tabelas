@@ -27,7 +27,7 @@ Docs interativas em http://localhost:8000/docs.
 | POST | `/auth/login` | `{usuario, senha}` → `{token, usuario}` (JWT) |
 | GET  | `/me` | usuário do token (protegido) |
 | POST | `/gemini/analisar-flyer` | upload → detecção (nome, incorporadora, evento, condições) |
-| POST | `/gemini/ficha` | upload → ficha técnica completa |
+| POST | `/gemini/buscar-empreendimento` | busca pública via Google Search |
 | GET/POST | `/incorporadoras` | hierarquia |
 | GET/POST | `/empreendimentos` (`?incorporadora_id=`) | hierarquia |
 | GET  | `/empreendimentos/{id}` | detalhe |

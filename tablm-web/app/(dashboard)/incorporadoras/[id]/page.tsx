@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { ListaEmpreendimentosFiltro } from "@/components/incorporadoras/ListaEmpreendimentosFiltro";
+import { BotaoExportarPdf } from "@/components/ui/BotaoExportarPdf";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -49,6 +50,7 @@ export default async function IncorporadoraDetalhe({
         eyebrow="Carteira"
         title={nome}
         subtitle="Empreendimentos desta incorporadora. Use para abrir o repositório de documentos e o histórico de eventos."
+        acao={<BotaoExportarPdf />}
       />
 
       <Card variant="lg" className="mb-5 tablm-up">

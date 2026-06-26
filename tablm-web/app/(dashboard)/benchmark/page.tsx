@@ -1,5 +1,5 @@
 import { BenchmarkApp } from "@/components/benchmark/BenchmarkApp";
-import { BotaoExportarPdf } from "@/components/empreendimento/BotaoExportarPdf";
+import { BotaoExportarPdf } from "@/components/ui/BotaoExportarPdf";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { api } from "@/lib/api";
 import { getToken } from "@/lib/auth";
