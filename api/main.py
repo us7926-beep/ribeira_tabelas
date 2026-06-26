@@ -1127,8 +1127,22 @@ def buscar_empreendimento(
 # Eventos / promoções (benchmark)
 # --------------------------------------------------------------------------- #
 @app.get("/benchmark/eventos")
-def listar_eventos(_: str = Depends(security.usuario_autenticado)):
-    return _db_ou_503(db.listar, "eventos_promocionais")
+def listar_eventos(
+    ativos: bool = False,
+    _: str = Depends(security.usuario_autenticado),
+):
+    """Lista eventos promocionais. Quando ativos=True, retorna apenas os que
+    ainda nao expiraram (data_fim >= hoje UTC) E ja comecaram (data_inicio
+    <= hoje OU data_inicio nulo)."""
+    todos = _db_ou_503(db.listar, "eventos_promocionais") or []
+    if not ativos:
+        return todos
+    hoje = datetime.now(timezone.utc).date().isoformat()
+    return [
+        ev for ev in todos
+        if (ev.get("data_fim") or "9999-12-31") >= hoje
+        and (ev.get("data_inicio") or "0000-01-01") <= hoje
+    ]
 
 
 @app.post("/benchmark/eventos")
