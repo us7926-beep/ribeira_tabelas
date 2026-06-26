@@ -1,4 +1,5 @@
 import { BenchmarkApp } from "@/components/benchmark/BenchmarkApp";
+import { BotaoExportarPdf } from "@/components/empreendimento/BotaoExportarPdf";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { api } from "@/lib/api";
 import { getToken } from "@/lib/auth";
@@ -45,6 +46,7 @@ export default async function BenchmarkPage({
         eyebrow="Inteligência competitiva"
         title="Benchmark Competitivo"
         subtitle="Mapeie a concorrência, veja onde você lidera e onde está exposto — e antecipe os movimentos do mercado."
+        acao={<BotaoExportarPdf />}
       />
       <BenchmarkApp
         incorporadoras={incorporadoras}

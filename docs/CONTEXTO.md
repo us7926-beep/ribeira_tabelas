@@ -3,9 +3,36 @@
 > Documento único com **tudo** que importa para continuar o trabalho em qualquer
 > janela: estado, arquitetura, PRs feitos, decisões, gotchas e próximos passos.
 > Complementar a [`CONTINUAR.md`](CONTINUAR.md) (handoff curto) e
-> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-25 noite (após PR #13).
+> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-25 madrugada (após PR #25).
 
-> **Addendum desta sessão (PRs #14-#19):**
+> **Addendum desta sessão (PRs #20-#25):**
+> - **#20 — docs: handoff atualizado.**
+> - **#21 — Busca na Carteira.** Campo de search em `/incorporadoras` e em
+>   `/incorporadoras/[id]` (filtragem por nome/bairro/cidade, client-side).
+> - **#22 — Diff por unidade entre versões.** Quando há ≥2 versões da tabela,
+>   AbaTabela ganha card "Diferenças entre versões" com select da versão alvo,
+>   3 KpiCards (Adicionadas/Alteradas/Removidas) e tabela detalhada das
+>   alterações (Antes/Depois/Δ). Frontend-only — match por andar+unidade.
+> - **#23 — Fluxo Comercial com distribuição real por modalidade.** Nova
+>   tabela `vendas_por_modalidade` (UNIQUE 3-col, índice, RLS). Helper
+>   `_montar_comparativo_fluxo` ganhou caminho "real" (3º parâmetro
+>   `distribuicao_real`); retorna `comparativo.fonte = "real"|"estimado"` e
+>   `total_vendas`. 3 endpoints novos sob `/empreendimentos/{id}/vendas-mensais/`:
+>   GET/POST `/distribuicao` (substitui linhas do mês: delete + insert) e GET
+>   `/modalidades-sugeridas` (chaves canônicas de `condicoes` + histórico).
+>   AbaVendasMensais ganha card "Distribuição por modalidade"; AbaFluxoComercial
+>   mostra chip Real/Estimado + select de mês.
+> - **#24 — Promoções ativas no dashboard.** Card lista até 5 eventos com
+>   `data_fim` futuro, ordenados por proximidade do término, com badge de
+>   urgência verde (>14d) / âmbar (>3d) / vermelho (≤3d). Backend ganha
+>   `GET /benchmark/eventos?ativos=true` (filtra `data_fim >= hoje UTC`).
+> - **#25 — Exportar PDF do dossiê (e Benchmark).** Botão "🖨 Exportar PDF"
+>   no PageHeader chama `window.print()`. CSS `@media print` no `globals.css`
+>   esconde sidebar/botões, força fundo branco, remove sombras pesadas;
+>   classes `.print-hide` e `.print-keep` para controle fino. Componente
+>   `BotaoExportarPdf` reusado em `/empreendimentos/[id]` e `/benchmark`.
+>
+> **Addendum anterior (PRs #14-#19):**
 > - **#14 — chore: handoff + cleanup.** Atualiza docs/CONTINUAR.md e
 >   docs/CONTEXTO.md. Remove `components/mercado/MercadoAnalise.tsx` (órfão
 >   pós design refresh; a Aba Base do Benchmark substituiu o uso).

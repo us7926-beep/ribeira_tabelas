@@ -2,7 +2,7 @@
 
 > Cole/abra este arquivo numa nova janela do Claude Code. Tem TUDO para continuar
 > a evolução do TabLM de onde paramos. **Sem segredos** (ficam só em `api/.env` e
-> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-25 (noite, após PR #19).
+> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-25 (noite, após PR #25).
 
 ## Resumo de 1 linha
 TabLM (Ribeira Empreendimentos) está **migrado e no ar**: Next.js (frontend) +
@@ -129,21 +129,39 @@ docs/CONTINUAR.md  ESTE arquivo
   então `CORS_ORIGINS=http://localhost:3000` no Render não bloqueia o app em produção.
   Por correção, mude no Render para `https://ribeira-tabelas-tablm.vercel.app`.
 
+## O que entrou após PR #19 (25 PRs no total)
+- **PR #20** — docs: handoff atualizado.
+- **PR #21** — **Busca na Carteira** (search em `/incorporadoras` e detalhe).
+- **PR #22** — **Diff por unidade** entre versões na Aba Tabela (Adicionadas /
+  Alteradas / Removidas + tabela detalhada com Antes/Depois/Δ).
+- **PR #23** — **Fluxo Comercial com distribuição real** por modalidade. Nova
+  tabela `vendas_por_modalidade` (UNIQUE 3-col, índice, RLS). Helper
+  `_montar_comparativo_fluxo` ganhou caminho "real" + retorna `fonte` e
+  `total_vendas`. 3 endpoints novos sob `/empreendimentos/{id}/vendas-mensais/`:
+  GET/POST `/distribuicao` + GET `/modalidades-sugeridas`. AbaVendasMensais
+  ganha card "Distribuição por modalidade" (select de mês, tabela editável,
+  validação inline). AbaFluxoComercial mostra chip **Real**/**Estimado**.
+- **PR #24** — **Promoções ativas** no dashboard (eventos com `data_fim`
+  futuro, badge de urgência verde/âmbar/vermelho, ordenadas por proximidade
+  do término). Backend ganha query `?ativos=true` em `/benchmark/eventos`.
+- **PR #25** — **Exportar PDF** do dossiê do empreendimento (e do Benchmark)
+  via `window.print()`. CSS `@media print` em `globals.css` esconde sidebar/
+  botões e força fundo branco. Reusa botão `BotaoExportarPdf` nas duas rotas.
+
 ## Próximos passos sugeridos
-1. **Persistir distribuição real entre tipos de pagamento** em `fluxo-comercial`.
-   Hoje `_montar_comparativo_fluxo` usa distribuição uniforme — quando o backend
-   souber contar por modalidade (a partir de tabelas reais), trocar.
-2. **Diff por unidade entre versões da tabela.** Hoje (PR #18) mostramos KPIs
-   agregados com delta. O próximo passo é mostrar quais unidades ficaram mais
-   caras/baratas/saíram entre Jun e Jul (similar à aba "Comparar Versões" do
-   protótipo original).
-3. **Search na Carteira.** Com muitos empreendimentos, falta um campo de busca
-   em `/incorporadoras` e em `/incorporadoras/[id]`.
-4. **Cleanup do legado**: `gemini.extrair_ficha`/`POST /gemini/ficha` em
+1. **Atalho "Exportar PDF" em mais rotas** (INCC, Vendas, /incorporadoras/[id])
+   — todos podem usar o mesmo `BotaoExportarPdf` no PageHeader.
+2. **Aba dedicada de Promoções (`/promocoes`)** com lista + filtros (ativas
+   hoje, próximas a vencer, expiradas) e gráfico de cronograma. Hoje a
+   visualização é só o card no Dashboard.
+3. **Cleanup do legado**: `gemini.extrair_ficha`/`POST /gemini/ficha` em
    `api/main.py` ainda existem mas o frontend novo não usa (substituídos por
    `extrair_ficha_dossie` e `/empreendimentos/{id}/ficha-dossie`). Verificar
    se o Streamlit antigo usa antes de remover (provavelmente não — Streamlit
    usa src/ direto).
+4. **Detectar coluna de modalidade na planilha de vendas** (`vendas_api.py`)
+   — hoje a distribuição real é só manual. Quando subir uma planilha com
+   coluna tipo "modalidade" ou "tipo de pagamento", auto-popular o painel.
 5. **Desligar Vercel Authentication** (ação no painel, Settings → Deployment
    Protection).
 6. **Domínio próprio** (ex.: `tablm.ribeira.com.br`) — Vercel + Render aceitam
