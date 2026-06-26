@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { Dropzone } from "@/components/ui/Dropzone";
+import { KpiCard } from "@/components/ui/KpiCard";
+import { KpiDelta } from "@/components/ui/KpiDelta";
 import type { TabelaPrecos, UnidadePreco } from "@/types";
 
 function moeda(n: number | null | undefined): string {
@@ -18,6 +20,129 @@ function dataBR(iso: string | undefined): string {
   if (!iso) return "—";
   const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
   return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
+}
+
+interface KpisVersao {
+  precoM2Medio: number | null;
+  ticketMedio: number | null;
+  vgvTotal: number;
+  totalUnidades: number;
+}
+
+/** Recalcula KPIs a partir das unidades já persistidas em tabelas_precos. */
+function kpisDaVersao(t: TabelaPrecos | undefined): KpisVersao {
+  const unidades = (t?.unidades ?? []) as UnidadePreco[];
+  let vgv = 0;
+  let nPrecos = 0;
+  let somaPm2 = 0;
+  let nPm2 = 0;
+  for (const u of unidades) {
+    const preco = typeof u.preco_total === "number" ? u.preco_total : null;
+    const area = typeof u.area_m2 === "number" ? u.area_m2 : null;
+    if (preco && preco > 0) {
+      vgv += preco;
+      nPrecos += 1;
+      if (area && area > 0) {
+        somaPm2 += preco / area;
+        nPm2 += 1;
+      }
+    }
+  }
+  return {
+    precoM2Medio: nPm2 ? Math.round(somaPm2 / nPm2) : null,
+    ticketMedio: nPrecos ? Math.round(vgv / nPrecos) : null,
+    vgvTotal: Math.round(vgv),
+    totalUnidades: unidades.length,
+  };
+}
+
+/** Sparkline simples em SVG da série de preço/m² médio. */
+function Sparkline({
+  serie,
+}: {
+  serie: { versao: string; data: string; pm2: number }[];
+}) {
+  const W = 640;
+  const H = 140;
+  const padX = 24;
+  const padY = 18;
+  const xs = serie.map((_, i) => padX + (i * (W - 2 * padX)) / (serie.length - 1));
+  const valores = serie.map((p) => p.pm2);
+  const minV = Math.min(...valores);
+  const maxV = Math.max(...valores);
+  const range = Math.max(1, maxV - minV);
+  const ys = valores.map((v) => H - padY - ((v - minV) / range) * (H - 2 * padY));
+  const pontos = xs.map((x, i) => `${x},${ys[i]}`).join(" ");
+  const areaPoligono = `${padX},${H - padY} ${pontos} ${W - padX},${H - padY}`;
+
+  return (
+    <div className="w-full overflow-x-auto">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="w-full h-[160px]"
+        preserveAspectRatio="none"
+      >
+        <polyline points={areaPoligono} fill="#EAF0FE" stroke="none" />
+        <polyline points={pontos} fill="none" stroke="#2347C5" strokeWidth={2.5} />
+        {xs.map((x, i) => (
+          <g key={i}>
+            <circle cx={x} cy={ys[i]} r={4} fill="#2347C5" stroke="#fff" strokeWidth={2} />
+            <text
+              x={x}
+              y={ys[i] - 10}
+              fill="#14203A"
+              fontSize={11}
+              fontWeight={700}
+              textAnchor="middle"
+            >
+              {"R$ " + Math.round(serie[i].pm2).toLocaleString("pt-BR")}
+            </text>
+            <text
+              x={x}
+              y={H - 4}
+              fill="#97A2B5"
+              fontSize={10}
+              fontWeight={600}
+              textAnchor="middle"
+            >
+              {serie[i].versao}
+            </text>
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+/** Gera CSV das unidades e força download no browser. */
+function baixarCsvUnidades(t: TabelaPrecos): void {
+  const unidades = (t.unidades ?? []) as UnidadePreco[];
+  if (unidades.length === 0) return;
+  const colunas = [
+    "andar", "unidade", "area_m2", "vaga",
+    "entrada", "parcelas_mensais", "financiamento",
+    "preco_total", "avaliacao",
+  ] as const;
+  const linhas: string[] = [colunas.join(",")];
+  for (const u of unidades) {
+    linhas.push(
+      colunas
+        .map((c) => {
+          const v = (u as Record<string, unknown>)[c];
+          if (v === undefined || v === null) return "";
+          const s = String(v).replace(/"/g, '""');
+          return /[",\n]/.test(s) ? `"${s}"` : s;
+        })
+        .join(","),
+    );
+  }
+  const blob = new Blob([linhas.join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `tabela-${t.versao.replace(/[\\/\s]+/g, "_")}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 interface Props {
@@ -100,6 +225,34 @@ export function AbaTabela({ empreendimentoId }: Props) {
 
   const linhasMostradas = useMemo(() => unidades.slice(0, 100), [unidades]);
 
+  // KPIs da versão atual (recalculados das unidades) + da anterior (pra delta).
+  const kpisAtual = useMemo(() => kpisDaVersao(tabela), [tabela]);
+  // "Anterior" = próxima na lista (ordenada por data_referencia DESC).
+  const kpisAnterior = useMemo(
+    () => kpisDaVersao(tabelas[tabelaIdx + 1]),
+    [tabelas, tabelaIdx],
+  );
+  const temAnterior = tabelas.length > tabelaIdx + 1;
+  const versaoAnterior = tabelas[tabelaIdx + 1];
+
+  function deltaPct(atual: number | null, anterior: number | null): number | null {
+    if (!atual || !anterior) return null;
+    return Math.round(((atual - anterior) / anterior) * 1000) / 10;
+  }
+
+  // Série de preço/m² médio por versão (cronológica) — para sparkline SVG.
+  const serie = useMemo(() => {
+    return tabelas
+      .slice()
+      .reverse()
+      .map((t) => ({
+        versao: t.versao,
+        data: t.data_referencia,
+        pm2: kpisDaVersao(t).precoM2Medio,
+      }))
+      .filter((p) => p.pm2 != null) as { versao: string; data: string; pm2: number }[];
+  }, [tabelas]);
+
   return (
     <div className="flex flex-col gap-5 tablm-up">
       <Card variant="lg">
@@ -143,14 +296,86 @@ export function AbaTabela({ empreendimentoId }: Props) {
       {tabela && (
         <>
           <Card>
-            <div className="flex flex-wrap gap-3 items-center">
-              <Chip tom="royal">{tabela.versao}</Chip>
-              <span className="text-[13.5px] text-body">
-                <b className="text-ink">{unidades.length}</b> unidades · referência{" "}
-                <b className="text-ink">{dataBR(tabela.data_referencia)}</b>
-              </span>
+            <div className="flex flex-wrap gap-3 items-center justify-between">
+              <div className="flex flex-wrap gap-3 items-center">
+                <Chip tom="royal">{tabela.versao}</Chip>
+                <span className="text-[13.5px] text-body">
+                  <b className="text-ink">{unidades.length}</b> unidades · referência{" "}
+                  <b className="text-ink">{dataBR(tabela.data_referencia)}</b>
+                </span>
+              </div>
+              {unidades.length > 0 && (
+                <Button
+                  variante="secondary"
+                  onClick={() => baixarCsvUnidades(tabela)}
+                >
+                  📊 Baixar CSV
+                </Button>
+              )}
             </div>
           </Card>
+
+          {/* KPIs da versão atual + delta vs versão anterior. */}
+          {(kpisAtual.precoM2Medio || kpisAtual.ticketMedio || kpisAtual.vgvTotal) && (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3.5">
+              <KpiCard
+                rotulo="Preço/m² médio"
+                valor={kpisAtual.precoM2Medio ? moeda(kpisAtual.precoM2Medio) : "—"}
+                delta={
+                  temAnterior && deltaPct(kpisAtual.precoM2Medio, kpisAnterior.precoM2Medio) != null ? (
+                    <KpiDelta
+                      direcao={
+                        deltaPct(kpisAtual.precoM2Medio, kpisAnterior.precoM2Medio)! > 0
+                          ? "alta"
+                          : deltaPct(kpisAtual.precoM2Medio, kpisAnterior.precoM2Medio)! < 0
+                            ? "baixa"
+                            : "neutro"
+                      }
+                    >
+                      {Math.abs(deltaPct(kpisAtual.precoM2Medio, kpisAnterior.precoM2Medio)!)}% vs {versaoAnterior?.versao}
+                    </KpiDelta>
+                  ) : undefined
+                }
+              />
+              <KpiCard
+                rotulo="Ticket médio"
+                valor={kpisAtual.ticketMedio ? moeda(kpisAtual.ticketMedio) : "—"}
+                delta={
+                  temAnterior && deltaPct(kpisAtual.ticketMedio, kpisAnterior.ticketMedio) != null ? (
+                    <KpiDelta
+                      direcao={
+                        deltaPct(kpisAtual.ticketMedio, kpisAnterior.ticketMedio)! > 0
+                          ? "alta"
+                          : deltaPct(kpisAtual.ticketMedio, kpisAnterior.ticketMedio)! < 0
+                            ? "baixa"
+                            : "neutro"
+                      }
+                    >
+                      {Math.abs(deltaPct(kpisAtual.ticketMedio, kpisAnterior.ticketMedio)!)}% vs {versaoAnterior?.versao}
+                    </KpiDelta>
+                  ) : undefined
+                }
+              />
+              <KpiCard
+                rotulo="VGV total"
+                valor={moeda(kpisAtual.vgvTotal)}
+                hint={`${kpisAtual.totalUnidades} unidades`}
+              />
+            </div>
+          )}
+
+          {/* Sparkline: evolução do preço/m² médio por versão (>= 2 pontos). */}
+          {serie.length >= 2 && (
+            <Card variant="lg">
+              <div className="text-[16px] font-bold text-ink mb-1">
+                Evolução de preço/m² médio
+              </div>
+              <div className="text-[12.5px] text-muted mb-3">
+                {serie.length} versão(ões) na linha do tempo.
+              </div>
+              <Sparkline serie={serie} />
+            </Card>
+          )}
 
           {unidades.length > 0 && (
             <Card variant="lg">
