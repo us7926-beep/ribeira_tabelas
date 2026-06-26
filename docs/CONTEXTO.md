@@ -3,9 +3,25 @@
 > Documento único com **tudo** que importa para continuar o trabalho em qualquer
 > janela: estado, arquitetura, PRs feitos, decisões, gotchas e próximos passos.
 > Complementar a [`CONTINUAR.md`](CONTINUAR.md) (handoff curto) e
-> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-26 (após PR #33).
+> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-26 (após PR #35).
 
-> **Addendum desta sessão (PR #33):**
+> **Addendum desta sessão (PR #35):**
+> - **#35 — Notificações por email diário (Resend + Vercel Cron 9h BRT).**
+>   - Migration nova `notificacoes_enviadas` (UNIQUE `evento_id, data_envio`,
+>     FK + ON DELETE CASCADE, RLS LIGADO) garante dedup automático: mesma
+>     promoção não entra em emails consecutivos.
+>   - `api/notificacoes.py` faz o pipeline (buscar eventos ≤7d, dedup,
+>     montar HTML inline com paleta royal + chips por urgência, enviar via
+>     Resend, registrar). Endpoint `POST /notificacoes/disparar-promocoes-
+>     vencendo` autenticado por `Authorization: Bearer ${CRON_SECRET}`.
+>   - `tablm-web/vercel.json` ganha `crons[0]` `0 12 * * *`. Route handler
+>     `/api/cron/promocoes-vencendo` valida o secret e repassa pro backend.
+>   - 4 envs novas: `RESEND_API_KEY`, `CRON_SECRET`,
+>     `NOTIFICACOES_EMAIL_DESTINO`, `NOTIFICACOES_EMAIL_REMETENTE`
+>     (fallback `onboarding@resend.dev`). Setup completo em
+>     `docs/DEPLOY.md` seção 4.
+>
+> **Addendum anterior (PR #33):**
 > - **#33 — Lote `Timeline drill-down + testes pytest da inferência`** (2
 >   commits):
 >   - `TimelineCronograma` agora deixa cada barra clicável: navega para
