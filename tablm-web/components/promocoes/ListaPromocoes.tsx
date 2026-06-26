@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { Tabs } from "@/components/ui/Tabs";
+import { diasAteVencer } from "@/lib/promocoes";
 import type { Empreendimento, EventoPromocional, Incorporadora } from "@/types";
 
 interface Props {
@@ -22,16 +23,6 @@ const FILTROS: { id: Filtro; label: string }[] = [
   { id: "todas", label: "Todas" },
   { id: "expiradas", label: "Expiradas" },
 ];
-
-function diasAteVencer(dataFim: string | null | undefined): number | null {
-  if (!dataFim) return null;
-  const m = dataFim.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!m) return null;
-  const fim = new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00Z`);
-  const hoje = new Date();
-  hoje.setUTCHours(0, 0, 0, 0);
-  return Math.round((fim.getTime() - hoje.getTime()) / (24 * 60 * 60 * 1000));
-}
 
 function dataBR(iso: string | null | undefined): string {
   if (!iso) return "—";
