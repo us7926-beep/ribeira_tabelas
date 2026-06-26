@@ -99,3 +99,70 @@ button {
     border-color 0.15s ease,
     box-shadow 0.15s ease;
 }
+
+/* ----------------------------------------------------------------
+ * Impressão / Exportar PDF
+ *
+ * Esconde Sidebar, controles interativos e o botão de exportar; força
+ * fundo branco e remove sombras para não desperdiçar tinta. Use a classe
+ * `print-hide` em elementos extra (botões, modais) que não devem aparecer
+ * no PDF; e `print-keep` para forçar a visibilidade em casos onde a regra
+ * geral esconderia algo que deve ficar.
+ * ---------------------------------------------------------------- */
+@media print {
+  /* Esconde estruturalmente */
+  aside,
+  nav,
+  .print-hide,
+  button:not(.print-keep) {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    color: #000 !important;
+  }
+
+  /* Layout livre: sem max-width nem padding desperdiçados */
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  main > * {
+    max-width: none !important;
+    margin: 0 !important;
+  }
+
+  /* Cards de fundo branco com borda fina (economia de tinta) */
+  [class*="bg-white"] {
+    background: white !important;
+    box-shadow: none !important;
+  }
+  [class*="bg-canvas"],
+  [class*="bg-thead"],
+  [class*="bg-royal-tint"] {
+    background: white !important;
+  }
+
+  /* Royal continua royal para destacar; só removemos shadows pesadas */
+  [class*="shadow-"] {
+    box-shadow: none !important;
+  }
+
+  /* Não cortar elementos no meio (evita textos quebrados entre páginas) */
+  div,
+  section,
+  table,
+  tr {
+    page-break-inside: avoid;
+  }
+
+  /* Animação .tablm-up vira no-op na impressão */
+  .tablm-up {
+    animation: none !important;
+  }
+
+  @page {
+    margin: 12mm;
+  }
+}
