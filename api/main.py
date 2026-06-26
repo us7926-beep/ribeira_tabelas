@@ -430,6 +430,107 @@ async def extrair_ficha_dossie(
     return {"ok": True, "ficha": ficha, "documento": documento}
 
 
+@app.post("/empreendimentos/{id_}/importar-book")
+async def importar_book(
+    id_: str,
+    arquivo: UploadFile,
+    extrair_ficha: bool = Form(True),
+    extrair_tabela: bool = Form(False),
+    versao: str = Form(""),
+    data_referencia: str = Form(""),
+    _: str = Depends(security.usuario_autenticado),
+):
+    """Endpoint unificado: sobe o book uma unica vez, IA extrai ficha e/ou
+    tabela de precos conforme as flags, salva como documento (sempre) e cria
+    nova versao em tabelas_precos quando aplicavel. Sincroniza snapshot KPIs."""
+    if not (extrair_ficha or extrair_tabela):
+        raise HTTPException(
+            status_code=400, detail="Marque pelo menos uma extracao (ficha ou tabela)."
+        )
+
+    conteudo = await _ler_upload(arquivo)
+    nome_original = arquivo.filename or "book.pdf"
+
+    # 1) Roda IA primeiro — se ambas as extracoes pedidas falharem, nao salva nada.
+    ficha: dict | None = None
+    ia_tabela: dict | None = None
+    if extrair_ficha:
+        try:
+            ficha = gemini.extrair_ficha_dossie(conteudo, nome_original)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail=f"Falha na extracao de ficha: {exc}")
+    if extrair_tabela:
+        try:
+            ia_tabela = gemini.extrair_tabela_precos(conteudo, nome_original)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail=f"Falha na extracao de tabela: {exc}")
+
+    # 2) Storage + registro do documento (uma vez so).
+    nome = PurePosixPath(nome_original).name or "book.pdf"
+    caminho = f"{id_}/{uuid.uuid4().hex}-{nome}"
+    try:
+        _db_ou_503(
+            db.upload_storage, caminho, conteudo,
+            arquivo.content_type or "application/octet-stream",
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"Falha no upload: {exc}")
+    try:
+        documento = _db_ou_503(
+            db.inserir,
+            "documentos",
+            {
+                "empreendimento_id": id_,
+                "nome": nome,
+                "tipo": "book_empreendimento",
+                "storage_path": caminho,
+            },
+        )
+    except Exception as exc:
+        try:
+            db.remover_storage(caminho)
+        except Exception:  # noqa: BLE001
+            pass
+        raise HTTPException(status_code=400, detail=f"Falha ao registrar documento: {exc}")
+
+    # 3) Tabela de precos: insere nova versao se IA encontrou unidades.
+    tabela: dict | None = None
+    kpis_sincronizados: dict = {}
+    if ia_tabela:
+        unidades = ia_tabela.get("unidades") or []
+        promocoes = ia_tabela.get("promocoes") or []
+        condicoes = {"_padrao_ia": ia_tabela.get("padrao", "")}
+        versao_final = versao or datetime.now().strftime("%b/%Y")
+        data_ref = data_referencia or datetime.now().date().isoformat()
+        tabela = _db_ou_503(
+            db.inserir, "tabelas_precos",
+            {
+                "empreendimento_id": id_,
+                "versao": versao_final,
+                "data_referencia": data_ref,
+                "unidades": unidades,
+                "condicoes": condicoes,
+                "promocoes": promocoes,
+                "raw_gemini": ia_tabela,
+            },
+        )
+        kpis = _montar_kpis_de_unidades(unidades)
+        if kpis:
+            kpis["kpis_atualizados_em"] = datetime.now(timezone.utc).isoformat()
+            kpis_validos = {chave: valor for chave, valor in kpis.items() if valor is not None}
+            if kpis_validos:
+                _db_ou_503(db.atualizar, "empreendimentos", id_, kpis_validos)
+                kpis_sincronizados = kpis_validos
+
+    return {
+        "ok": True,
+        "documento": documento,
+        "ficha": ficha,
+        "tabela": tabela,
+        "kpis_sincronizados": kpis_sincronizados,
+    }
+
+
 @app.get("/empreendimentos/{id_}/tabelas-precos")
 def listar_tabelas_precos(id_: str, _: str = Depends(security.usuario_autenticado)):
     return _db_ou_503(
