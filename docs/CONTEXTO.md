@@ -5,7 +5,40 @@
 > Complementar a [`CONTINUAR.md`](CONTINUAR.md) (handoff curto) e
 > [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-25 noite (após PR #13).
 
-> **Addendum desta sessão (PRs #12 e #13):**
+> **Addendum desta sessão (PRs #14-#19):**
+> - **#14 — chore: handoff + cleanup.** Atualiza docs/CONTINUAR.md e
+>   docs/CONTEXTO.md. Remove `components/mercado/MercadoAnalise.tsx` (órfão
+>   pós design refresh; a Aba Base do Benchmark substituiu o uso).
+> - **#15 — AbaBase: "+ Criar empreendimento" quando IA detecta inédito.**
+>   Server Action `criarEmpreendimentoDaIA` em
+>   `app/(dashboard)/benchmark/actions.ts`. Quando o `nome_empreendimento` do
+>   JSON da IA não casa com nenhum cadastrado, um painel destacado aparece
+>   com select de incorporadora (com opção "+ Cadastrar nova" pré-preenchida
+>   com o nome detectado) e um clique cria empreendimento + inc e já grava
+>   os KPIs.
+> - **#16 — Unifica leitura do book (ficha + tabela).** Endpoint novo
+>   `POST /empreendimentos/{id}/importar-book` com flags `extrair_ficha` e
+>   `extrair_tabela`. Cada modal (Aba Ficha + Aba Tabela) ganha um checkbox
+>   para "extrair também o outro lado" — quando marcado, troca o endpoint
+>   chamado para o unificado. 1 upload → 1 cópia no Storage → 2 chamadas
+>   Gemini → ficha aplicada + nova versão em `tabelas_precos` + KPIs
+>   sincronizados.
+> - **#17 — Carteira: "Importar via book" cria do zero.** Novo endpoint
+>   `POST /empreendimentos/importar-book` (sem id) que cria
+>   empreendimento + incorporadora (se nova, via match por nome ou IA) e
+>   salva tudo a partir de um PDF. Componente
+>   `ImportarEmpreendimentoBook.tsx` com modal completo no PageHeader de
+>   `/incorporadoras`. Fecha o ciclo zero-to-one.
+> - **#18 — AbaTabela: KPIs com delta + sparkline + baixar CSV.** Quando há
+>   ≥2 versões, mostra Preço/m² médio · Ticket médio · VGV total recalculados
+>   das unidades persistidas, com KpiDelta verde/vermelho comparando com a
+>   versão anterior. Sparkline SVG (sem lib) do preço/m² médio. Botão
+>   secundário "📊 Baixar CSV" exporta as unidades client-side.
+> - **#19 — Dashboard inicial com top empreendimentos por VGV.** Página `/`
+>   ganha tabela com os top 5 (preço/m², ticket, VGV) + link "Abrir". Atalho
+>   "+ Importar via book" no PageHeader, ao lado do "Abrir Benchmark".
+>
+> **Addendum anterior (PRs #12 e #13):**
 > - **PR #12 — Dossiê comercial do empreendimento.** 3 migrations Supabase
 >   (`empreendimentos` +9 colunas, `tabelas_precos`, `vendas_mensais`).
 >   7 endpoints novos (`PATCH /ficha`, `GET/POST /tabelas-precos`,

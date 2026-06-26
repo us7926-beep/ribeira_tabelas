@@ -2,7 +2,7 @@
 
 > Cole/abra este arquivo numa nova janela do Claude Code. Tem TUDO para continuar
 > a evolução do TabLM de onde paramos. **Sem segredos** (ficam só em `api/.env` e
-> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-25 (noite, após PR #13).
+> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-25 (noite, após PR #19).
 
 ## Resumo de 1 linha
 TabLM (Ribeira Empreendimentos) está **migrado e no ar**: Next.js (frontend) +
@@ -130,19 +130,25 @@ docs/CONTINUAR.md  ESTE arquivo
   Por correção, mude no Render para `https://ribeira-tabelas-tablm.vercel.app`.
 
 ## Próximos passos sugeridos
-1. **Unificar a leitura do book** entre as abas Ficha e Tabela de Preços. Hoje a
-   Aba Ficha chama `/ficha-dossie` (campos da ficha) e a Aba Tabela chama
-   `tabelas-precos` (unidades + condições + promoções). Quando o usuário sobe o
-   mesmo book denso, faz sentido detectar e oferecer "extrair também ___".
-2. **Botão "+ Criar empreendimento" na Aba Base do Benchmark.** Quando o usuário
-   sobe uma planilha lá, hoje a IA detecta o nome/incorporadora mas é preciso
-   ir até Carteira para criar manualmente. Idem ao fluxo do Flyer (PR #7).
-3. **Persistir distribuição real entre tipos de pagamento** em `fluxo-comercial`.
+1. **Persistir distribuição real entre tipos de pagamento** em `fluxo-comercial`.
    Hoje `_montar_comparativo_fluxo` usa distribuição uniforme — quando o backend
    souber contar por modalidade (a partir de tabelas reais), trocar.
-4. **Desligar Vercel Authentication** (ação no painel, Settings → Deployment Protection).
-5. **Domínio próprio** (ex.: `tablm.ribeira.com.br`) — Vercel + Render aceitam custom.
-6. **Trocar senha do leonardo** (apareceu no chat em sessão antiga). Gerar hash:
+2. **Diff por unidade entre versões da tabela.** Hoje (PR #18) mostramos KPIs
+   agregados com delta. O próximo passo é mostrar quais unidades ficaram mais
+   caras/baratas/saíram entre Jun e Jul (similar à aba "Comparar Versões" do
+   protótipo original).
+3. **Search na Carteira.** Com muitos empreendimentos, falta um campo de busca
+   em `/incorporadoras` e em `/incorporadoras/[id]`.
+4. **Cleanup do legado**: `gemini.extrair_ficha`/`POST /gemini/ficha` em
+   `api/main.py` ainda existem mas o frontend novo não usa (substituídos por
+   `extrair_ficha_dossie` e `/empreendimentos/{id}/ficha-dossie`). Verificar
+   se o Streamlit antigo usa antes de remover (provavelmente não — Streamlit
+   usa src/ direto).
+5. **Desligar Vercel Authentication** (ação no painel, Settings → Deployment
+   Protection).
+6. **Domínio próprio** (ex.: `tablm.ribeira.com.br`) — Vercel + Render aceitam
+   custom.
+7. **Trocar senha do leonardo** (apareceu no chat em sessão antiga). Gerar hash:
    `python -c "import hashlib;print(hashlib.sha256('SENHA'.encode()).hexdigest())"`
    → atualizar `TABLM_USERS` no `api/.env` local **e** no painel do Render.
 
