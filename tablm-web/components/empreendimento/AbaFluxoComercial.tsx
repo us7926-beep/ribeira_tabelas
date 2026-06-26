@@ -1,14 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 
 import { Card } from "@/components/ui/Card";
+import { Chip } from "@/components/ui/Chip";
 import { KpiDelta } from "@/components/ui/KpiDelta";
-import type { FluxoComercial } from "@/types";
+import type { DistribuicaoModalidade, FluxoComercial } from "@/types";
 
 function moeda(n: number | null | undefined): string {
   if (n == null) return "—";
   return "R$ " + Math.round(n).toLocaleString("pt-BR");
+}
+
+const MESES = [
+  "jan", "fev", "mar", "abr", "mai", "jun",
+  "jul", "ago", "set", "out", "nov", "dez",
+];
+
+function formatarMes(yyyymm: string): string {
+  const m = yyyymm.match(/^(\d{4})-(\d{2})/);
+  if (!m) return yyyymm;
+  return `${MESES[Number(m[2]) - 1]} ${m[1]}`;
 }
 
 interface Props {
@@ -19,12 +32,40 @@ export function AbaFluxoComercial({ empreendimentoId }: Props) {
   const [dados, setDados] = useState<FluxoComercial | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
+  const [mesesDisponiveis, setMesesDisponiveis] = useState<string[]>([]);
+  const [mesSelecionado, setMesSelecionado] = useState<string>("");
 
+  // Carrega lista de meses com distribuição cadastrada (uma vez)
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch(
+          `/api/empreendimentos/${empreendimentoId}/vendas-mensais/distribuicao`,
+        );
+        const d = await r.json();
+        if (Array.isArray(d)) {
+          const set = new Set<string>();
+          for (const linha of d as DistribuicaoModalidade[]) {
+            if (linha.mes) set.add(linha.mes.slice(0, 7));
+          }
+          const lista = Array.from(set).sort().reverse();
+          setMesesDisponiveis(lista);
+          if (lista.length > 0 && !mesSelecionado) setMesSelecionado(lista[0]);
+        }
+      } catch {
+        /* ok manter vazio — fica em "Estimado" */
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empreendimentoId]);
+
+  // Recarrega o comparativo quando o mês muda
   useEffect(() => {
     (async () => {
       setCarregando(true);
       try {
-        const r = await fetch(`/api/empreendimentos/${empreendimentoId}/fluxo-comercial`);
+        const qs = mesSelecionado ? `?mes=${mesSelecionado}` : "";
+        const r = await fetch(`/api/empreendimentos/${empreendimentoId}/fluxo-comercial${qs}`);
         const d = await r.json();
         if (!r.ok) throw new Error(d.detail ?? "Falha ao carregar fluxo");
         setDados(d as FluxoComercial);
@@ -34,7 +75,12 @@ export function AbaFluxoComercial({ empreendimentoId }: Props) {
         setCarregando(false);
       }
     })();
-  }, [empreendimentoId]);
+  }, [empreendimentoId, mesSelecionado]);
+
+  const fonte = dados?.comparativo.fonte ?? "estimado";
+  const totalVendas = dados?.comparativo.total_vendas ?? 0;
+  const mesUsado = dados?.mes ?? mesSelecionado;
+  const ehReal = useMemo(() => fonte === "real" && totalVendas > 0, [fonte, totalVendas]);
 
   if (carregando) {
     return (
@@ -59,10 +105,49 @@ export function AbaFluxoComercial({ empreendimentoId }: Props) {
   return (
     <div className="flex flex-col gap-5 tablm-up">
       <Card variant="lg">
-        <div className="text-[12px] font-bold tracking-[1.4px] uppercase text-muted mb-1">
-          Versão da tabela
+        <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
+          <div>
+            <div className="text-[12px] font-bold tracking-[1.4px] uppercase text-muted mb-1">
+              Versão da tabela
+            </div>
+            <div className="text-[16px] font-bold text-ink">{dados.versao}</div>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {ehReal ? (
+              <Chip tom="up">Real</Chip>
+            ) : (
+              <Chip tom="warn">Estimado</Chip>
+            )}
+            <span className="text-[12.5px] text-muted">
+              {ehReal ? (
+                <>
+                  baseado em <b className="text-ink tnum">{totalVendas}</b> vendas
+                  registradas em <b className="text-ink">{formatarMes(mesUsado ?? "")}</b>
+                </>
+              ) : (
+                <>
+                  distribuição uniforme — configure em{" "}
+                  <Link className="text-royal font-semibold hover:underline" href="?aba=vendas">
+                    Histórico de Vendas
+                  </Link>
+                </>
+              )}
+            </span>
+            {mesesDisponiveis.length > 1 && (
+              <select
+                value={mesSelecionado}
+                onChange={(e) => setMesSelecionado(e.target.value)}
+                className="rounded-[10px] border border-line bg-white px-3 py-1.5 text-[12.5px] outline-none focus:border-royal"
+              >
+                {mesesDisponiveis.map((m) => (
+                  <option key={m} value={m}>
+                    {formatarMes(m)}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         </div>
-        <div className="text-[16px] font-bold text-ink">{dados.versao}</div>
 
         <div className="overflow-x-auto border border-line-soft rounded-[12px] mt-4">
           <table className="w-full text-[14px]">

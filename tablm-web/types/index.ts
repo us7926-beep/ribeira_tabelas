@@ -99,6 +99,8 @@ export interface FluxoComercial {
   tabela_id: string;
   versao: string;
   data_referencia?: string;
+  /** "YYYY-MM" do mês escolhido para puxar a distribuição real. */
+  mes?: string;
   comparativo: {
     tipos: string[];
     por_tipo: Record<
@@ -108,10 +110,35 @@ export interface FluxoComercial {
         pct_total: number;
         valor_medio_parcela?: number | null;
         n_parcelas?: number | null;
+        /** Quando vier da distribuição real, traz a contagem de unidades. */
+        unidades?: number;
       }
     >;
     diferencas: { de: string; para: string; diferenca_reais: number; diferenca_pct: number }[];
+    /** "real" quando há distribuição cadastrada no mês; "estimado" senão. */
+    fonte: "real" | "estimado";
+    /** Total de unidades vendidas que alimentaram a distribuição (0 quando estimado). */
+    total_vendas: number;
   };
+}
+
+/** Linha de distribuição de vendas por modalidade num mês. */
+export interface DistribuicaoModalidade {
+  id?: string;
+  empreendimento_id?: string;
+  mes?: string;
+  modalidade: string;
+  unidades_vendidas: number;
+  vgv: number | null;
+  criado_em?: string;
+  atualizado_em?: string;
+}
+
+/** Sugestão de modalidade (vinda das condicoes da última tabela ou do histórico). */
+export interface ModalidadeSugerida {
+  chave: string;
+  label: string;
+  fonte: "condicoes" | "historico";
 }
 
 /** Resposta de POST /gemini/buscar-empreendimento. Campos ausentes = não encontrados. */

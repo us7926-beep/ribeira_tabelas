@@ -78,66 +78,127 @@ def _montar_kpis_de_unidades(unidades: list[dict]) -> dict:
 _TIPOS_FLUXO = ["avista", "entrada", "financiamento", "mensais", "anuais", "outros"]
 
 
-def _montar_comparativo_fluxo(unidades: list[dict], condicoes: dict) -> dict:
+def _montar_comparativo_fluxo(
+    unidades: list[dict],
+    condicoes: dict,
+    distribuicao_real: dict | None = None,
+) -> dict:
     """Monta comparativo entre tipos de pagamento.
 
-    v1: usa o ticket medio global como base; aplica desconto a vista,
-    estima parcela media a partir das condicoes, e devolve diferencas em
-    R$ e % entre cada par. Distribuicao percentual e uniforme (placeholder
-    ate o backend persistir contagem real por modalidade).
+    Quando `distribuicao_real` vier preenchido (>= 1 modalidade com
+    unidades_vendidas > 0), substitui o placeholder uniforme: cria por_tipo a
+    partir dessas modalidades, pct_total = unidades_mod / total * 100 e
+    ticket_medio = vgv_mod / unidades_mod quando ha vgv. Fonte = "real".
+
+    Sem distribuicao_real, mantem comportamento legado (chaves fixas de
+    `_TIPOS_FLUXO` + pct uniforme). Fonte = "estimado".
     """
     condicoes = condicoes or {}
     base = _montar_kpis_de_unidades(unidades)
     ticket = base.get("ticket_medio") or 0
     por_tipo: dict[str, dict] = {}
 
-    avista = (condicoes.get("avista") or {})
-    desconto = _num(avista.get("desconto_pct")) or 0
-    por_tipo["A vista"] = {
-        "ticket_medio": round(ticket * (1 - desconto / 100), 2),
-        "pct_total": 0,
-        "valor_medio_parcela": None,
-        "n_parcelas": None,
-    }
+    # ---- Detalhes complementares por chave canonica de condicoes ---- #
+    avista_cond = (condicoes.get("avista") or {})
+    desconto = _num(avista_cond.get("desconto_pct")) or 0
+    ticket_avista_calc = round(ticket * (1 - desconto / 100), 2)
 
-    fin = (condicoes.get("financiamento") or {})
-    if fin or ticket:
-        prazo = int(_num(fin.get("prazo_meses")) or 360)
-        por_tipo["Financiamento"] = {
-            "ticket_medio": round(ticket, 2),
-            "pct_total": 0,
-            "valor_medio_parcela": round(ticket / prazo, 2) if prazo else None,
-            "n_parcelas": prazo,
-        }
+    fin_cond = (condicoes.get("financiamento") or {})
+    prazo_fin = int(_num(fin_cond.get("prazo_meses")) or 360)
+    parc_fin_calc = round(ticket / prazo_fin, 2) if prazo_fin else None
 
-    entrada = (condicoes.get("entrada") or {})
-    if entrada:
-        parc = int(_num(entrada.get("parcelas_obra")) or 0)
-        val_parc = _num(entrada.get("valor_parcela_medio"))
-        por_tipo["Entrada + Mensais"] = {
-            "ticket_medio": round(ticket, 2),
-            "pct_total": 0,
-            "valor_medio_parcela": round(val_parc, 2) if val_parc else None,
-            "n_parcelas": parc or None,
-        }
+    entrada_cond = (condicoes.get("entrada") or {})
+    parc_entrada = int(_num(entrada_cond.get("parcelas_obra")) or 0)
+    val_parc_entrada = _num(entrada_cond.get("valor_parcela_medio"))
 
-    for chave_lista, rotulo in [("mensais", "Mensais"), ("anuais", "Anuais"), ("outros", "Outros")]:
-        itens = condicoes.get(chave_lista) or []
-        if isinstance(itens, list) and itens:
-            total = sum(_num(item.get("valor")) or 0 for item in itens)
-            por_tipo[rotulo] = {
-                "ticket_medio": round(ticket + total, 2),
-                "pct_total": 0,
-                "valor_medio_parcela": round(total / len(itens), 2) if itens else None,
-                "n_parcelas": len(itens),
+    def _detalhes_para(nome: str) -> tuple[float | None, int | None]:
+        """Devolve (valor_medio_parcela, n_parcelas) baseado em casamento por
+        chave canonica de condicoes (case-insensitive, contem)."""
+        baixo = (nome or "").lower()
+        if "vista" in baixo:
+            return None, None
+        if "financ" in baixo:
+            return parc_fin_calc, prazo_fin
+        if "entrada" in baixo or "mensa" in baixo:
+            return (
+                round(val_parc_entrada, 2) if val_parc_entrada else None,
+                parc_entrada or None,
+            )
+        return None, None
+
+    # ---- Caminho 1: distribuicao real preenchida ---- #
+    distribuicao_real = distribuicao_real or {}
+    total_real = sum(
+        int(d.get("unidades") or 0) for d in distribuicao_real.values()
+    )
+
+    if total_real > 0:
+        for modalidade, dados in distribuicao_real.items():
+            n = int(dados.get("unidades") or 0)
+            if n <= 0:
+                continue
+            vgv = _num(dados.get("vgv")) or 0
+            ticket_mod = round(vgv / n, 2) if n and vgv else None
+            if ticket_mod is None:
+                # Sem vgv informado: aproxima pelo ticket calculado da condicao.
+                baixo = (modalidade or "").lower()
+                ticket_mod = (
+                    ticket_avista_calc if "vista" in baixo else round(ticket, 2)
+                )
+            val_parc, n_parc = _detalhes_para(modalidade)
+            por_tipo[modalidade] = {
+                "ticket_medio": ticket_mod,
+                "pct_total": round(n / total_real * 100, 1),
+                "valor_medio_parcela": val_parc,
+                "n_parcelas": n_parc,
+                "unidades": n,
             }
+        fonte = "real"
+    else:
+        # ---- Caminho 2 (legado): chaves fixas + pct uniforme ---- #
+        por_tipo["A vista"] = {
+            "ticket_medio": ticket_avista_calc,
+            "pct_total": 0,
+            "valor_medio_parcela": None,
+            "n_parcelas": None,
+        }
+        if fin_cond or ticket:
+            por_tipo["Financiamento"] = {
+                "ticket_medio": round(ticket, 2),
+                "pct_total": 0,
+                "valor_medio_parcela": parc_fin_calc,
+                "n_parcelas": prazo_fin,
+            }
+        if entrada_cond:
+            por_tipo["Entrada + Mensais"] = {
+                "ticket_medio": round(ticket, 2),
+                "pct_total": 0,
+                "valor_medio_parcela": (
+                    round(val_parc_entrada, 2) if val_parc_entrada else None
+                ),
+                "n_parcelas": parc_entrada or None,
+            }
+        for chave_lista, rotulo in [
+            ("mensais", "Mensais"), ("anuais", "Anuais"), ("outros", "Outros"),
+        ]:
+            itens = condicoes.get(chave_lista) or []
+            if isinstance(itens, list) and itens:
+                total = sum(_num(item.get("valor")) or 0 for item in itens)
+                por_tipo[rotulo] = {
+                    "ticket_medio": round(ticket + total, 2),
+                    "pct_total": 0,
+                    "valor_medio_parcela": round(total / len(itens), 2) if itens else None,
+                    "n_parcelas": len(itens),
+                }
+        tipos = list(por_tipo.keys())
+        if tipos:
+            pct = round(100 / len(tipos), 1)
+            for tipo in tipos:
+                por_tipo[tipo]["pct_total"] = pct
+        fonte = "estimado"
 
+    # ---- Diferencas pairwise ---- #
     tipos = list(por_tipo.keys())
-    if tipos:
-        pct = round(100 / len(tipos), 1)
-        for tipo in tipos:
-            por_tipo[tipo]["pct_total"] = pct
-
     diferencas: list[dict] = []
     for i, de in enumerate(tipos):
         for para in tipos[i + 1:]:
@@ -153,7 +214,46 @@ def _montar_comparativo_fluxo(unidades: list[dict], condicoes: dict) -> dict:
                 "diferenca_pct": round((delta / v_de) * 100, 2),
             })
 
-    return {"tipos": tipos, "por_tipo": por_tipo, "diferencas": diferencas}
+    return {
+        "tipos": tipos,
+        "por_tipo": por_tipo,
+        "diferencas": diferencas,
+        "fonte": fonte,
+        "total_vendas": total_real,
+    }
+
+
+def _busca_distribuicao_real(emp_id: str, mes_iso: str) -> dict:
+    """Carrega `vendas_por_modalidade` para um par (empreendimento, mes) e
+    devolve {modalidade: {unidades, vgv}}. Vazio quando nao ha registro.
+    """
+    try:
+        linhas = db.listar(
+            "vendas_por_modalidade", empreendimento_id=emp_id, mes=mes_iso,
+        )
+    except Exception:  # noqa: BLE001
+        return {}
+    out: dict[str, dict] = {}
+    for linha in linhas or []:
+        nome = (linha.get("modalidade") or "").strip()
+        if not nome:
+            continue
+        out[nome] = {
+            "unidades": int(linha.get("unidades_vendidas") or 0),
+            "vgv": _num(linha.get("vgv")),
+        }
+    return out
+
+
+def _primeiro_dia_do_mes(mes_yyyymm: str | None) -> str:
+    """Converte 'YYYY-MM' em 'YYYY-MM-01'. Default = mes corrente UTC."""
+    if not mes_yyyymm:
+        agora = datetime.now(timezone.utc)
+        return f"{agora.year:04d}-{agora.month:02d}-01"
+    s = mes_yyyymm.strip()
+    if len(s) >= 7 and s[4] == "-":
+        return f"{s[:7]}-01"
+    raise HTTPException(status_code=400, detail="mes deve estar em 'YYYY-MM'")
 
 
 # --------------------------------------------------------------------------- #
@@ -781,10 +881,13 @@ async def criar_tabela_precos(
 def fluxo_comercial(
     id_: str,
     tabela_id: str | None = None,
+    mes: str | None = None,
     _: str = Depends(security.usuario_autenticado),
 ):
     """Comparativo de condicoes a partir da tabela de precos mais recente
-    (ou da `tabela_id` especificada).
+    (ou da `tabela_id` especificada). Carrega distribuicao real de
+    vendas_por_modalidade para o `mes` (default = mes corrente UTC) — quando
+    houver, calcula pct_total e ticket_medio reais por modalidade.
     """
     tabelas = _db_ou_503(
         db.listar_ordenado, "tabelas_precos",
@@ -798,13 +901,18 @@ def fluxo_comercial(
             raise HTTPException(status_code=404, detail="Tabela nao encontrada")
     else:
         tabela = tabelas[0]
+
+    mes_iso = _primeiro_dia_do_mes(mes)
+    distribuicao = _busca_distribuicao_real(id_, mes_iso)
     comparativo = _montar_comparativo_fluxo(
         tabela.get("unidades") or [], tabela.get("condicoes") or {},
+        distribuicao_real=distribuicao,
     )
     return {
         "tabela_id": tabela["id"],
         "versao": tabela.get("versao"),
         "data_referencia": tabela.get("data_referencia"),
+        "mes": mes_iso[:7],
         "comparativo": comparativo,
     }
 
@@ -863,6 +971,137 @@ def upsert_venda_mensal(
         on_conflict="empreendimento_id,mes",
     )
     return {"ok": True, "venda": registro}
+
+
+# --------------------------------------------------------------------------- #
+# Distribuicao por modalidade de pagamento (alimenta /fluxo-comercial "Real")
+# --------------------------------------------------------------------------- #
+_LABEL_MODALIDADE = {
+    "avista": "À vista",
+    "entrada": "Entrada + Mensais",
+    "financiamento": "Financiamento",
+    "mensais": "Mensais",
+    "anuais": "Anuais",
+    "outros": "Outros",
+}
+
+
+@app.get("/empreendimentos/{id_}/vendas-mensais/distribuicao")
+def listar_distribuicao(
+    id_: str,
+    de: str | None = None,
+    ate: str | None = None,
+    _: str = Depends(security.usuario_autenticado),
+):
+    """Lista vendas_por_modalidade, opcionalmente filtrado por intervalo
+    de meses 'YYYY-MM'. Ordenado por mes DESC, modalidade ASC.
+    """
+    from calendar import monthrange
+    gte_iso = ""
+    lte_iso = ""
+    if de:
+        gte_iso = f"{de}-01"
+    if ate:
+        try:
+            y, m = map(int, ate.split("-"))
+            ultimo = monthrange(y, m)[1]
+            lte_iso = f"{ate}-{ultimo:02d}"
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="ate deve estar em 'YYYY-MM'")
+    return _db_ou_503(
+        db.listar_ordenado, "vendas_por_modalidade",
+        ordem="mes", desc=True, empreendimento_id=id_,
+        intervalo_coluna="mes", intervalo_de=gte_iso, intervalo_ate=lte_iso,
+    )
+
+
+@app.post("/empreendimentos/{id_}/vendas-mensais/distribuicao")
+def gravar_distribuicao(
+    id_: str,
+    body: dict = Body(...),
+    _: str = Depends(security.usuario_autenticado),
+):
+    """Substitui a distribuicao do mes (delete + insert). Body:
+    {mes:'YYYY-MM', linhas:[{modalidade, unidades_vendidas, vgv}, ...]}.
+    Linhas com unidades_vendidas <= 0 sao ignoradas (limpa modalidades zeradas).
+    """
+    mes = (body.get("mes") or "").strip()
+    if not mes or len(mes) != 7 or mes[4] != "-":
+        raise HTTPException(status_code=400, detail="mes deve estar em 'YYYY-MM'")
+    mes_iso = f"{mes}-01"
+    linhas = body.get("linhas") or []
+    if not isinstance(linhas, list):
+        raise HTTPException(status_code=400, detail="linhas deve ser uma lista")
+
+    # 1) Apaga o que ja existir desse par (emp, mes)
+    try:
+        existentes = db.listar("vendas_por_modalidade", empreendimento_id=id_, mes=mes_iso)
+        for reg in existentes or []:
+            db.deletar("vendas_por_modalidade", reg["id"])
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"Falha ao limpar distribuicao anterior: {exc}")
+
+    # 2) Insere novas linhas (so as com unidades > 0)
+    salvos: list[dict] = []
+    for linha in linhas:
+        modalidade = (linha.get("modalidade") or "").strip()
+        n = int(linha.get("unidades_vendidas") or 0)
+        if not modalidade or n <= 0:
+            continue
+        vgv_raw = linha.get("vgv")
+        registro = _db_ou_503(
+            db.inserir, "vendas_por_modalidade",
+            {
+                "empreendimento_id": id_,
+                "mes": mes_iso,
+                "modalidade": modalidade,
+                "unidades_vendidas": n,
+                "vgv": _num(vgv_raw),
+            },
+        )
+        salvos.append(registro)
+
+    return {"ok": True, "mes": mes, "linhas": salvos}
+
+
+@app.get("/empreendimentos/{id_}/vendas-mensais/modalidades-sugeridas")
+def modalidades_sugeridas(
+    id_: str,
+    _: str = Depends(security.usuario_autenticado),
+):
+    """Devolve sugestoes a partir da ultima tabela de precos (chaves canonicas
+    de condicoes) + modalidades ja cadastradas no historico do empreendimento.
+    Cada item: {chave, label, fonte: 'condicoes' | 'historico'}.
+    """
+    out: list[dict] = []
+    seen: set[str] = set()
+
+    tabelas = _db_ou_503(
+        db.listar_ordenado, "tabelas_precos",
+        ordem="data_referencia", desc=True, empreendimento_id=id_,
+    ) or []
+    if tabelas:
+        condicoes = tabelas[0].get("condicoes") or {}
+        for chave in condicoes.keys():
+            if chave.startswith("_"):
+                continue
+            label = _LABEL_MODALIDADE.get(chave, str(chave).capitalize())
+            if label.lower() in seen:
+                continue
+            seen.add(label.lower())
+            out.append({"chave": label, "label": label, "fonte": "condicoes"})
+
+    historico = _db_ou_503(
+        db.listar, "vendas_por_modalidade", empreendimento_id=id_,
+    ) or []
+    for reg in historico:
+        nome = (reg.get("modalidade") or "").strip()
+        if not nome or nome.lower() in seen:
+            continue
+        seen.add(nome.lower())
+        out.append({"chave": nome, "label": nome, "fonte": "historico"})
+
+    return out
 
 
 @app.post("/gemini/buscar-empreendimento")
