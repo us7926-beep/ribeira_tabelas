@@ -1,8 +1,8 @@
 import Link from "next/link";
 
+import { ListaEmpreendimentosFiltro } from "@/components/incorporadoras/ListaEmpreendimentosFiltro";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { Chip } from "@/components/ui/Chip";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { api } from "@/lib/api";
 import { getToken } from "@/lib/auth";
@@ -80,25 +80,7 @@ export default async function IncorporadoraDetalhe({
           </div>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 tablm-up">
-          {empreendimentos.map((emp) => (
-            <Link
-              key={emp.id}
-              href={`/empreendimentos/${emp.id}`}
-              className="bg-white border border-line rounded-[14px] p-[18px_20px] shadow-[0_1px_3px_rgba(20,40,90,0.05)] hover:border-royal transition-colors block"
-            >
-              <div className="font-bold text-ink text-[15px]">{emp.nome}</div>
-              <div className="text-[12.5px] text-faint mt-0.5">
-                {[emp.bairro, emp.cidade].filter(Boolean).join(" · ") || "—"}
-              </div>
-              {emp.padrao && (
-                <div className="mt-2">
-                  <Chip tom="royal">{emp.padrao}</Chip>
-                </div>
-              )}
-            </Link>
-          ))}
-        </div>
+        <ListaEmpreendimentosFiltro lista={empreendimentos} />
       )}
     </>
   );
