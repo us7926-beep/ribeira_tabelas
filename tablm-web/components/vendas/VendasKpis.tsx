@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -8,6 +9,7 @@ import { Chip } from "@/components/ui/Chip";
 import { DonutConic } from "@/components/ui/DonutConic";
 import { Dropzone } from "@/components/ui/Dropzone";
 import { KpiCard } from "@/components/ui/KpiCard";
+import type { Empreendimento } from "@/types";
 
 interface KPIs {
   total_unidades: number;
@@ -49,11 +51,26 @@ function moedaCurta(valor: number): string {
   return moeda(valor);
 }
 
-export default function VendasKpis() {
+function mesCorrenteYYYYMM(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+interface Props {
+  empreendimentos?: Empreendimento[];
+}
+
+export default function VendasKpis({ empreendimentos = [] }: Props) {
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
   const [res, setRes] = useState<Resultado | null>(null);
+
+  // Vinculação ao empreendimento
+  const [empId, setEmpId] = useState("");
+  const [mes, setMes] = useState(mesCorrenteYYYYMM());
+  const [salvandoVinculo, setSalvandoVinculo] = useState(false);
+  const [vinculado, setVinculado] = useState("");
 
   async function calcular() {
     if (!arquivo) return;
@@ -71,6 +88,62 @@ export default function VendasKpis() {
       setErro((e as Error).message);
     } finally {
       setCarregando(false);
+    }
+  }
+
+  async function salvarVinculo() {
+    if (!empId || !res) return;
+    setErro("");
+    setVinculado("");
+    setSalvandoVinculo(true);
+    try {
+      // 1) Upsert da venda mensal (mês + total vendido + VGV)
+      const r1 = await fetch(`/api/empreendimentos/${empId}/vendas-mensais`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mes,
+          unidades_vendidas: res.kpis.vendidas,
+          vgv_mes: res.kpis.vgv_vendido,
+          fonte: "planilha",
+        }),
+      });
+      const d1 = await r1.json();
+      if (!r1.ok) throw new Error(d1.detail ?? "Falha ao salvar venda mensal");
+
+      // 2) Se a IA detectou distribuição, salva a quebra
+      if (res.distribuicao && res.distribuicao.length > 0) {
+        const r2 = await fetch(
+          `/api/empreendimentos/${empId}/vendas-mensais/distribuicao`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              mes,
+              linhas: res.distribuicao.map((l) => ({
+                modalidade: l.modalidade,
+                unidades_vendidas: l.unidades_vendidas,
+                vgv: l.vgv,
+              })),
+            }),
+          },
+        );
+        const d2 = await r2.json();
+        if (!r2.ok) throw new Error(d2.detail ?? "Falha ao salvar distribuição");
+      }
+
+      const nome = empreendimentos.find((e) => e.id === empId)?.nome ?? "empreendimento";
+      const sufixo =
+        res.distribuicao && res.distribuicao.length > 0
+          ? ` com distribuição em ${res.distribuicao.length} modalidades`
+          : "";
+      setVinculado(
+        `Salvo em "${nome}" para o mês ${mes}${sufixo}. O Fluxo Comercial deste mês já está em modo Real.`,
+      );
+    } catch (e) {
+      setErro((e as Error).message);
+    } finally {
+      setSalvandoVinculo(false);
     }
   }
 
@@ -179,6 +252,68 @@ export default function VendasKpis() {
             </Card>
           </div>
 
+          {/* Vincular ao empreendimento — salva venda mensal e distribuição */}
+          <Card variant="lg">
+            <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
+              <div>
+                <div className="text-[16px] font-bold text-ink">
+                  Vincular ao empreendimento
+                </div>
+                <div className="text-[12.5px] text-muted mt-0.5">
+                  Salva o mês inteiro (total vendido + VGV)
+                  {res.distribuicao && res.distribuicao.length > 0
+                    ? " + distribuição por modalidade detectada"
+                    : ""}{" "}
+                  no Histórico de Vendas do empreendimento. Use{" "}
+                  <b>Operação → Vendas</b> sempre que receber uma nova tabela.
+                </div>
+              </div>
+              <Chip tom="royal">Opcional</Chip>
+            </div>
+            {empreendimentos.length === 0 ? (
+              <div className="text-[13.5px] text-muted">
+                Cadastre um empreendimento em <b>Carteira</b> antes de vincular.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-[1.6fr_160px_auto] gap-2.5 items-end">
+                <select
+                  value={empId}
+                  onChange={(e) => setEmpId(e.target.value)}
+                  className="w-full px-[15px] py-[13px] rounded-[12px] border border-line bg-white text-[14px] outline-none focus:border-royal focus:ring-[3px] focus:ring-royal/[0.12] transition"
+                >
+                  <option value="">Selecione o empreendimento…</option>
+                  {empreendimentos.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.nome}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="month"
+                  value={mes}
+                  onChange={(e) => setMes(e.target.value)}
+                  className="w-full px-[15px] py-[13px] rounded-[12px] border border-line bg-white text-[14px] outline-none focus:border-royal focus:ring-[3px] focus:ring-royal/[0.12] transition"
+                />
+                <Button onClick={salvarVinculo} disabled={!empId || salvandoVinculo}>
+                  {salvandoVinculo ? "Salvando…" : "Salvar no mês"}
+                </Button>
+              </div>
+            )}
+            {vinculado && (
+              <div className="mt-3 rounded-[12px] bg-up-bg text-up-strong text-[13.5px] px-4 py-3 border border-up-line">
+                {vinculado}{" "}
+                {empId && (
+                  <Link
+                    className="font-bold underline"
+                    href={`/empreendimentos/${empId}?aba=vendas`}
+                  >
+                    Abrir Histórico de Vendas →
+                  </Link>
+                )}
+              </div>
+            )}
+          </Card>
+
           {res.distribuicao && res.distribuicao.length > 0 && (
             <Card variant="lg">
               <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
@@ -188,8 +323,8 @@ export default function VendasKpis() {
                   </div>
                   <div className="text-[12.5px] text-muted mt-0.5">
                     Coluna <b className="text-ink">{res.colunas.modalidade}</b> da planilha.
-                    Copie esses números para a aba <b>Histórico de Vendas</b> do empreendimento
-                    (sub-painel "Distribuição") para alimentar o Fluxo Comercial em modo Real.
+                    O painel acima salva essa distribuição automaticamente quando você
+                    vincula a um empreendimento.
                   </div>
                 </div>
                 <Chip tom="up">{res.distribuicao.length} modalidades</Chip>
