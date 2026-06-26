@@ -8,6 +8,7 @@ const NAV: { href: string; label: string }[] = [
   { href: "/benchmark", label: "Benchmark Competitivo" },
   { href: "/", label: "Dashboards de Vendas" },
   { href: "/flyers", label: "Análise por IA" },
+  { href: "/promocoes", label: "Promoções" },
   { href: "/incorporadoras", label: "Carteira" },
   { href: "/incc", label: "Reajustar por INCC" },
 ];
