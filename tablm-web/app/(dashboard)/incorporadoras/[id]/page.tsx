@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { api } from "@/lib/api";
 import { getToken } from "@/lib/auth";
-import type { Empreendimento, Incorporadora } from "@/types";
+import type { Empreendimento, EventoPromocional, Incorporadora } from "@/types";
 
 import { criarEmpreendimento } from "../actions";
 
@@ -26,14 +26,17 @@ export default async function IncorporadoraDetalhe({
 
   let nome = "Incorporadora";
   let empreendimentos: Empreendimento[] = [];
+  let eventos: EventoPromocional[] = [];
   let erro = "";
   try {
-    const incs = await api<Incorporadora[]>("/incorporadoras", { token });
+    const [incs, emps, evs] = await Promise.all([
+      api<Incorporadora[]>("/incorporadoras", { token }),
+      api<Empreendimento[]>(`/empreendimentos?incorporadora_id=${id}`, { token }),
+      api<EventoPromocional[]>("/benchmark/eventos?ativos=true", { token }),
+    ]);
     nome = incs.find((i) => i.id === id)?.nome ?? nome;
-    empreendimentos = await api<Empreendimento[]>(
-      `/empreendimentos?incorporadora_id=${id}`,
-      { token },
-    );
+    empreendimentos = emps;
+    eventos = evs;
   } catch (e) {
     erro = (e as Error).message;
   }
@@ -82,7 +85,7 @@ export default async function IncorporadoraDetalhe({
           </div>
         </Card>
       ) : (
-        <ListaEmpreendimentosFiltro lista={empreendimentos} />
+        <ListaEmpreendimentosFiltro lista={empreendimentos} eventos={eventos} />
       )}
     </>
   );

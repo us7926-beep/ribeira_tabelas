@@ -2,7 +2,7 @@
 
 > Cole/abra este arquivo numa nova janela do Claude Code. Tem TUDO para continuar
 > a evolução do TabLM de onde paramos. **Sem segredos** (ficam só em `api/.env` e
-> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-25 (noite, após PR #25).
+> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-25 (madrugada, após PR #30).
 
 ## Resumo de 1 linha
 TabLM (Ribeira Empreendimentos) está **migrado e no ar**: Next.js (frontend) +
@@ -129,7 +129,7 @@ docs/CONTINUAR.md  ESTE arquivo
   então `CORS_ORIGINS=http://localhost:3000` no Render não bloqueia o app em produção.
   Por correção, mude no Render para `https://ribeira-tabelas-tablm.vercel.app`.
 
-## O que entrou após PR #19 (25 PRs no total)
+## O que entrou após PR #19 (30 PRs no total)
 - **PR #20** — docs: handoff atualizado.
 - **PR #21** — **Busca na Carteira** (search em `/incorporadoras` e detalhe).
 - **PR #22** — **Diff por unidade** entre versões na Aba Tabela (Adicionadas /
@@ -147,21 +147,37 @@ docs/CONTINUAR.md  ESTE arquivo
 - **PR #25** — **Exportar PDF** do dossiê do empreendimento (e do Benchmark)
   via `window.print()`. CSS `@media print` em `globals.css` esconde sidebar/
   botões e força fundo branco. Reusa botão `BotaoExportarPdf` nas duas rotas.
+- **PR #26** — chore: handoff (PRs #20-#25) + atalho de PDF no Benchmark.
+- **PR #27** — Cleanup do legado `/gemini/ficha` + atalho PDF em mais rotas
+  (INCC, Vendas, /incorporadoras/[id]) + **detectar coluna de modalidade** na
+  planilha de vendas (backend devolve `colunas.modalidade` + `distribuicao`;
+  frontend mostra card "Distribuição detectada"). `BotaoExportarPdf` movido
+  para `components/ui/`.
+- **PR #28** — **Auto-popular distribuição** ao vincular planilha de vendas
+  a um empreendimento. Em 1 clique faz upsert do mês (`/vendas-mensais`) +
+  salva a distribuição por modalidade (`/vendas-mensais/distribuicao`). O
+  Fluxo Comercial troca pra **Real** automaticamente. Página `/vendas`
+  passou a server component, carrega empreendimentos.
+- **PR #29** — Nova rota **`/promocoes`** com 4 filtros (Ativas / Vencendo 7d
+  / Todas / Expiradas), busca, 4 KPIs (Ativas / Vencendo / Expiradas / Total)
+  e lista de cards ordenada por proximidade do término. Sidebar passa a ter
+  6 itens com **"Promoções"** entre Análise por IA e Carteira.
+- **PR #30** — Chip 🔥 "promoção" no card do empreendimento em
+  `/incorporadoras/[id]` (alimentado por `/benchmark/eventos?ativos=true`) +
+  handoff atualizado.
 
 ## Próximos passos sugeridos
-1. **Atalho "Exportar PDF" em mais rotas** (INCC, Vendas, /incorporadoras/[id])
-   — todos podem usar o mesmo `BotaoExportarPdf` no PageHeader.
-2. **Aba dedicada de Promoções (`/promocoes`)** com lista + filtros (ativas
-   hoje, próximas a vencer, expiradas) e gráfico de cronograma. Hoje a
-   visualização é só o card no Dashboard.
-3. **Cleanup do legado**: `gemini.extrair_ficha`/`POST /gemini/ficha` em
-   `api/main.py` ainda existem mas o frontend novo não usa (substituídos por
-   `extrair_ficha_dossie` e `/empreendimentos/{id}/ficha-dossie`). Verificar
-   se o Streamlit antigo usa antes de remover (provavelmente não — Streamlit
-   usa src/ direto).
-4. **Detectar coluna de modalidade na planilha de vendas** (`vendas_api.py`)
-   — hoje a distribuição real é só manual. Quando subir uma planilha com
-   coluna tipo "modalidade" ou "tipo de pagamento", auto-popular o painel.
+1. **Notificações de promoção vencendo** — email ou push no app quando uma
+   promoção entrar nos 7 dias finais. Hoje há a aba `/promocoes` para olhar
+   e o chip 🔥 nos cards, mas falta um sinal proativo.
+2. **Gráfico de cronograma em `/promocoes`** — timeline horizontal mostrando
+   cada promoção como barra (início→fim). Mais legível que a lista quando há
+   muitos eventos sobrepostos.
+3. **Filtros adicionais em `/promocoes`** — por incorporadora e por padrão
+   de empreendimento. Hoje só tem busca livre + status de prazo.
+4. **API de detecção de modalidade mais rica** — quando a planilha não traz
+   coluna explícita, inferir do nome da unidade ou da composição do
+   pagamento. Hoje precisa coluna nomeada (`modalidade`, `forma pag`, etc.).
 5. **Desligar Vercel Authentication** (ação no painel, Settings → Deployment
    Protection).
 6. **Domínio próprio** (ex.: `tablm.ribeira.com.br`) — Vercel + Render aceitam
