@@ -1,11 +1,26 @@
-# TabLM — Contexto completo da sessão (2026-06-25)
+# TabLM — Contexto completo da sessão (2026-06-26)
 
 > Documento único com **tudo** que importa para continuar o trabalho em qualquer
 > janela: estado, arquitetura, PRs feitos, decisões, gotchas e próximos passos.
 > Complementar a [`CONTINUAR.md`](CONTINUAR.md) (handoff curto) e
-> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-25 madrugada (após PR #30).
+> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-26 (após PR #31).
 
-> **Addendum desta sessão (PRs #26-#30):**
+> **Addendum desta sessão (PR #31):**
+> - **#31 — Lote `Promoções: badge sidebar + /promocoes filtros/timeline +
+>   inferência de modalidade`.** 4 commits temáticos:
+>   - Sidebar ganha badge âmbar/vermelho no item Promoções (layout async
+>     busca `/benchmark/eventos?ativos=true`; helper `diasAteVencer`
+>     extraído para `tablm-web/lib/promocoes.ts`).
+>   - `/promocoes` ganha selects de Incorporadora e Padrão + persistência
+>     em URL (`?status&inc&padrao&q`) copiando o padrão do `BenchmarkApp.tsx`.
+>   - `TimelineCronograma.tsx` (SVG sem lib) entre KPIs e cards, janela
+>     [hoje-30d, hoje+90d], barras coloridas por urgência.
+>   - `vendas_api.kpis()` ganha inferência de modalidade quando não há
+>     coluna dedicada: regex no nome (FGTS/MCMV/SBPE/SFH/À vista/Financ.) +
+>     composição (entrada/financ/subsídio). `colunas.modalidade_origem` no
+>     response; frontend mostra Chip "inferida automaticamente".
+>
+> **Addendum anterior (PRs #26-#30):**
 > - **#26 — chore: handoff PRs #20-#25 + atalho PDF no Benchmark.**
 > - **#27 — Cleanup + PDF + modalidade.** Remove `/gemini/ficha` (legado);
 >   `BotaoExportarPdf` movido para `components/ui/` e aplicado em `/incc`,

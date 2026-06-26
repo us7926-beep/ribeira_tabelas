@@ -2,7 +2,7 @@
 
 > Cole/abra este arquivo numa nova janela do Claude Code. Tem TUDO para continuar
 > a evolução do TabLM de onde paramos. **Sem segredos** (ficam só em `api/.env` e
-> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-25 (madrugada, após PR #30).
+> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-26 (após PR #31).
 
 ## Resumo de 1 linha
 TabLM (Ribeira Empreendimentos) está **migrado e no ar**: Next.js (frontend) +
@@ -129,7 +129,7 @@ docs/CONTINUAR.md  ESTE arquivo
   então `CORS_ORIGINS=http://localhost:3000` no Render não bloqueia o app em produção.
   Por correção, mude no Render para `https://ribeira-tabelas-tablm.vercel.app`.
 
-## O que entrou após PR #19 (30 PRs no total)
+## O que entrou após PR #19 (31 PRs no total)
 - **PR #20** — docs: handoff atualizado.
 - **PR #21** — **Busca na Carteira** (search em `/incorporadoras` e detalhe).
 - **PR #22** — **Diff por unidade** entre versões na Aba Tabela (Adicionadas /
@@ -165,24 +165,48 @@ docs/CONTINUAR.md  ESTE arquivo
 - **PR #30** — Chip 🔥 "promoção" no card do empreendimento em
   `/incorporadoras/[id]` (alimentado por `/benchmark/eventos?ativos=true`) +
   handoff atualizado.
+- **PR #31** — Lote `Promoções: badge na sidebar + filtros/timeline em
+  /promocoes + inferência de modalidade` (4 commits temáticos):
+  - **Sidebar badge** — `app/(dashboard)/layout.tsx` virou async, busca
+    `/benchmark/eventos?ativos=true` server-side e passa `vencendo7d`/
+    `vencendo3d` para o `<Sidebar />`. Badge âmbar (≤7d) ou vermelho (≤3d)
+    no item Promoções. Helper `diasAteVencer` foi extraído para
+    `tablm-web/lib/promocoes.ts` e reusado pelo `ListaPromocoes`.
+  - **Filtros + URL em `/promocoes`** — dois selects ("Todas incorporadoras",
+    "Todos padrões") ao lado da busca. Estado persistido em
+    `?status&inc&padrao&q` copiando o padrão `useSearchParams +
+    router.replace` do `BenchmarkApp.tsx`. Botão "Limpar filtros" quando há
+    filtro não-default.
+  - **Timeline horizontal** — novo `TimelineCronograma.tsx` (SVG sem lib,
+    seguindo o sparkline de `AbaTabela`). Janela `[hoje-30d, hoje+90d]`,
+    linha pontilhada royal marcando "hoje", barras coloridas por urgência
+    (verde/âmbar/vermelho/cinza), tooltip por barra. Limita a 30 linhas com
+    contador para o resto.
+  - **Inferência de modalidade no `vendas_api`** — quando a planilha não
+    tem coluna de modalidade, o backend classifica linha por linha via (a)
+    regex no nome da unidade (FGTS/MCMV/SBPE/SFH/À vista/Financiamento) e
+    (b) composição do pagamento (`subsidio > 0` → MCMV; `financ > 0` e
+    `entrada < 25%` → Financiamento; só entrada → À vista). Response ganha
+    `colunas.modalidade_origem = "explicita" | "inferida" | None`; frontend
+    mostra Chip warn "inferida automaticamente" no card de distribuição.
 
 ## Próximos passos sugeridos
-1. **Notificações de promoção vencendo** — email ou push no app quando uma
-   promoção entrar nos 7 dias finais. Hoje há a aba `/promocoes` para olhar
-   e o chip 🔥 nos cards, mas falta um sinal proativo.
-2. **Gráfico de cronograma em `/promocoes`** — timeline horizontal mostrando
-   cada promoção como barra (início→fim). Mais legível que a lista quando há
-   muitos eventos sobrepostos.
-3. **Filtros adicionais em `/promocoes`** — por incorporadora e por padrão
-   de empreendimento. Hoje só tem busca livre + status de prazo.
-4. **API de detecção de modalidade mais rica** — quando a planilha não traz
-   coluna explícita, inferir do nome da unidade ou da composição do
-   pagamento. Hoje precisa coluna nomeada (`modalidade`, `forma pag`, etc.).
-5. **Desligar Vercel Authentication** (ação no painel, Settings → Deployment
+1. **Notificação por email/push** — badge in-app já está em produção (PR #31),
+   mas o sinal proativo "fora do app" continua aberto. Requer: tabela
+   `usuarios` (hoje `TABLM_USERS` é só env), integração Resend/Sendgrid e
+   cron externo (Render free não tem worker).
+2. **Drill-down por incorporadora na timeline** — clicar numa barra de
+   `/promocoes` abre filtro pré-aplicado para aquele empreendimento (ou
+   navega para o dossiê). Hoje só tem tooltip.
+3. **Testes da inferência de modalidade** — `tests/test_api.py` cobre o
+   path sem coluna mas não verifica `distribuicao`. Adicionar fixtures
+   para os 3 cenários do PR #31 (nome FGTS/MCMV, composição, coluna
+   explícita preservada).
+4. **Desligar Vercel Authentication** (ação no painel, Settings → Deployment
    Protection).
-6. **Domínio próprio** (ex.: `tablm.ribeira.com.br`) — Vercel + Render aceitam
+5. **Domínio próprio** (ex.: `tablm.ribeira.com.br`) — Vercel + Render aceitam
    custom.
-7. **Trocar senha do leonardo** (apareceu no chat em sessão antiga). Gerar hash:
+6. **Trocar senha do leonardo** (apareceu no chat em sessão antiga). Gerar hash:
    `python -c "import hashlib;print(hashlib.sha256('SENHA'.encode()).hexdigest())"`
    → atualizar `TABLM_USERS` no `api/.env` local **e** no painel do Render.
 
