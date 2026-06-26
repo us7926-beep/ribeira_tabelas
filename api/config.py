@@ -62,3 +62,26 @@ def supabase_key() -> str:
 def cors_origins() -> list[str]:
     bruto = os.environ.get("CORS_ORIGINS", "http://localhost:3000")
     return [origem.strip() for origem in bruto.split(",") if origem.strip()]
+
+
+# --------------------------------------------------------------------------- #
+# Notificações por email (Resend) — disparadas via Vercel Cron diariamente.
+# --------------------------------------------------------------------------- #
+def resend_api_key() -> str:
+    return os.environ.get("RESEND_API_KEY", "")
+
+
+def cron_secret() -> str:
+    """Segredo compartilhado entre o cron do Vercel e o endpoint de disparo.
+    Sem ele configurado, o endpoint recusa tudo (não envia em desenvolvimento)."""
+    return os.environ.get("CRON_SECRET", "")
+
+
+def notificacoes_destino() -> str:
+    return os.environ.get("NOTIFICACOES_EMAIL_DESTINO", "")
+
+
+def notificacoes_remetente() -> str:
+    """Quando vazio, cai no padrão de teste do Resend (não exige domínio
+    verificado, mas vai pra Spam fácil)."""
+    return os.environ.get("NOTIFICACOES_EMAIL_REMETENTE", "TabLM <onboarding@resend.dev>")
