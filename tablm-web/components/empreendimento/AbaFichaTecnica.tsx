@@ -40,6 +40,8 @@ export function AbaFichaTecnica({ empreendimento }: Props) {
   const [arquivoBook, setArquivoBook] = useState<File | null>(null);
   const [enviandoBook, setEnviandoBook] = useState(false);
   const [erroModal, setErroModal] = useState("");
+  /** Se marcado, chama /importar-book em vez de /ficha-dossie. */
+  const [extrairTabela, setExtrairTabela] = useState(false);
 
   function valorAtual<K extends keyof Empreendimento>(chave: K) {
     if (chave in alteracoes) return alteracoes[chave as string] as Empreendimento[K];
@@ -112,21 +114,30 @@ export function AbaFichaTecnica({ empreendimento }: Props) {
     try {
       const fd = new FormData();
       fd.append("arquivo", arquivoBook);
-      const r = await fetch(`/api/empreendimentos/${empreendimento.id}/ficha-dossie`, {
-        method: "POST",
-        body: fd,
-      });
+      // Se o usuario marcou "extrair tambem tabela de precos", usa o endpoint
+      // unificado: 1 upload, IA roda 2x, cria nova versao em tabelas_precos.
+      const url = extrairTabela
+        ? `/api/empreendimentos/${empreendimento.id}/importar-book`
+        : `/api/empreendimentos/${empreendimento.id}/ficha-dossie`;
+      if (extrairTabela) {
+        fd.append("extrair_ficha", "true");
+        fd.append("extrair_tabela", "true");
+      }
+      const r = await fetch(url, { method: "POST", body: fd });
       const d = await r.json();
       if (!r.ok) throw new Error(d.detail ?? "Falha ao analisar o documento");
       const ficha = (d?.ficha ?? {}) as Partial<Record<string, unknown>>;
       const aplicados = aplicarPreenchimentoIA(ficha);
+      const trechoTabela = extrairTabela && d?.tabela
+        ? " Nova versão da tabela criada e KPIs sincronizados."
+        : "";
       setModalAberto(false);
       setArquivoBook(null);
+      setExtrairTabela(false);
       setSucesso(
-        `IA leu ${aplicados} campo(s) do book. Arquivo salvo na aba Documentos. Revise e clique em Salvar.`,
+        `IA leu ${aplicados} campo(s) do book. Arquivo salvo na aba Documentos.${trechoTabela} Revise e clique em Salvar.`,
       );
       setErro("");
-      // Atualiza a contagem de documentos no header (caso seja visivel)
       router.refresh();
     } catch (e) {
       setErroModal((e as Error).message);
@@ -296,6 +307,19 @@ export function AbaFichaTecnica({ empreendimento }: Props) {
               titulo="Arraste o book aqui"
               dica="PDF, PNG ou JPG · até 25 MB"
             />
+            <label className="flex items-start gap-2.5 mt-4 text-[13.5px] text-body cursor-pointer">
+              <input
+                type="checkbox"
+                checked={extrairTabela}
+                onChange={(e) => setExtrairTabela(e.target.checked)}
+                className="accent-royal size-4 mt-0.5"
+              />
+              <span>
+                <b>Extrair também tabela de preços</b> — se o book tem a tabela
+                (unidades, condições, promoções), cria uma nova versão em
+                <b> Tabela de Preços</b> e sincroniza os KPIs em um clique.
+              </span>
+            </label>
             {erroModal && (
               <div className="mt-3 rounded-[12px] bg-down-bg text-down-strong text-[13.5px] px-4 py-3 border border-down-line">
                 {erroModal}

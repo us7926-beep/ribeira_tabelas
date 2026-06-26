@@ -35,6 +35,8 @@ export function AbaTabela({ empreendimentoId }: Props) {
   const [dataRef, setDataRef] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState("");
+  /** Se marcado, chama /importar-book em vez de /tabelas-precos. */
+  const [extrairFicha, setExtrairFicha] = useState(false);
 
   useEffect(() => {
     carregar();
@@ -64,16 +66,24 @@ export function AbaTabela({ empreendimentoId }: Props) {
       if (arquivo) fd.append("arquivo", arquivo);
       if (versao) fd.append("versao", versao);
       if (dataRef) fd.append("data_referencia", dataRef);
-      const r = await fetch(`/api/empreendimentos/${empreendimentoId}/tabelas-precos`, {
-        method: "POST",
-        body: fd,
-      });
+      // Se o usuario quer extrair tambem a ficha tecnica, usa o endpoint
+      // unificado (1 upload, IA roda 2x: ficha + tabela).
+      const url =
+        arquivo && extrairFicha
+          ? `/api/empreendimentos/${empreendimentoId}/importar-book`
+          : `/api/empreendimentos/${empreendimentoId}/tabelas-precos`;
+      if (arquivo && extrairFicha) {
+        fd.append("extrair_ficha", "true");
+        fd.append("extrair_tabela", "true");
+      }
+      const r = await fetch(url, { method: "POST", body: fd });
       const d = await r.json();
       if (!r.ok) throw new Error(d.detail ?? "Falha ao enviar tabela");
       setModalAberto(false);
       setArquivo(null);
       setVersao("");
       setDataRef("");
+      setExtrairFicha(false);
       await carregar();
       router.refresh();
     } catch (e) {
@@ -266,6 +276,19 @@ export function AbaTabela({ empreendimentoId }: Props) {
               titulo="Arraste a tabela do empreendimento"
               dica="PDF, imagem, CSV ou Excel · IA lê o PDF"
             />
+            <label className="flex items-start gap-2.5 mt-3 text-[13.5px] text-body cursor-pointer">
+              <input
+                type="checkbox"
+                checked={extrairFicha}
+                onChange={(e) => setExtrairFicha(e.target.checked)}
+                className="accent-royal size-4 mt-0.5"
+              />
+              <span>
+                <b>Extrair também ficha técnica</b> — se o book traz dados como
+                bairro, padrão, vagas, datas e CNPJ, a IA atualiza esses campos do
+                empreendimento de uma vez.
+              </span>
+            </label>
             <div className="grid grid-cols-2 gap-2.5 mt-3">
               <input
                 value={versao}
