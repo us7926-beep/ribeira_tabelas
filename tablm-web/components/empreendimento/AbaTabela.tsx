@@ -56,6 +56,68 @@ function kpisDaVersao(t: TabelaPrecos | undefined): KpisVersao {
   };
 }
 
+/** Diff entre duas versões da tabela (matching por andar+unidade). */
+interface DeltaCampo {
+  campo: "preco_total" | "entrada" | "parcelas_mensais" | "financiamento";
+  antes: number;
+  depois: number;
+}
+interface DiffTabela {
+  adicionadas: UnidadePreco[];
+  removidas: UnidadePreco[];
+  alteradas: { antes: UnidadePreco; depois: UnidadePreco; deltas: DeltaCampo[] }[];
+}
+
+function chaveUnidade(u: UnidadePreco): string {
+  return `${String(u.andar ?? "")}|${String(u.unidade ?? "")}`;
+}
+
+const CAMPOS_DELTA: DeltaCampo["campo"][] = [
+  "preco_total",
+  "entrada",
+  "parcelas_mensais",
+  "financiamento",
+];
+
+function compararTabelas(antes: UnidadePreco[], depois: UnidadePreco[]): DiffTabela {
+  const mapA = new Map<string, UnidadePreco>();
+  antes.forEach((u) => mapA.set(chaveUnidade(u), u));
+  const mapB = new Map<string, UnidadePreco>();
+  depois.forEach((u) => mapB.set(chaveUnidade(u), u));
+
+  const adicionadas: UnidadePreco[] = [];
+  const removidas: UnidadePreco[] = [];
+  const alteradas: DiffTabela["alteradas"] = [];
+
+  for (const [chave, depoisU] of mapB) {
+    const antesU = mapA.get(chave);
+    if (!antesU) {
+      adicionadas.push(depoisU);
+      continue;
+    }
+    const deltas: DeltaCampo[] = [];
+    for (const campo of CAMPOS_DELTA) {
+      const a = (antesU as Record<string, unknown>)[campo];
+      const b = (depoisU as Record<string, unknown>)[campo];
+      if (typeof a === "number" && typeof b === "number" && a !== b) {
+        deltas.push({ campo, antes: a, depois: b });
+      }
+    }
+    if (deltas.length > 0) alteradas.push({ antes: antesU, depois: depoisU, deltas });
+  }
+  for (const [chave, antesU] of mapA) {
+    if (!mapB.has(chave)) removidas.push(antesU);
+  }
+  return { adicionadas, removidas, alteradas };
+}
+
+const ROTULO_CAMPO: Record<DeltaCampo["campo"], string> = {
+  preco_total: "Preço",
+  entrada: "Entrada",
+  parcelas_mensais: "Mensais",
+  financiamento: "Financiamento",
+};
+
 /** Sparkline simples em SVG da série de preço/m² médio. */
 function Sparkline({
   serie,
@@ -240,6 +302,19 @@ export function AbaTabela({ empreendimentoId }: Props) {
     return Math.round(((atual - anterior) / anterior) * 1000) / 10;
   }
 
+  // Versão de comparação (default = anterior). Permite comparar com qualquer versão.
+  const [comparaIdx, setComparaIdx] = useState<number | null>(null);
+  const idxAlvoComparacao = comparaIdx ?? tabelaIdx + 1;
+  const tabelaB = tabelas[idxAlvoComparacao];
+
+  const diff = useMemo(() => {
+    if (!tabela || !tabelaB) return null;
+    return compararTabelas(
+      (tabelaB.unidades ?? []) as UnidadePreco[],
+      (tabela.unidades ?? []) as UnidadePreco[],
+    );
+  }, [tabela, tabelaB]);
+
   // Série de preço/m² médio por versão (cronológica) — para sparkline SVG.
   const serie = useMemo(() => {
     return tabelas
@@ -374,6 +449,135 @@ export function AbaTabela({ empreendimentoId }: Props) {
                 {serie.length} versão(ões) na linha do tempo.
               </div>
               <Sparkline serie={serie} />
+            </Card>
+          )}
+
+          {/* Diff por unidade entre a versão atual e outra (default = anterior). */}
+          {temAnterior && diff && (
+            <Card variant="lg">
+              <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
+                <div>
+                  <div className="text-[16px] font-bold text-ink">
+                    Diferenças entre versões
+                  </div>
+                  <div className="text-[12.5px] text-muted mt-0.5">
+                    Comparando <b className="text-royal">{tabela.versao}</b> com{" "}
+                    <b className="text-ink">{tabelaB?.versao}</b>. Match por andar+unidade.
+                  </div>
+                </div>
+                <select
+                  value={String(idxAlvoComparacao)}
+                  onChange={(e) => setComparaIdx(Number(e.target.value))}
+                  className="rounded-[12px] border border-line bg-white px-[15px] py-[10px] text-[13.5px] outline-none focus:border-royal"
+                >
+                  {tabelas.map((t, i) =>
+                    i === tabelaIdx ? null : (
+                      <option key={t.id} value={i}>
+                        Comparar com {t.versao}
+                      </option>
+                    ),
+                  )}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                <div className="rounded-[12px] bg-up-bg border border-up-line px-4 py-3">
+                  <div className="text-[12px] font-bold uppercase tracking-[0.5px] text-up-strong">
+                    Adicionadas
+                  </div>
+                  <div className="text-[26px] font-extrabold text-up-strong tnum mt-1">
+                    {diff.adicionadas.length}
+                  </div>
+                </div>
+                <div className="rounded-[12px] bg-royal-tint border border-transparent px-4 py-3">
+                  <div className="text-[12px] font-bold uppercase tracking-[0.5px] text-royal">
+                    Alteradas
+                  </div>
+                  <div className="text-[26px] font-extrabold text-royal tnum mt-1">
+                    {diff.alteradas.length}
+                  </div>
+                </div>
+                <div className="rounded-[12px] bg-down-bg border border-down-line px-4 py-3">
+                  <div className="text-[12px] font-bold uppercase tracking-[0.5px] text-down-strong">
+                    Removidas
+                  </div>
+                  <div className="text-[26px] font-extrabold text-down-strong tnum mt-1">
+                    {diff.removidas.length}
+                  </div>
+                </div>
+              </div>
+
+              {diff.alteradas.length > 0 && (
+                <div className="overflow-x-auto border border-line-soft rounded-[12px]">
+                  <table className="w-full text-[13.5px]">
+                    <thead className="bg-thead text-muted">
+                      <tr>
+                        <th className="text-left font-bold text-[11.5px] uppercase tracking-[0.4px] px-3 py-2.5">
+                          Unidade
+                        </th>
+                        <th className="text-left font-bold text-[11.5px] uppercase tracking-[0.4px] px-3 py-2.5">
+                          Campo
+                        </th>
+                        <th className="text-right font-bold text-[11.5px] uppercase tracking-[0.4px] px-3 py-2.5">
+                          Antes
+                        </th>
+                        <th className="text-right font-bold text-[11.5px] uppercase tracking-[0.4px] px-3 py-2.5">
+                          Depois
+                        </th>
+                        <th className="text-right font-bold text-[11.5px] uppercase tracking-[0.4px] px-3 py-2.5">
+                          Δ
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {diff.alteradas.slice(0, 80).flatMap((a) =>
+                        a.deltas.map((d, di) => {
+                          const delta = d.depois - d.antes;
+                          const cor =
+                            delta > 0 ? "text-up" : delta < 0 ? "text-down" : "text-muted";
+                          return (
+                            <tr
+                              key={`${chaveUnidade(a.depois)}-${d.campo}-${di}`}
+                              className="border-t border-line-soft"
+                            >
+                              <td className="px-3 py-2 whitespace-nowrap text-ink font-semibold">
+                                {String(a.depois.andar ?? "—")} ·{" "}
+                                {String(a.depois.unidade ?? "—")}
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap text-body">
+                                {ROTULO_CAMPO[d.campo]}
+                              </td>
+                              <td className="px-3 py-2 text-right tnum text-faint">
+                                {moeda(d.antes)}
+                              </td>
+                              <td className="px-3 py-2 text-right tnum font-bold text-ink">
+                                {moeda(d.depois)}
+                              </td>
+                              <td className={`px-3 py-2 text-right tnum font-bold ${cor}`}>
+                                {delta > 0 ? "▲" : delta < 0 ? "▼" : ""} {moeda(Math.abs(delta))}
+                              </td>
+                            </tr>
+                          );
+                        }),
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {diff.alteradas.length > 80 && (
+                <div className="text-[12px] text-faint mt-2">
+                  Mostrando 80 das {diff.alteradas.length} unidades alteradas.
+                </div>
+              )}
+
+              {diff.adicionadas.length === 0 &&
+                diff.removidas.length === 0 &&
+                diff.alteradas.length === 0 && (
+                  <div className="text-[13.5px] text-muted">
+                    As duas versões estão idênticas (nenhuma mudança nas unidades).
+                  </div>
+                )}
             </Card>
           )}
 
