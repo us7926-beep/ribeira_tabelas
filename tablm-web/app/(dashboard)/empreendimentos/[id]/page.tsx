@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { BotaoExportarPdf } from "@/components/empreendimento/BotaoExportarPdf";
 import { EmpreendimentoDossie } from "@/components/empreendimento/EmpreendimentoDossie";
 import { Chip } from "@/components/ui/Chip";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -56,6 +57,7 @@ export default async function EmpreendimentoPage({
         eyebrow="Empreendimento"
         title={emp?.nome ?? "Empreendimento"}
         subtitle={subtitulo}
+        acao={<BotaoExportarPdf />}
       />
 
       {emp && (
