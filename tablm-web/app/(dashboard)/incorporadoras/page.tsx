@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ImportarEmpreendimentoBook } from "@/components/incorporadoras/ImportarEmpreendimentoBook";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
@@ -30,6 +31,7 @@ export default async function IncorporadorasPage() {
         eyebrow="Carteira"
         title="Incorporadoras"
         subtitle="Navegue pela hierarquia de incorporadoras e seus empreendimentos. A Ribeira aparece destacada com bolinha royal; concorrentes em cinza."
+        acao={<ImportarEmpreendimentoBook incorporadoras={lista} />}
       />
 
       <Card variant="lg" className="mb-5 tablm-up">

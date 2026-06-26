@@ -281,6 +281,172 @@ def criar_empreendimento(dados: EmpreendimentoIn, _: str = Depends(security.usua
     return _db_ou_503(db.inserir, "empreendimentos", dados.model_dump(exclude_none=True))
 
 
+# Endpoints com caminho fixo precisam vir ANTES de /empreendimentos/{id_} para o
+# matcher do FastAPI nao confundir "importar-book" com um id.
+@app.post("/empreendimentos/importar-book")
+async def importar_book_para_carteira(
+    arquivo: UploadFile,
+    incorporadora_id: str = Form(""),
+    incorporadora_nome: str = Form(""),
+    extrair_tabela: bool = Form(False),
+    versao: str = Form(""),
+    data_referencia: str = Form(""),
+    _: str = Depends(security.usuario_autenticado),
+):
+    """Cria um empreendimento (e a incorporadora, se nova) a partir de um book.
+
+    Resolucao de incorporadora:
+    - se `incorporadora_id` fornecido: usa direto.
+    - senao: usa `incorporadora_nome` (parametro do form) ou o `incorporadora`
+      detectado pela IA; busca por nome (lowercase) em `incorporadoras`. Se
+      nao existir, cria.
+    A ficha tecnica extraida e aplicada ao empreendimento. Se `extrair_tabela`,
+    insere em `tabelas_precos` e sincroniza snapshot KPIs.
+    """
+    conteudo = await _ler_upload(arquivo)
+    nome_original = arquivo.filename or "book.pdf"
+
+    # 1) IA primeiro (sem tocar Storage/DB ate dar certo).
+    try:
+        ficha = gemini.extrair_ficha_dossie(conteudo, nome_original)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"Falha na extracao de ficha: {exc}")
+
+    ia_tabela: dict | None = None
+    if extrair_tabela:
+        try:
+            ia_tabela = gemini.extrair_tabela_precos(conteudo, nome_original)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail=f"Falha na extracao de tabela: {exc}")
+
+    # 2) Resolve incorporadora.
+    inc_id = (incorporadora_id or "").strip()
+    if not inc_id:
+        nome_inc = (incorporadora_nome or "").strip()
+        if not nome_inc and ia_tabela:
+            nome_inc = (ia_tabela.get("incorporadora") or "").strip()
+        if not nome_inc:
+            raise HTTPException(
+                status_code=400,
+                detail="Selecione uma incorporadora ou informe o nome de uma nova "
+                       "(a IA tambem nao detectou).",
+            )
+        existentes = _db_ou_503(db.listar, "incorporadoras")
+        nome_lower = nome_inc.lower()
+        achada = next((i for i in existentes if (i.get("nome") or "").lower() == nome_lower), None)
+        if achada:
+            inc_id = achada["id"]
+        else:
+            try:
+                inc_criada = _db_ou_503(db.inserir, "incorporadoras", {"nome": nome_inc})
+                inc_id = inc_criada.get("id", "")
+            except Exception as exc:  # noqa: BLE001
+                raise HTTPException(status_code=400, detail=f"Falha ao criar incorporadora: {exc}")
+
+    if not inc_id:
+        raise HTTPException(status_code=400, detail="Nao consegui resolver a incorporadora.")
+
+    # 3) Cria empreendimento usando a ficha extraida (com nome obrigatorio).
+    nome_emp = (ficha.get("nome") or "").strip()
+    if not nome_emp and ia_tabela:
+        nome_emp = (ia_tabela.get("nome_empreendimento") or "").strip()
+    if not nome_emp:
+        nome_emp = PurePosixPath(nome_original).stem or "Empreendimento"
+
+    base_emp = {"incorporadora_id": inc_id, "nome": nome_emp}
+    # Campos de cadastro inicial (compatibilidade com EmpreendimentoIn): bairro,
+    # cidade, padrao. Demais campos da ficha entram via PATCH no proximo passo.
+    for chave in ("bairro", "cidade", "padrao"):
+        valor = ficha.get(chave)
+        if valor:
+            base_emp[chave] = valor
+    try:
+        empreendimento = _db_ou_503(db.inserir, "empreendimentos", base_emp)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"Falha ao criar empreendimento: {exc}")
+    emp_id = empreendimento.get("id")
+    if not emp_id:
+        raise HTTPException(status_code=500, detail="Empreendimento criado sem id")
+
+    # 4) Aplica restante da ficha (vagas, distancia, datas, CNPJ, RI, etc).
+    campos_ficha = {
+        chave: valor for chave, valor in ficha.items()
+        if chave in _FICHA_CAMPOS and chave not in ("nome", "bairro", "cidade", "padrao")
+        and valor not in (None, "", [])
+    }
+    if campos_ficha:
+        try:
+            empreendimento = _db_ou_503(db.atualizar, "empreendimentos", emp_id, campos_ficha)
+        except Exception:  # noqa: BLE001
+            pass  # ficha parcial e' aceitavel; nao falha a importacao por isso
+
+    # 5) Salva documento (uma vez).
+    nome_doc = PurePosixPath(nome_original).name or "book.pdf"
+    caminho = f"{emp_id}/{uuid.uuid4().hex}-{nome_doc}"
+    try:
+        _db_ou_503(
+            db.upload_storage, caminho, conteudo,
+            arquivo.content_type or "application/octet-stream",
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"Falha no upload do book: {exc}")
+    try:
+        documento = _db_ou_503(
+            db.inserir, "documentos",
+            {
+                "empreendimento_id": emp_id,
+                "nome": nome_doc,
+                "tipo": "book_empreendimento",
+                "storage_path": caminho,
+            },
+        )
+    except Exception as exc:
+        try:
+            db.remover_storage(caminho)
+        except Exception:  # noqa: BLE001
+            pass
+        raise HTTPException(status_code=400, detail=f"Falha ao registrar documento: {exc}")
+
+    # 6) Tabela de precos opcional + sincronizacao de snapshot.
+    tabela: dict | None = None
+    kpis_sincronizados: dict = {}
+    if ia_tabela:
+        unidades = ia_tabela.get("unidades") or []
+        promocoes = ia_tabela.get("promocoes") or []
+        condicoes = {"_padrao_ia": ia_tabela.get("padrao", "")}
+        versao_final = versao or datetime.now().strftime("%b/%Y")
+        data_ref = data_referencia or datetime.now().date().isoformat()
+        tabela = _db_ou_503(
+            db.inserir, "tabelas_precos",
+            {
+                "empreendimento_id": emp_id,
+                "versao": versao_final,
+                "data_referencia": data_ref,
+                "unidades": unidades,
+                "condicoes": condicoes,
+                "promocoes": promocoes,
+                "raw_gemini": ia_tabela,
+            },
+        )
+        kpis = _montar_kpis_de_unidades(unidades)
+        if kpis:
+            kpis["kpis_atualizados_em"] = datetime.now(timezone.utc).isoformat()
+            kpis_validos = {chave: valor for chave, valor in kpis.items() if valor is not None}
+            if kpis_validos:
+                empreendimento = _db_ou_503(db.atualizar, "empreendimentos", emp_id, kpis_validos)
+                kpis_sincronizados = kpis_validos
+
+    return {
+        "ok": True,
+        "empreendimento": empreendimento,
+        "incorporadora_id": inc_id,
+        "documento": documento,
+        "ficha": ficha,
+        "tabela": tabela,
+        "kpis_sincronizados": kpis_sincronizados,
+    }
+
+
 @app.get("/empreendimentos/{id_}")
 def obter_empreendimento(id_: str, _: str = Depends(security.usuario_autenticado)):
     registro = _db_ou_503(db.obter, "empreendimentos", id_)
