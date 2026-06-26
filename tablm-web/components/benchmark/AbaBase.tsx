@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 
+import { criarEmpreendimentoDaIA } from "@/app/(dashboard)/benchmark/actions";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { Dropzone } from "@/components/ui/Dropzone";
 import { KpiCard } from "@/components/ui/KpiCard";
-import type { Empreendimento } from "@/types";
+import type { Empreendimento, Incorporadora } from "@/types";
 
 interface KPIs {
   total_unidades: number;
@@ -53,7 +55,14 @@ function paraISO(br: string): string | null {
   return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
 }
 
-export function AbaBase({ empreendimentos = [] }: { empreendimentos?: Empreendimento[] }) {
+export function AbaBase({
+  empreendimentos = [],
+  incorporadoras = [],
+}: {
+  empreendimentos?: Empreendimento[];
+  incorporadoras?: Incorporadora[];
+}) {
+  const router = useRouter();
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [tipo, setTipo] = useState("Concorrente");
   const [incorporadora, setIncorporadora] = useState("");
@@ -69,6 +78,11 @@ export function AbaBase({ empreendimentos = [] }: { empreendimentos?: Empreendim
   const [tipoKpi, setTipoKpi] = useState<"mercado" | "vendas">("mercado");
   const [vinculando, setVinculando] = useState(false);
   const [vinculado, setVinculado] = useState("");
+
+  // Criar empreendimento direto a partir do que a IA detectou.
+  const [novoIncId, setNovoIncId] = useState("");
+  const [novaIncNome, setNovaIncNome] = useState("");
+  const [criando, setCriando] = useState(false);
 
   // Promoções detectadas pela IA — controla quais já foram registradas.
   const [promocoesRegistradas, setPromocoesRegistradas] = useState<Set<number>>(new Set());
@@ -154,6 +168,79 @@ export function AbaBase({ empreendimentos = [] }: { empreendimentos?: Empreendim
 
   const ia = res?.ia;
   const promocoes = ia?.promocoes ?? [];
+
+  /** Empreendimento detectado pela IA ja existe? Compara por nome (lowercase). */
+  const empExistente = useMemo(() => {
+    const nomeIA = (ia?.nome_empreendimento ?? "").trim().toLowerCase();
+    if (!nomeIA) return undefined;
+    return empreendimentos.find((e) => e.nome.trim().toLowerCase() === nomeIA);
+  }, [ia, empreendimentos]);
+
+  /** Pré-seleciona incorporadora se a IA bateu com uma cadastrada. */
+  useMemo(() => {
+    if (!ia) return;
+    const nomeInc = (ia.incorporadora ?? "").trim().toLowerCase();
+    if (!nomeInc) {
+      setNovoIncId("__criar__");
+      setNovaIncNome("");
+      return;
+    }
+    const match = incorporadoras.find((i) => i.nome.trim().toLowerCase() === nomeInc);
+    if (match) {
+      setNovoIncId(match.id);
+      setNovaIncNome("");
+    } else {
+      setNovoIncId("__criar__");
+      setNovaIncNome(ia.incorporadora ?? "");
+    }
+  }, [ia, incorporadoras]);
+
+  /** Cria empreendimento (e inc se preciso) + vincula KPIs imediatamente. */
+  async function criarEVincular() {
+    if (!arquivo || !ia?.nome_empreendimento) return;
+    setErro("");
+    setVinculado("");
+    setCriando(true);
+    try {
+      const resCriar = await criarEmpreendimentoDaIA({
+        nomeEmp: ia.nome_empreendimento,
+        incorporadoraId: novoIncId === "__criar__" ? "" : novoIncId,
+        novaIncorporadoraNome: novoIncId === "__criar__" ? novaIncNome : undefined,
+        bairro: ia.bairro,
+        cidade: ia.cidade,
+        padrao: ia.padrao,
+      });
+      if (!resCriar.ok) {
+        setErro(resCriar.erro);
+        return;
+      }
+      // Imediatamente persiste os KPIs do upload no empreendimento recém-criado.
+      const fd = new FormData();
+      fd.append("arquivo", arquivo);
+      fd.append("tipo", tipoKpi);
+      const r = await fetch(
+        `/api/empreendimentos/${resCriar.empreendimentoId}/kpis`,
+        { method: "POST", body: fd },
+      );
+      const d = await r.json();
+      if (!r.ok) {
+        setErro(
+          `Empreendimento criado, mas falhou ao salvar KPIs: ${d.detail ?? "erro"}`,
+        );
+        router.refresh();
+        return;
+      }
+      setVinculado(
+        `"${ia.nome_empreendimento}" criado e KPIs salvos. Benchmark já reflete os números reais.`,
+      );
+      setEmpId(resCriar.empreendimentoId);
+      router.refresh();
+    } catch (e) {
+      setErro((e as Error).message);
+    } finally {
+      setCriando(false);
+    }
+  }
 
   return (
     <div className="grid grid-cols-1 gap-5 tablm-up">
@@ -274,6 +361,75 @@ export function AbaBase({ empreendimentos = [] }: { empreendimentos?: Empreendim
             <KpiCard rotulo="VGV total" valor={moeda(res.kpis.vgv_total)} />
             <KpiCard rotulo="Unidades" valor={String(res.kpis.total_unidades)} />
           </div>
+
+          {/* Criar empreendimento direto (quando IA detectou um nome inédito). */}
+          {ia?.nome_empreendimento && !empExistente && (
+            <Card variant="lg">
+              <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
+                <div>
+                  <div className="text-[16px] font-bold text-ink">
+                    + Criar &quot;{ia.nome_empreendimento}&quot; e vincular KPIs
+                  </div>
+                  <div className="text-[12.5px] text-muted mt-0.5">
+                    A IA não encontrou esse empreendimento na sua Carteira. Em um clique,
+                    cadastro ele (e a incorporadora, se nova) e já gravo os KPIs desta tabela.
+                  </div>
+                </div>
+                <Chip tom="royal">via IA</Chip>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 items-end">
+                <select
+                  value={novoIncId}
+                  onChange={(e) => setNovoIncId(e.target.value)}
+                  className={campo}
+                >
+                  <option value="">Incorporadora…</option>
+                  {incorporadoras.map((inc) => (
+                    <option key={inc.id} value={inc.id}>
+                      {inc.nome}
+                    </option>
+                  ))}
+                  <option value="__criar__">+ Cadastrar nova incorporadora…</option>
+                </select>
+                {novoIncId === "__criar__" ? (
+                  <input
+                    value={novaIncNome}
+                    onChange={(e) => setNovaIncNome(e.target.value)}
+                    placeholder="Nome da nova incorporadora"
+                    className={campo}
+                  />
+                ) : (
+                  <div />
+                )}
+                <select
+                  value={tipoKpi}
+                  onChange={(e) => setTipoKpi(e.target.value as "mercado" | "vendas")}
+                  className={campo}
+                >
+                  <option value="mercado">Tabela de mercado</option>
+                  <option value="vendas">Tabela de vendas</option>
+                </select>
+                <Button
+                  onClick={criarEVincular}
+                  disabled={criando || (novoIncId === "__criar__" && !novaIncNome.trim())}
+                >
+                  {criando
+                    ? "Criando…"
+                    : `Criar "${ia.nome_empreendimento}" + salvar KPIs`}
+                </Button>
+              </div>
+            </Card>
+          )}
+
+          {empExistente && (
+            <Card>
+              <div className="flex items-center gap-2 flex-wrap text-[13.5px] text-body">
+                <Chip tom="up">já cadastrado</Chip>
+                Empreendimento <b className="text-ink">{empExistente.nome}</b> já está na sua
+                Carteira. Use o painel abaixo para vincular os KPIs.
+              </div>
+            </Card>
+          )}
 
           {/* Vincular a um empreendimento — persiste KPIs no banco */}
           <Card variant="lg">

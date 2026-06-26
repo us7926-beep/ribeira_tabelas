@@ -205,7 +205,9 @@ export function BenchmarkApp({
           incorporadoras={incorporadoras}
         />
       )}
-      {aba === "base" && <AbaBase empreendimentos={empreendimentos} />}
+      {aba === "base" && (
+        <AbaBase empreendimentos={empreendimentos} incorporadoras={incorporadoras} />
+      )}
     </>
   );
 }
