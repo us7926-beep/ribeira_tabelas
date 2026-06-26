@@ -4,9 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Chip } from "@/components/ui/Chip";
 import { HBar } from "@/components/ui/HBar";
 import { KpiCard } from "@/components/ui/KpiCard";
-import type { VendaMensal } from "@/types";
+import type {
+  DistribuicaoModalidade,
+  ModalidadeSugerida,
+  VendaMensal,
+} from "@/types";
 
 interface Props {
   empreendimentoId: string;
@@ -38,6 +43,15 @@ export function AbaVendasMensais({ empreendimentoId }: Props) {
   const [novoVgv, setNovoVgv] = useState("");
   const [salvando, setSalvando] = useState(false);
 
+  // Distribuicao por modalidade do mês selecionado
+  const [mesDist, setMesDist] = useState(""); // YYYY-MM
+  const [linhasDist, setLinhasDist] = useState<DistribuicaoModalidade[]>([]);
+  const [sugeridas, setSugeridas] = useState<ModalidadeSugerida[]>([]);
+  const [novaModalidade, setNovaModalidade] = useState("");
+  const [customNome, setCustomNome] = useState("");
+  const [salvandoDist, setSalvandoDist] = useState(false);
+  const [feedbackDist, setFeedbackDist] = useState("");
+
   async function carregar() {
     setCarregando(true);
     try {
@@ -53,6 +67,54 @@ export function AbaVendasMensais({ empreendimentoId }: Props) {
     carregar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empreendimentoId]);
+
+  // Carrega sugeridas uma vez por empreendimento
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch(
+          `/api/empreendimentos/${empreendimentoId}/vendas-mensais/modalidades-sugeridas`,
+        );
+        const d = await r.json();
+        if (Array.isArray(d)) setSugeridas(d as ModalidadeSugerida[]);
+      } catch {
+        /* ok manter vazio */
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empreendimentoId]);
+
+  // Quando o mes selecionado mudar, carrega as linhas dele.
+  useEffect(() => {
+    if (!mesDist) {
+      setLinhasDist([]);
+      return;
+    }
+    (async () => {
+      try {
+        const r = await fetch(
+          `/api/empreendimentos/${empreendimentoId}/vendas-mensais/distribuicao?de=${mesDist}&ate=${mesDist}`,
+        );
+        const d = await r.json();
+        if (Array.isArray(d)) {
+          setLinhasDist(
+            (d as DistribuicaoModalidade[]).filter((l) => l.mes?.startsWith(mesDist)),
+          );
+        } else {
+          setLinhasDist([]);
+        }
+      } catch {
+        setLinhasDist([]);
+      }
+    })();
+  }, [mesDist, empreendimentoId]);
+
+  // Quando uma nova venda é cadastrada, escolhe o ultimo mes para distribuir.
+  useEffect(() => {
+    if (!mesDist && vendas.length > 0) {
+      setMesDist(vendas[vendas.length - 1].mes.slice(0, 7));
+    }
+  }, [vendas, mesDist]);
 
   async function salvarLinha() {
     setErro("");
@@ -91,6 +153,73 @@ export function AbaVendasMensais({ empreendimentoId }: Props) {
       setSalvando(false);
     }
   }
+
+  function adicionarModalidade(nome: string) {
+    const limpo = (nome || "").trim();
+    if (!limpo) return;
+    if (linhasDist.some((l) => l.modalidade.toLowerCase() === limpo.toLowerCase())) return;
+    setLinhasDist((prev) => [
+      ...prev,
+      { modalidade: limpo, unidades_vendidas: 0, vgv: null },
+    ]);
+  }
+
+  function removerModalidade(idx: number) {
+    setLinhasDist((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function atualizarLinhaDist(idx: number, campo: "unidades_vendidas" | "vgv", valor: string) {
+    setLinhasDist((prev) =>
+      prev.map((linha, i) => {
+        if (i !== idx) return linha;
+        if (campo === "unidades_vendidas") {
+          return { ...linha, unidades_vendidas: parseInt(valor || "0", 10) || 0 };
+        }
+        const n = valor ? Number(valor.replace(",", ".")) : null;
+        return { ...linha, vgv: Number.isFinite(n as number) ? (n as number) : null };
+      }),
+    );
+  }
+
+  async function salvarDistribuicao() {
+    if (!mesDist) {
+      setFeedbackDist("Selecione um mês primeiro.");
+      return;
+    }
+    setSalvandoDist(true);
+    setFeedbackDist("");
+    try {
+      const r = await fetch(
+        `/api/empreendimentos/${empreendimentoId}/vendas-mensais/distribuicao`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mes: mesDist,
+            linhas: linhasDist
+              .filter((l) => l.unidades_vendidas > 0)
+              .map((l) => ({
+                modalidade: l.modalidade,
+                unidades_vendidas: l.unidades_vendidas,
+                vgv: l.vgv,
+              })),
+          }),
+        },
+      );
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail ?? "Falha ao salvar distribuição");
+      setFeedbackDist("Distribuição salva. O Fluxo Comercial deste mês usa dados reais agora.");
+    } catch (e) {
+      setFeedbackDist((e as Error).message);
+    } finally {
+      setSalvandoDist(false);
+    }
+  }
+
+  const totalDistUnidades = linhasDist.reduce((a, l) => a + (l.unidades_vendidas || 0), 0);
+  const vendaDoMes = vendas.find((v) => v.mes.startsWith(mesDist));
+  const conflitoSoma =
+    !!vendaDoMes && totalDistUnidades !== vendaDoMes.unidades_vendidas;
 
   const kpis = useMemo(() => {
     if (vendas.length === 0) return null;
@@ -180,6 +309,188 @@ export function AbaVendasMensais({ empreendimentoId }: Props) {
           <div className="mt-3 rounded-[12px] bg-down-bg text-down-strong text-[13.5px] px-4 py-3 border border-down-line">
             {erro}
           </div>
+        )}
+      </Card>
+
+      {/* Distribuicao por modalidade — alimenta /fluxo-comercial com dados reais */}
+      <Card variant="lg">
+        <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
+          <div>
+            <div className="text-[16px] font-bold text-ink">
+              Distribuição por modalidade
+            </div>
+            <div className="text-[12.5px] text-muted mt-0.5">
+              Liste quantas unidades foram vendidas em cada modalidade no mês. Sem
+              isso, o Fluxo Comercial assume distribuição uniforme (
+              <Chip tom="warn">Estimado</Chip>).
+            </div>
+          </div>
+          <div className="flex gap-2 items-center">
+            <select
+              value={mesDist}
+              onChange={(e) => setMesDist(e.target.value)}
+              className="rounded-[12px] border border-line bg-white px-[14px] py-[9px] text-[13.5px] outline-none focus:border-royal"
+            >
+              <option value="">Selecione o mês…</option>
+              {vendas.map((v) => {
+                const k = v.mes.slice(0, 7);
+                return (
+                  <option key={v.id} value={k}>
+                    {formatarMes(v.mes)} ({v.unidades_vendidas} un.)
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        </div>
+
+        {!mesDist ? (
+          <div className="text-[13.5px] text-muted">
+            Cadastre um mês de venda acima e selecione-o para detalhar a distribuição.
+          </div>
+        ) : (
+          <>
+            {linhasDist.length > 0 && (
+              <div className="overflow-x-auto border border-line-soft rounded-[12px] mb-3">
+                <table className="w-full text-[13.5px]">
+                  <thead className="bg-thead text-muted">
+                    <tr>
+                      <th className="text-left font-bold text-[11.5px] uppercase tracking-[0.4px] px-3 py-2.5">
+                        Modalidade
+                      </th>
+                      <th className="text-right font-bold text-[11.5px] uppercase tracking-[0.4px] px-3 py-2.5 w-[160px]">
+                        Unidades vendidas
+                      </th>
+                      <th className="text-right font-bold text-[11.5px] uppercase tracking-[0.4px] px-3 py-2.5 w-[200px]">
+                        VGV (R$, opcional)
+                      </th>
+                      <th className="px-3 py-2.5 w-[80px]" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {linhasDist.map((l, i) => (
+                      <tr key={`${l.modalidade}-${i}`} className="border-t border-line-soft">
+                        <td className="px-3 py-2 font-semibold text-ink">{l.modalidade}</td>
+                        <td className="px-3 py-2 text-right">
+                          <input
+                            type="number"
+                            min={0}
+                            value={l.unidades_vendidas || ""}
+                            onChange={(e) =>
+                              atualizarLinhaDist(i, "unidades_vendidas", e.target.value)
+                            }
+                            className="w-[110px] text-right rounded-[8px] border border-line bg-white px-2 py-1.5 outline-none focus:border-royal tnum"
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <input
+                            type="text"
+                            placeholder="—"
+                            value={l.vgv ?? ""}
+                            onChange={(e) => atualizarLinhaDist(i, "vgv", e.target.value)}
+                            className="w-[170px] text-right rounded-[8px] border border-line bg-white px-2 py-1.5 outline-none focus:border-royal tnum"
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <button
+                            onClick={() => removerModalidade(i)}
+                            className="text-[12px] font-bold text-down-strong hover:underline"
+                          >
+                            remover
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2 items-center mb-3">
+              <select
+                value={novaModalidade}
+                onChange={(e) => setNovaModalidade(e.target.value)}
+                className="rounded-[12px] border border-line bg-white px-[14px] py-[9px] text-[13.5px] outline-none focus:border-royal"
+              >
+                <option value="">+ Adicionar modalidade…</option>
+                {sugeridas
+                  .filter(
+                    (s) =>
+                      !linhasDist.some(
+                        (l) => l.modalidade.toLowerCase() === s.label.toLowerCase(),
+                      ),
+                  )
+                  .map((s) => (
+                    <option key={`${s.fonte}-${s.label}`} value={s.label}>
+                      {s.label} {s.fonte === "condicoes" ? "(da tabela)" : "(do histórico)"}
+                    </option>
+                  ))}
+                <option value="__custom__">+ Modalidade customizada…</option>
+              </select>
+              <Button
+                variante="secondary"
+                onClick={() => {
+                  if (novaModalidade === "__custom__") return;
+                  if (!novaModalidade) return;
+                  adicionarModalidade(novaModalidade);
+                  setNovaModalidade("");
+                }}
+                disabled={!novaModalidade || novaModalidade === "__custom__"}
+              >
+                Adicionar
+              </Button>
+              {novaModalidade === "__custom__" && (
+                <div className="flex gap-2 items-center">
+                  <input
+                    value={customNome}
+                    onChange={(e) => setCustomNome(e.target.value)}
+                    placeholder="Nome da modalidade"
+                    className="rounded-[12px] border border-line bg-white px-[14px] py-[9px] text-[13.5px] outline-none focus:border-royal"
+                  />
+                  <Button
+                    variante="secondary"
+                    onClick={() => {
+                      adicionarModalidade(customNome);
+                      setCustomNome("");
+                      setNovaModalidade("");
+                    }}
+                    disabled={!customNome.trim()}
+                  >
+                    Adicionar
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {vendaDoMes && (
+              <div className="text-[12.5px] mb-3">
+                <span className="text-muted">
+                  Soma das modalidades:{" "}
+                  <b className="text-ink tnum">{totalDistUnidades}</b> /{" "}
+                  <b className="text-ink tnum">{vendaDoMes.unidades_vendidas}</b> registradas
+                  no mês.
+                </span>
+                {conflitoSoma && (
+                  <span className="ml-2 font-bold text-down-strong">
+                    ⚠ não bate
+                  </span>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 items-center">
+              {feedbackDist && (
+                <div
+                  className={`text-[12.5px] ${feedbackDist.toLowerCase().includes("salva") ? "text-up-strong" : "text-down-strong"}`}
+                >
+                  {feedbackDist}
+                </div>
+              )}
+              <Button onClick={salvarDistribuicao} disabled={salvandoDist}>
+                {salvandoDist ? "Salvando…" : "Salvar distribuição"}
+              </Button>
+            </div>
+          </>
         )}
       </Card>
     </div>
