@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { PromocoesAtivas } from "@/components/benchmark/PromocoesAtivas";
 import { ImportarEmpreendimentoBook } from "@/components/incorporadoras/ImportarEmpreendimentoBook";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -143,25 +144,36 @@ export default async function Overview() {
           )}
         </Card>
 
-        {/* CTA royal */}
-        <RoyalCard className="tablm-up">
-          <div className="text-[11px] font-bold tracking-[1.6px] uppercase text-white/75 mb-2">
-            Próximo passo
-          </div>
-          <div className="text-[20px] font-extrabold leading-tight mb-3">
-            Acelere a leitura competitiva.
-          </div>
-          <div className="text-[13.5px] text-white/85 leading-relaxed mb-5">
-            Veja seu mapa de posicionamento, ranking de ameaça e onde estão as
-            janelas de oportunidade.
+        {/* Promoções ativas — eventos com prazo no futuro */}
+        <PromocoesAtivas
+          eventos={eventos}
+          empreendimentos={empreendimentos}
+          incorporadoras={incorporadoras}
+        />
+      </div>
+
+      {/* CTA royal — alternativa de leitura */}
+      <RoyalCard className="mt-4 tablm-up">
+        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+          <div>
+            <div className="text-[11px] font-bold tracking-[1.6px] uppercase text-white/75 mb-1">
+              Próximo passo
+            </div>
+            <div className="text-[18px] font-extrabold leading-tight">
+              Acelere a leitura competitiva.
+            </div>
+            <div className="text-[13px] text-white/85 leading-relaxed mt-1 max-w-xl">
+              Mapa de posicionamento, ranking de ameaça e janelas de oportunidade
+              no Benchmark.
+            </div>
           </div>
           <Link href="/benchmark">
-            <span className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[11px] bg-white text-royal font-bold text-[13.5px] hover:bg-white/90 transition-colors">
+            <span className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[11px] bg-white text-royal font-bold text-[13.5px] hover:bg-white/90 transition-colors whitespace-nowrap">
               Abrir Benchmark →
             </span>
           </Link>
-        </RoyalCard>
-      </div>
+        </div>
+      </RoyalCard>
 
       {/* Top empreendimentos por VGV */}
       {topVgv.length > 0 && (
