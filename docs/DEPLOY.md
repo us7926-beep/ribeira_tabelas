@@ -63,3 +63,54 @@ ficam ligados ao branch `master`).
 ### Segredos
 Nada de segredo no repositório (público). As chaves vivem só nos painéis de
 Environment do Render/Vercel e no `api/.env` local (gitignored).
+
+---
+
+## 4. Notificações por email (Vercel Cron + Resend)
+
+Email diário às **9h BRT** (12h UTC) listando as promoções com `data_fim`
+nos próximos 7 dias. Dedup automático na tabela `notificacoes_enviadas`
+(mesma promoção não é incluída duas vezes no mesmo dia).
+
+### Conta Resend
+
+1. Crie conta em **resend.com**.
+2. **API Keys → Create** → role *Sending access*. Copie a chave (`re_…`).
+3. (Opcional) **Domains → Add Domain** se quiser enviar de
+   `noreply@seudominio.com`. Sem isso, o sandbox `onboarding@resend.dev`
+   serve para testar (vai mais fácil para o Spam).
+
+### Envs no Render (backend)
+
+Adicione no painel do `tablm-api`:
+
+- `RESEND_API_KEY` = a chave do Resend (`re_…`)
+- `CRON_SECRET` = qualquer string longa aleatória (ex.: gere com `openssl rand -hex 32`)
+- `NOTIFICACOES_EMAIL_DESTINO` = o email do destinatário (ex.: `leonardo@…`)
+- `NOTIFICACOES_EMAIL_REMETENTE` = `"TabLM <noreply@seudominio.com>"` (opcional;
+  vazio usa o sandbox)
+
+Salvar → Render re-deploya.
+
+### Envs no Vercel (cron caller)
+
+Settings → Environment Variables:
+
+- `CRON_SECRET` = **mesmo valor** do Render (o cron envia esse Bearer no header).
+
+Não precisa redeployar manualmente — a próxima execução do cron pega a env nova.
+
+### Como rodar/testar
+
+- **Cron real**: roda automaticamente todo dia às 12:00 UTC. Logs em
+  Vercel → Project → Logs (procure `/api/cron/promocoes-vencendo`).
+- **Disparo manual** (autenticado): no Vercel, vá em **Settings → Cron Jobs**
+  e clique em **Run now**. Ou via curl com o secret:
+  ```bash
+  curl -H "Authorization: Bearer <CRON_SECRET>" \
+    https://ribeira-tabelas-tablm.vercel.app/api/cron/promocoes-vencendo
+  ```
+- **Sem email para enviar**: o endpoint responde
+  `{"enviado": false, "motivo": "nenhuma promoção vencendo"}` (não erra).
+- **Dedup**: chamar duas vezes no mesmo dia → segunda devolve
+  `{"enviado": false, "motivo": "todas já notificadas hoje"}`.
