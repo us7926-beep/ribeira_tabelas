@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 
+import { TimelineCronograma } from "@/components/promocoes/TimelineCronograma";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { Tabs } from "@/components/ui/Tabs";
@@ -256,6 +257,12 @@ export function ListaPromocoes({
           </div>
         </div>
       </div>
+
+      <TimelineCronograma
+        eventos={filtrados}
+        empreendimentos={empreendimentos}
+        incorporadoras={incorporadoras}
+      />
 
       {filtrados.length === 0 ? (
         <Card>
