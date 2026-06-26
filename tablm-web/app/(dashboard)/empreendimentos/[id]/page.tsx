@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { BotaoExportarPdf } from "@/components/empreendimento/BotaoExportarPdf";
+import { BotaoExportarPdf } from "@/components/ui/BotaoExportarPdf";
 import { EmpreendimentoDossie } from "@/components/empreendimento/EmpreendimentoDossie";
 import { Chip } from "@/components/ui/Chip";
 import { PageHeader } from "@/components/ui/PageHeader";

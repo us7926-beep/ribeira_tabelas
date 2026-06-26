@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Chip } from "@/components/ui/Chip";
 import { DonutConic } from "@/components/ui/DonutConic";
 import { Dropzone } from "@/components/ui/Dropzone";
 import { KpiCard } from "@/components/ui/KpiCard";
@@ -21,9 +22,21 @@ interface KPIs {
   vso: number;
 }
 
+interface DistribuicaoLinha {
+  modalidade: string;
+  unidades_vendidas: number;
+  vgv: number | null;
+}
+
 interface Resultado {
-  colunas: { unidade: string; valor: string; status: string };
+  colunas: {
+    unidade: string;
+    valor: string;
+    status: string;
+    modalidade?: string | null;
+  };
   kpis: KPIs;
+  distribuicao?: DistribuicaoLinha[];
 }
 
 function moeda(valor: number): string {
@@ -165,6 +178,56 @@ export default function VendasKpis() {
               </div>
             </Card>
           </div>
+
+          {res.distribuicao && res.distribuicao.length > 0 && (
+            <Card variant="lg">
+              <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
+                <div>
+                  <div className="text-[16px] font-bold text-ink">
+                    Distribuição por modalidade detectada
+                  </div>
+                  <div className="text-[12.5px] text-muted mt-0.5">
+                    Coluna <b className="text-ink">{res.colunas.modalidade}</b> da planilha.
+                    Copie esses números para a aba <b>Histórico de Vendas</b> do empreendimento
+                    (sub-painel "Distribuição") para alimentar o Fluxo Comercial em modo Real.
+                  </div>
+                </div>
+                <Chip tom="up">{res.distribuicao.length} modalidades</Chip>
+              </div>
+              <div className="overflow-x-auto border border-line-soft rounded-[12px]">
+                <table className="w-full text-[13.5px]">
+                  <thead className="bg-thead text-muted">
+                    <tr>
+                      <th className="text-left font-bold text-[11.5px] uppercase tracking-[0.4px] px-3 py-2.5">
+                        Modalidade
+                      </th>
+                      <th className="text-right font-bold text-[11.5px] uppercase tracking-[0.4px] px-3 py-2.5">
+                        Unidades vendidas
+                      </th>
+                      <th className="text-right font-bold text-[11.5px] uppercase tracking-[0.4px] px-3 py-2.5">
+                        VGV
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {res.distribuicao.map((linha) => (
+                      <tr key={linha.modalidade} className="border-t border-line-soft">
+                        <td className="px-3 py-2 font-semibold text-ink">
+                          {linha.modalidade}
+                        </td>
+                        <td className="px-3 py-2 text-right tnum font-bold text-ink">
+                          {linha.unidades_vendidas}
+                        </td>
+                        <td className="px-3 py-2 text-right tnum text-body">
+                          {linha.vgv != null ? moedaCurta(linha.vgv) : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
         </>
       )}
     </div>

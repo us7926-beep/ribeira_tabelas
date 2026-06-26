@@ -1,4 +1,5 @@
 import ReajusteIncc from "@/components/incc/ReajusteIncc";
+import { BotaoExportarPdf } from "@/components/ui/BotaoExportarPdf";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { api } from "@/lib/api";
 import { getToken } from "@/lib/auth";
@@ -24,6 +25,7 @@ export default async function InccPage() {
         eyebrow="Atualização monetária"
         title="Reajustar por INCC"
         subtitle="Escolha o INCC-DI do mês (BCB série 192), suba a tabela e aplique o reajuste com % ou R$ extra opcionais."
+        acao={<BotaoExportarPdf />}
       />
       <ReajusteIncc variacoes={variacoes} />
     </>
