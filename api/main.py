@@ -377,6 +377,59 @@ def atualizar_ficha(
     return {"ok": True, "campos_atualizados": list(campos.keys()), "empreendimento": registro}
 
 
+@app.post("/empreendimentos/{id_}/ficha-dossie")
+async def extrair_ficha_dossie(
+    id_: str,
+    arquivo: UploadFile,
+    _: str = Depends(security.usuario_autenticado),
+):
+    """Le um book/memorial via Gemini e devolve campos da ficha + salva o
+    arquivo no Storage com tipo='book_empreendimento'. Atomico: se a IA falhar,
+    nao salva documento; se o registro do documento falhar, rollback do upload.
+    """
+    conteudo = await _ler_upload(arquivo)
+    nome_original = arquivo.filename or "book.pdf"
+
+    # 1) IA primeiro: se falhar, retornamos erro sem criar lixo.
+    try:
+        ficha = gemini.extrair_ficha_dossie(conteudo, nome_original)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=str(exc))
+
+    # 2) Persiste como documento (Storage + tabela documentos).
+    nome = PurePosixPath(nome_original).name or "book.pdf"
+    caminho = f"{id_}/{uuid.uuid4().hex}-{nome}"
+    try:
+        _db_ou_503(
+            db.upload_storage, caminho, conteudo,
+            arquivo.content_type or "application/octet-stream",
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"Falha no upload: {exc}")
+    try:
+        documento = _db_ou_503(
+            db.inserir,
+            "documentos",
+            {
+                "empreendimento_id": id_,
+                "nome": nome,
+                "tipo": "book_empreendimento",
+                "storage_path": caminho,
+            },
+        )
+    except Exception as exc:
+        # Rollback do upload pra nao deixar arquivo orfao no bucket.
+        try:
+            db.remover_storage(caminho)
+        except Exception:  # noqa: BLE001
+            pass
+        raise HTTPException(status_code=400, detail=f"Falha ao registrar documento: {exc}")
+
+    return {"ok": True, "ficha": ficha, "documento": documento}
+
+
 @app.get("/empreendimentos/{id_}/tabelas-precos")
 def listar_tabelas_precos(id_: str, _: str = Depends(security.usuario_autenticado)):
     return _db_ou_503(

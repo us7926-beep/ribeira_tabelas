@@ -138,6 +138,86 @@ def extrair_tabela_precos(conteudo: bytes, nome: str) -> dict:
     }
 
 
+_PROMPT_FICHA_DOSSIE = (
+    "Voce e um analista imobiliario. Extraia a ficha tecnica do empreendimento "
+    "deste documento (book, memorial descritivo, tabela ou flyer) e responda "
+    "APENAS um objeto JSON com estas chaves: "
+    "nome, bairro, cidade, padrao, tipologias, metragens, total_unidades, "
+    "unidades_residenciais, unidades_comerciais, tipo_uso, pavimentos, torres, "
+    "elevadores_por_torre, vagas_comunidade, vagas_venda, vagas_cobertas, "
+    "distancia_metro_km, data_lancamento, data_entrega, cnpj_spe, ri. "
+    "Regras: "
+    "padrao em uma destas opcoes: Economico, Medio, Alto, Luxo. "
+    "tipologias em texto curto (ex.: '1 e 2 dorms'). "
+    "metragens como array de strings (ex.: ['49 m2','64 m2','73 m2']). "
+    "tipo_uso em uma destas opcoes: residencial, comercial, misto. "
+    "distancia_metro_km como numero em km (ex.: 0.8 para 800 m). "
+    "data_lancamento e data_entrega no formato YYYY-MM-DD. "
+    "Use string vazia ou null nos campos nao encontrados (nunca invente). "
+    "Numeros como tipo number, nao string."
+)
+
+
+def _parse_numero(valor) -> float | None:
+    if valor in (None, "", []):
+        return None
+    if isinstance(valor, (int, float)):
+        return float(valor)
+    try:
+        return float(str(valor).replace(",", ".").strip())
+    except (TypeError, ValueError):
+        return None
+
+
+def extrair_ficha_dossie(conteudo: bytes, nome: str) -> dict:
+    """Extrai ficha tecnica de um documento (PDF/imagem), com chaves alinhadas
+    ao schema atual de `empreendimentos`.
+
+    Retorna apenas as chaves preenchidas (omite vazias/None) — frontend so
+    aplica o que veio. Numeros normalizados (float ou int), metragens como
+    lista de strings.
+    """
+    dados = _gerar(conteudo, nome, _PROMPT_FICHA_DOSSIE)
+    if not isinstance(dados, dict):
+        return {}
+
+    chaves_inteiro = {
+        "total_unidades", "unidades_residenciais", "unidades_comerciais",
+        "pavimentos", "torres", "elevadores_por_torre",
+        "vagas_comunidade", "vagas_venda", "vagas_cobertas",
+    }
+    chaves_decimal = {"distancia_metro_km"}
+    chaves_texto = {"nome", "bairro", "cidade", "padrao", "tipologias",
+                    "tipo_uso", "data_lancamento", "data_entrega",
+                    "cnpj_spe", "ri"}
+
+    saida: dict = {}
+    for chave, valor in dados.items():
+        if valor in (None, "", []):
+            continue
+        if chave == "metragens":
+            if isinstance(valor, list):
+                normalizado = [str(item).strip() for item in valor if str(item).strip()]
+            else:
+                texto = str(valor).strip()
+                normalizado = [texto] if texto else []
+            if normalizado:
+                saida["metragens"] = normalizado
+        elif chave in chaves_inteiro:
+            num = _parse_numero(valor)
+            if num is not None:
+                saida[chave] = int(num)
+        elif chave in chaves_decimal:
+            num = _parse_numero(valor)
+            if num is not None:
+                saida[chave] = round(num, 1)
+        elif chave in chaves_texto:
+            texto = str(valor).strip()
+            if texto:
+                saida[chave] = texto
+    return saida
+
+
 _PROMPT_BUSCA_EMPREENDIMENTO = (
     "Voce e um analista imobiliario. Pesquise dados publicos sobre o "
     "empreendimento abaixo e responda APENAS um objeto JSON com as chaves: "

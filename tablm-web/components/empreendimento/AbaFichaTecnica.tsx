@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
+import { Dropzone } from "@/components/ui/Dropzone";
 import { EditableField } from "@/components/ui/EditableField";
 import type { Empreendimento, FichaIA } from "@/types";
 
@@ -14,6 +15,16 @@ type Valor = string | number | string[] | null;
 interface Props {
   empreendimento: Empreendimento;
 }
+
+/** Campos do Empreendimento que aceitam preenchimento via IA. */
+const CAMPOS_PREENCHIVEIS: (keyof Empreendimento)[] = [
+  "nome", "bairro", "cidade", "padrao", "tipologias", "metragens",
+  "total_unidades", "unidades_residenciais", "unidades_comerciais",
+  "tipo_uso", "pavimentos", "torres", "elevadores_por_torre",
+  "vagas_comunidade", "vagas_venda", "vagas_cobertas",
+  "distancia_metro_km", "data_lancamento", "data_entrega",
+  "cnpj_spe", "ri",
+];
 
 export function AbaFichaTecnica({ empreendimento }: Props) {
   const router = useRouter();
@@ -24,6 +35,12 @@ export function AbaFichaTecnica({ empreendimento }: Props) {
   const [buscando, setBuscando] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
+  // Upload de book/memorial (modal).
+  const [modalAberto, setModalAberto] = useState(false);
+  const [arquivoBook, setArquivoBook] = useState<File | null>(null);
+  const [enviandoBook, setEnviandoBook] = useState(false);
+  const [erroModal, setErroModal] = useState("");
+
   function valorAtual<K extends keyof Empreendimento>(chave: K) {
     if (chave in alteracoes) return alteracoes[chave as string] as Empreendimento[K];
     return empreendimento[chave];
@@ -32,6 +49,29 @@ export function AbaFichaTecnica({ empreendimento }: Props) {
   function atualizar(chave: string, novo: Valor) {
     setAlteracoes((prev) => ({ ...prev, [chave]: novo }));
     setSucesso("");
+  }
+
+  /**
+   * Aplica campos vindos da IA em `alteracoes` + marca origem.
+   * `dados` pode ter chaves de Empreendimento direto (ficha-dossie) ou
+   * algumas chaves equivalentes do FichaIA (busca online com fontes).
+   * Devolve o número de campos efetivamente aplicados.
+   */
+  function aplicarPreenchimentoIA(dados: Partial<Record<string, unknown>>): number {
+    const novasOrigens = new Set(origemIA);
+    const novasAlteracoes = { ...alteracoes };
+    let aplicados = 0;
+    for (const chave of CAMPOS_PREENCHIVEIS) {
+      const valor = dados[chave as string];
+      if (valor === undefined || valor === null || valor === "") continue;
+      if (Array.isArray(valor) && valor.length === 0) continue;
+      novasAlteracoes[chave as string] = valor as Valor;
+      novasOrigens.add(chave as string);
+      aplicados += 1;
+    }
+    setAlteracoes(novasAlteracoes);
+    setOrigemIA(novasOrigens);
+    return aplicados;
   }
 
   async function buscarIA() {
@@ -49,36 +89,7 @@ export function AbaFichaTecnica({ empreendimento }: Props) {
       });
       const dados: FichaIA = await r.json();
       if (!r.ok) throw new Error((dados as { detail?: string }).detail ?? "Falha na busca");
-      // Aplica somente campos retornados; marca como origem IA.
-      const novasOrigens = new Set(origemIA);
-      const novasAlteracoes = { ...alteracoes };
-      const mapeamento: { [K in keyof FichaIA]: keyof Empreendimento } = {
-        cnpj_spe: "cnpj_spe",
-        ri: "ri",
-        data_lancamento: "data_lancamento",
-        data_entrega: "data_entrega",
-        total_unidades: "total_unidades",
-        pavimentos: "pavimentos",
-        torres: "torres",
-        metragens: "metragens",
-        tipologias: "tipologias",
-        bairro: "bairro",
-        distancia_metro_km: "distancia_metro_km",
-        padrao: "padrao",
-        fontes: undefined as never,
-      };
-      let aplicados = 0;
-      for (const [chaveIA, valor] of Object.entries(dados)) {
-        if (chaveIA === "fontes") continue;
-        if (valor === undefined || valor === null || valor === "") continue;
-        const chaveCampo = mapeamento[chaveIA as keyof FichaIA];
-        if (!chaveCampo) continue;
-        novasAlteracoes[chaveCampo as string] = valor as Valor;
-        novasOrigens.add(chaveCampo as string);
-        aplicados += 1;
-      }
-      setAlteracoes(novasAlteracoes);
-      setOrigemIA(novasOrigens);
+      const aplicados = aplicarPreenchimentoIA(dados as Partial<Record<string, unknown>>);
       setSucesso(
         aplicados
           ? `IA encontrou ${aplicados} campo(s). Revise e clique em Salvar.`
@@ -88,6 +99,39 @@ export function AbaFichaTecnica({ empreendimento }: Props) {
       setErro((e as Error).message);
     } finally {
       setBuscando(false);
+    }
+  }
+
+  async function subirBook() {
+    if (!arquivoBook) {
+      setErroModal("Selecione um arquivo PDF ou imagem.");
+      return;
+    }
+    setErroModal("");
+    setEnviandoBook(true);
+    try {
+      const fd = new FormData();
+      fd.append("arquivo", arquivoBook);
+      const r = await fetch(`/api/empreendimentos/${empreendimento.id}/ficha-dossie`, {
+        method: "POST",
+        body: fd,
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail ?? "Falha ao analisar o documento");
+      const ficha = (d?.ficha ?? {}) as Partial<Record<string, unknown>>;
+      const aplicados = aplicarPreenchimentoIA(ficha);
+      setModalAberto(false);
+      setArquivoBook(null);
+      setSucesso(
+        `IA leu ${aplicados} campo(s) do book. Arquivo salvo na aba Documentos. Revise e clique em Salvar.`,
+      );
+      setErro("");
+      // Atualiza a contagem de documentos no header (caso seja visivel)
+      router.refresh();
+    } catch (e) {
+      setErroModal((e as Error).message);
+    } finally {
+      setEnviandoBook(false);
     }
   }
 
@@ -139,13 +183,17 @@ export function AbaFichaTecnica({ empreendimento }: Props) {
               Ficha técnica
             </div>
             <div className="text-[14px] text-muted mt-0.5">
-              Clique em qualquer campo para editar. Use <b>Buscar via IA</b> para preencher
-              automaticamente CNPJ SPE, RI, datas e mais.
+              Clique em qualquer campo para editar. Use <b>Subir book/memorial</b> para
+              extrair os dados de um PDF próprio, ou <b>Buscar online</b> para usar dados
+              públicos (CNPJ SPE, RI, datas).
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <Button variante="secondary" onClick={() => setModalAberto(true)}>
+              📄 Subir book/memorial
+            </Button>
             <Button variante="secondary" onClick={buscarIA} disabled={buscando}>
-              {buscando ? "Buscando..." : "🔎 Buscar via IA"}
+              {buscando ? "Buscando..." : "🔎 Buscar online"}
             </Button>
             <Button onClick={salvar} disabled={!temAlteracoes || salvando}>
               {salvando ? "Salvando..." : `Salvar (${Object.keys(alteracoes).length})`}
@@ -220,6 +268,57 @@ export function AbaFichaTecnica({ empreendimento }: Props) {
             </span>
           </div>
         </Card>
+      )}
+
+      {modalAberto && (
+        <div
+          className="fixed inset-0 bg-black/40 grid place-items-center p-4 z-50"
+          onClick={() => !enviandoBook && setModalAberto(false)}
+        >
+          <div
+            className="bg-white rounded-[16px] border border-line w-full max-w-[560px] p-[22px] max-h-[90vh] overflow-auto shadow-[0_8px_22px_rgba(35,71,197,0.2)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-[11px] font-bold tracking-[1.6px] uppercase text-royal mb-1">
+              Auto-preencher ficha
+            </div>
+            <h3 className="text-[18px] font-extrabold text-ink mb-3">
+              Subir book / memorial descritivo
+            </h3>
+            <p className="text-[13.5px] text-muted mb-4 leading-relaxed">
+              A IA lê o documento e preenche os campos da ficha. O arquivo é salvo na
+              aba <b>Documentos</b> com tipo <b>book_empreendimento</b>.
+            </p>
+            <Dropzone
+              arquivo={arquivoBook}
+              onArquivo={setArquivoBook}
+              aceitar=".pdf,.png,.jpg,.jpeg"
+              titulo="Arraste o book aqui"
+              dica="PDF, PNG ou JPG · até 25 MB"
+            />
+            {erroModal && (
+              <div className="mt-3 rounded-[12px] bg-down-bg text-down-strong text-[13.5px] px-4 py-3 border border-down-line">
+                {erroModal}
+              </div>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              <Button
+                variante="secondary"
+                onClick={() => {
+                  setModalAberto(false);
+                  setArquivoBook(null);
+                  setErroModal("");
+                }}
+                disabled={enviandoBook}
+              >
+                Cancelar
+              </Button>
+              <Button onClick={subirBook} disabled={!arquivoBook || enviandoBook}>
+                {enviandoBook ? "Analisando…" : "Analisar e preencher"}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
