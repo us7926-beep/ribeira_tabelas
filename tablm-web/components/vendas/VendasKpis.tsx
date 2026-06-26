@@ -36,6 +36,7 @@ interface Resultado {
     valor: string;
     status: string;
     modalidade?: string | null;
+    modalidade_origem?: "explicita" | "inferida" | null;
   };
   kpis: KPIs;
   distribuicao?: DistribuicaoLinha[];
@@ -318,13 +319,29 @@ export default function VendasKpis({ empreendimentos = [] }: Props) {
             <Card variant="lg">
               <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
                 <div>
-                  <div className="text-[16px] font-bold text-ink">
-                    Distribuição por modalidade detectada
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="text-[16px] font-bold text-ink">
+                      Distribuição por modalidade detectada
+                    </div>
+                    {res.colunas.modalidade_origem === "inferida" && (
+                      <Chip tom="warn">inferida automaticamente</Chip>
+                    )}
                   </div>
                   <div className="text-[12.5px] text-muted mt-0.5">
-                    Coluna <b className="text-ink">{res.colunas.modalidade}</b> da planilha.
-                    O painel acima salva essa distribuição automaticamente quando você
-                    vincula a um empreendimento.
+                    {res.colunas.modalidade_origem === "inferida" ? (
+                      <>
+                        A planilha não tinha coluna de modalidade — a classificação foi
+                        deduzida do nome da unidade (FGTS/MCMV/SBPE…) e da composição do
+                        pagamento (entrada × financiamento × subsídio). Revise antes de
+                        salvar.
+                      </>
+                    ) : (
+                      <>
+                        Coluna <b className="text-ink">{res.colunas.modalidade}</b> da planilha.
+                        O painel acima salva essa distribuição automaticamente quando você
+                        vincula a um empreendimento.
+                      </>
+                    )}
                   </div>
                 </div>
                 <Chip tom="up">{res.distribuicao.length} modalidades</Chip>

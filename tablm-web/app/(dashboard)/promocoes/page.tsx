@@ -7,7 +7,17 @@ import type { Empreendimento, EventoPromocional, Incorporadora } from "@/types";
 
 export const dynamic = "force-dynamic";
 
-export default async function PromocoesPage() {
+interface PageProps {
+  searchParams: Promise<{
+    status?: string;
+    inc?: string;
+    padrao?: string;
+    q?: string;
+  }>;
+}
+
+export default async function PromocoesPage({ searchParams }: PageProps) {
+  const sp = await searchParams;
   const token = await getToken();
   let eventos: EventoPromocional[] = [];
   let empreendimentos: Empreendimento[] = [];
@@ -34,6 +44,10 @@ export default async function PromocoesPage() {
         eventos={eventos}
         empreendimentos={empreendimentos}
         incorporadoras={incorporadoras}
+        statusInicial={sp.status}
+        incorporadoraIdInicial={sp.inc}
+        padraoInicial={sp.padrao}
+        buscaInicial={sp.q}
       />
     </>
   );

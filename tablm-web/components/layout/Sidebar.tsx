@@ -4,6 +4,11 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+interface Props {
+  vencendo7d?: number;
+  vencendo3d?: number;
+}
+
 const NAV: { href: string; label: string }[] = [
   { href: "/benchmark", label: "Benchmark Competitivo" },
   { href: "/", label: "Dashboards de Vendas" },
@@ -27,7 +32,7 @@ function formatarMoment() {
   return `${dd}/${mm} · ${hh}:${mi}`;
 }
 
-export default function Sidebar() {
+export default function Sidebar({ vencendo7d = 0, vencendo3d = 0 }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const [momento, setMomento] = useState("");
@@ -74,6 +79,8 @@ export default function Sidebar() {
       <nav className="flex-1 flex flex-col gap-1">
         {NAV.map((item) => {
           const ativo = ehAtivo(item.href, pathname);
+          const mostraBadge = item.href === "/promocoes" && vencendo7d > 0;
+          const tomUrgente = vencendo3d > 0;
           return (
             <Link
               key={item.href}
@@ -91,7 +98,19 @@ export default function Sidebar() {
                     : "w-[7px] h-[7px] rounded-full bg-white/30 shrink-0"
                 }
               />
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {mostraBadge && (
+                <span
+                  title={`${vencendo7d} promoção(ões) vencendo em até 7 dias`}
+                  className={
+                    tomUrgente
+                      ? "ml-auto inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-full bg-[#FF4D4F] text-white text-[11px] font-extrabold tnum shrink-0"
+                      : "ml-auto inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-full bg-[#F2A93B] text-white text-[11px] font-extrabold tnum shrink-0"
+                  }
+                >
+                  {vencendo7d}
+                </span>
+              )}
             </Link>
           );
         })}
