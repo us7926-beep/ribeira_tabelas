@@ -11,3 +11,25 @@ jobs:
       - run: pip install -r requirements.txt
       - run: pip install -r api/requirements.txt
       - run: pytest tests/ -v
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tablm-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: tablm-web/package-lock.json
+      - run: npm ci
+      - name: TypeScript typecheck
+        run: npx tsc --noEmit
+      - name: Next build
+        # NEXT_PUBLIC_API_URL nao e usado em build-time pelas rotas (so server-side
+        # nos route handlers), mas defino aqui para evitar warning silencioso.
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+        run: npx next build
