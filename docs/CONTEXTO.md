@@ -3,9 +3,16 @@
 > Documento único com **tudo** que importa para continuar o trabalho em qualquer
 > janela: estado, arquitetura, PRs feitos, decisões, gotchas e próximos passos.
 > Complementar a [`CONTINUAR.md`](CONTINUAR.md) (handoff curto) e
-> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-26 (após PR #35).
+> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-26 (após PR #37).
 
-> **Addendum desta sessão (PR #35):**
+> **Addendum desta sessão (PR #37):**
+> - **#37 — CI roda tsc + next build.** Job novo `frontend` paralelo ao
+>   `test`: setup Node 22, `npm ci` em `tablm-web` com cache por
+>   `package-lock.json`, `tsc --noEmit` e `next build`
+>   (com `NEXT_PUBLIC_API_URL` stub). Bloqueia merge se quebrar tipo
+>   ou build do Next.
+>
+> **Addendum anterior (PR #35):**
 > - **#35 — Notificações por email diário (Resend + Vercel Cron 9h BRT).**
 >   - Migration nova `notificacoes_enviadas` (UNIQUE `evento_id, data_envio`,
 >     FK + ON DELETE CASCADE, RLS LIGADO) garante dedup automático: mesma
