@@ -3,9 +3,23 @@
 > Documento único com **tudo** que importa para continuar o trabalho em qualquer
 > janela: estado, arquitetura, PRs feitos, decisões, gotchas e próximos passos.
 > Complementar a [`CONTINUAR.md`](CONTINUAR.md) (handoff curto) e
-> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-26 (após PR #31).
+> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-26 (após PR #33).
 
-> **Addendum desta sessão (PR #31):**
+> **Addendum desta sessão (PR #33):**
+> - **#33 — Lote `Timeline drill-down + testes pytest da inferência`** (2
+>   commits):
+>   - `TimelineCronograma` agora deixa cada barra clicável: navega para
+>     `/empreendimentos/[id]` ao clicar/Enter. Hover/foco em `opacity-75`,
+>     `role="button"`, `aria-label`, `tabIndex`. Barras órfãs (sem
+>     empreendimento no map) permanecem inertes.
+>   - 3 fixtures pytest cobrindo a inferência de modalidade do PR #31:
+>     coluna `modalidade` explícita → `modalidade_origem = "explicita"`;
+>     nomes "Apt 101 FGTS"/"Apt 102 MCMV" → `inferida`; composição
+>     entrada/valor_financiado/subsidio → Financiamento/À vista/MCMV
+>     conforme regras. Antigo `test_vendas_kpis_via_csv` confirma agora
+>     que sem sinal `distribuicao` continua ausente. Suite 88 → **91**.
+>
+> **Addendum anterior (PR #31):**
 > - **#31 — Lote `Promoções: badge sidebar + /promocoes filtros/timeline +
 >   inferência de modalidade`.** 4 commits temáticos:
 >   - Sidebar ganha badge âmbar/vermelho no item Promoções (layout async

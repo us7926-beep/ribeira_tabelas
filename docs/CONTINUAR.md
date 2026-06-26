@@ -2,7 +2,7 @@
 
 > Cole/abra este arquivo numa nova janela do Claude Code. Tem TUDO para continuar
 > a evolução do TabLM de onde paramos. **Sem segredos** (ficam só em `api/.env` e
-> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-26 (após PR #31).
+> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-26 (após PR #33).
 
 ## Resumo de 1 linha
 TabLM (Ribeira Empreendimentos) está **migrado e no ar**: Next.js (frontend) +
@@ -129,7 +129,7 @@ docs/CONTINUAR.md  ESTE arquivo
   então `CORS_ORIGINS=http://localhost:3000` no Render não bloqueia o app em produção.
   Por correção, mude no Render para `https://ribeira-tabelas-tablm.vercel.app`.
 
-## O que entrou após PR #19 (31 PRs no total)
+## O que entrou após PR #19 (33 PRs no total)
 - **PR #20** — docs: handoff atualizado.
 - **PR #21** — **Busca na Carteira** (search em `/incorporadoras` e detalhe).
 - **PR #22** — **Diff por unidade** entre versões na Aba Tabela (Adicionadas /
@@ -189,19 +189,32 @@ docs/CONTINUAR.md  ESTE arquivo
     `entrada < 25%` → Financiamento; só entrada → À vista). Response ganha
     `colunas.modalidade_origem = "explicita" | "inferida" | None`; frontend
     mostra Chip warn "inferida automaticamente" no card de distribuição.
+- **PR #33** — Lote `Timeline drill-down + testes pytest da inferência` (2
+  commits):
+  - **Drill-down na timeline** — cada barra do `TimelineCronograma` agora
+    navega para `/empreendimentos/[id]` ao clicar. Hover/foco com
+    `opacity-75`, `role="button"`, `tabIndex`, Enter/Space, `aria-label`.
+    Tooltip ganha "clique para abrir o dossiê". Barras órfãs (sem
+    empreendimento no map) ficam inertes.
+  - **Testes pytest da inferência** — 3 fixtures novas em
+    `tests/test_api.py` cobrindo coluna explícita (`modalidade_origem =
+    "explicita"`), inferência por nome (FGTS/MCMV) e inferência por
+    composição (entrada/financ/subsídio). `test_vendas_kpis_via_csv` antigo
+    foi estendido para confirmar que sem sinal a `distribuicao` segue
+    ausente. Suite passou de 88 para **91 passed**.
 
 ## Próximos passos sugeridos
 1. **Notificação por email/push** — badge in-app já está em produção (PR #31),
    mas o sinal proativo "fora do app" continua aberto. Requer: tabela
    `usuarios` (hoje `TABLM_USERS` é só env), integração Resend/Sendgrid e
    cron externo (Render free não tem worker).
-2. **Drill-down por incorporadora na timeline** — clicar numa barra de
-   `/promocoes` abre filtro pré-aplicado para aquele empreendimento (ou
-   navega para o dossiê). Hoje só tem tooltip.
-3. **Testes da inferência de modalidade** — `tests/test_api.py` cobre o
-   path sem coluna mas não verifica `distribuicao`. Adicionar fixtures
-   para os 3 cenários do PR #31 (nome FGTS/MCMV, composição, coluna
-   explícita preservada).
+2. **Filtro pré-aplicado de incorporadora ao clicar timeline** — alternativa
+   ao drill-down atual: em vez de ir pro dossiê, pré-aplicar
+   `?inc=<id>` em `/promocoes`. Útil para comparar promoções da mesma
+   incorporadora sem sair da tela.
+3. **CI: adicionar `tsc --noEmit` + `next build`** — hoje GitHub Actions
+   roda só pytest. Falhas de tipo/SSR só pegamos local. Pode ser
+   workflow novo ou step no existente.
 4. **Desligar Vercel Authentication** (ação no painel, Settings → Deployment
    Protection).
 5. **Domínio próprio** (ex.: `tablm.ribeira.com.br`) — Vercel + Render aceitam
