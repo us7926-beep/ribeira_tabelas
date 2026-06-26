@@ -2,7 +2,7 @@
 
 > Cole/abra este arquivo numa nova janela do Claude Code. Tem TUDO para continuar
 > a evolução do TabLM de onde paramos. **Sem segredos** (ficam só em `api/.env` e
-> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-26 (após PR #33).
+> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-26 (após PR #35).
 
 ## Resumo de 1 linha
 TabLM (Ribeira Empreendimentos) está **migrado e no ar**: Next.js (frontend) +
@@ -129,7 +129,7 @@ docs/CONTINUAR.md  ESTE arquivo
   então `CORS_ORIGINS=http://localhost:3000` no Render não bloqueia o app em produção.
   Por correção, mude no Render para `https://ribeira-tabelas-tablm.vercel.app`.
 
-## O que entrou após PR #19 (33 PRs no total)
+## O que entrou após PR #19 (35 PRs no total)
 - **PR #20** — docs: handoff atualizado.
 - **PR #21** — **Busca na Carteira** (search em `/incorporadoras` e detalhe).
 - **PR #22** — **Diff por unidade** entre versões na Aba Tabela (Adicionadas /
@@ -202,19 +202,39 @@ docs/CONTINUAR.md  ESTE arquivo
     composição (entrada/financ/subsídio). `test_vendas_kpis_via_csv` antigo
     foi estendido para confirmar que sem sinal a `distribuicao` segue
     ausente. Suite passou de 88 para **91 passed**.
+- **PR #35** — Notificações por email diário (Resend + Vercel Cron 9h BRT).
+  - **Migration nova**: `notificacoes_enviadas` (UNIQUE `evento_id,
+    data_envio`, FK pra `eventos_promocionais` com ON DELETE CASCADE,
+    RLS LIGADO). Dedup automático: mesma promoção não entra em emails
+    consecutivos.
+  - **Backend**: novo `api/notificacoes.py` (pipeline busca →
+    dedup → monta HTML inline → envia → registra) + endpoint
+    `POST /notificacoes/disparar-promocoes-vencendo` autenticado por
+    `Authorization: Bearer ${CRON_SECRET}`. `resend==2.7.0` no
+    `requirements.txt`. 4 envs novas no `config.py` e `.env.example`:
+    `RESEND_API_KEY`, `CRON_SECRET`, `NOTIFICACOES_EMAIL_DESTINO`,
+    `NOTIFICACOES_EMAIL_REMETENTE`.
+  - **Frontend**: `vercel.json` ganha `crons[0]` com schedule
+    `0 12 * * *` (12h UTC = 9h BRT). Novo route handler
+    `tablm-web/app/api/cron/promocoes-vencendo/route.ts` valida
+    `CRON_SECRET` e repassa pro backend.
+  - **Doc**: `docs/DEPLOY.md` ganha seção 4 com setup completo
+    (criar conta Resend, envs no Render + Vercel, como rodar
+    manualmente, estados retornados).
+  - **Setup pendente (você no painel):** Resend → API key, depois
+    adicionar `RESEND_API_KEY`/`CRON_SECRET`/
+    `NOTIFICACOES_EMAIL_DESTINO` no Render e `CRON_SECRET` no Vercel.
 
 ## Próximos passos sugeridos
-1. **Notificação por email/push** — badge in-app já está em produção (PR #31),
-   mas o sinal proativo "fora do app" continua aberto. Requer: tabela
-   `usuarios` (hoje `TABLM_USERS` é só env), integração Resend/Sendgrid e
-   cron externo (Render free não tem worker).
-2. **Filtro pré-aplicado de incorporadora ao clicar timeline** — alternativa
-   ao drill-down atual: em vez de ir pro dossiê, pré-aplicar
-   `?inc=<id>` em `/promocoes`. Útil para comparar promoções da mesma
-   incorporadora sem sair da tela.
-3. **CI: adicionar `tsc --noEmit` + `next build`** — hoje GitHub Actions
+1. **Filtro pré-aplicado de incorporadora ao clicar timeline** —
+   alternativa ao drill-down atual: em vez de ir pro dossiê, shift+click
+   pré-aplica `?inc=<id>` em `/promocoes`. Útil para comparar promoções
+   da mesma incorporadora sem sair da tela.
+2. **CI: adicionar `tsc --noEmit` + `next build`** — hoje GitHub Actions
    roda só pytest. Falhas de tipo/SSR só pegamos local. Pode ser
    workflow novo ou step no existente.
+3. **Configurar Resend + envs (você)** — sem isso a PR #35 fica inerte.
+   Passo a passo em [docs/DEPLOY.md secao 4](docs/DEPLOY.md).
 4. **Desligar Vercel Authentication** (ação no painel, Settings → Deployment
    Protection).
 5. **Domínio próprio** (ex.: `tablm.ribeira.com.br`) — Vercel + Render aceitam
