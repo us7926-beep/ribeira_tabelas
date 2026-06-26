@@ -9,11 +9,11 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import PurePosixPath
 
-from fastapi import Body, Depends, FastAPI, Form, HTTPException, UploadFile
+from fastapi import Body, Depends, FastAPI, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from . import config, db, gemini, incc_api, mercado_api, security, vendas_api
+from . import config, db, gemini, incc_api, mercado_api, notificacoes, security, vendas_api
 
 app = FastAPI(title="TabLM API", version="0.1.0")
 app.add_middleware(
@@ -1279,3 +1279,29 @@ def deletar_documento(id_: str, _: str = Depends(security.usuario_autenticado)):
         pass
     db.deletar("documentos", id_)
     return {"ok": True}
+
+
+# --------------------------------------------------------------------------- #
+# Notificações por email (cron diário do Vercel)
+# --------------------------------------------------------------------------- #
+def _cron_autorizado(authorization: str | None = Header(default=None)) -> None:
+    """Valida `Authorization: Bearer ${CRON_SECRET}` enviado pelo cron do Vercel.
+    Sem CRON_SECRET configurado, recusa tudo (não dispara em dev por acidente)."""
+    esperado = config.cron_secret()
+    if not esperado:
+        raise HTTPException(status_code=503, detail="CRON_SECRET não configurado")
+    if authorization != f"Bearer {esperado}":
+        raise HTTPException(status_code=401, detail="Cron não autorizado")
+
+
+@app.post("/notificacoes/disparar-promocoes-vencendo")
+def disparar_promocoes_vencendo(_: None = Depends(_cron_autorizado)):
+    """Envia 1 email listando as promoções com data_fim entre hoje e hoje+7d
+    para `NOTIFICACOES_EMAIL_DESTINO`, deduplicando o que já foi enviado hoje.
+    Idempotente no mesmo dia — pode ser chamado várias vezes sem duplicar."""
+    try:
+        return notificacoes.disparar_promocoes_vencendo()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"Falha no envio: {exc}")
