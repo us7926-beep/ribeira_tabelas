@@ -3,7 +3,27 @@
 > Documento único com **tudo** que importa para continuar o trabalho em qualquer
 > janela: estado, arquitetura, PRs feitos, decisões, gotchas e próximos passos.
 > Complementar a [`CONTINUAR.md`](CONTINUAR.md) (handoff curto) e
-> [`DEPLOY.md`](DEPLOY.md) (guia operacional).
+> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-25 noite (após PR #13).
+
+> **Addendum desta sessão (PRs #12 e #13):**
+> - **PR #12 — Dossiê comercial do empreendimento.** 3 migrations Supabase
+>   (`empreendimentos` +9 colunas, `tabelas_precos`, `vendas_mensais`).
+>   7 endpoints novos (`PATCH /ficha`, `GET/POST /tabelas-precos`,
+>   `GET /fluxo-comercial`, `GET/POST /vendas-mensais`,
+>   `POST /gemini/buscar-empreendimento`). Frontend ganha rota
+>   `/empreendimentos/[id]` com 4 abas (Ficha/Tabela/Fluxo/Vendas) + Documentos,
+>   átomo `EditableField` (click-to-edit com badge "via IA"), deep link
+>   `?aba=`. POST `/tabelas-precos` sincroniza o snapshot de KPIs no
+>   empreendimento — Benchmark Competitivo segue refletindo dados reais sem
+>   alterar `lib/benchmark.ts`.
+> - **PR #13 — Auto-preencher ficha por book/memorial.** Nova função
+>   `gemini.extrair_ficha_dossie` com prompt já alinhado às colunas atuais.
+>   `POST /empreendimentos/{id}/ficha-dossie` — pipeline atômico: IA primeiro,
+>   depois Storage upload e registro em `documentos` como
+>   `tipo='book_empreendimento'`. Rollback se algo falhar. Frontend: a Aba
+>   Ficha agora tem 3 botões no header (📄 Subir book/memorial, 🔎 Buscar
+>   online, Salvar (N)). Refactor extraiu `aplicarPreenchimentoIA` reusada
+>   pelos dois fluxos.
 
 ---
 
