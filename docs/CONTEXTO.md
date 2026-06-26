@@ -3,9 +3,31 @@
 > Documento único com **tudo** que importa para continuar o trabalho em qualquer
 > janela: estado, arquitetura, PRs feitos, decisões, gotchas e próximos passos.
 > Complementar a [`CONTINUAR.md`](CONTINUAR.md) (handoff curto) e
-> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-25 madrugada (após PR #25).
+> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-25 madrugada (após PR #30).
 
-> **Addendum desta sessão (PRs #20-#25):**
+> **Addendum desta sessão (PRs #26-#30):**
+> - **#26 — chore: handoff PRs #20-#25 + atalho PDF no Benchmark.**
+> - **#27 — Cleanup + PDF + modalidade.** Remove `/gemini/ficha` (legado);
+>   `BotaoExportarPdf` movido para `components/ui/` e aplicado em `/incc`,
+>   `/vendas`, `/incorporadoras/[id]`. `vendas_api._detectar` ganha pattern
+>   modalidade; resposta de `/vendas/kpis` inclui `distribuicao` (lista de
+>   `{modalidade, unidades_vendidas, vgv}`). VendasKpis.tsx exibe card
+>   "Distribuição detectada".
+> - **#28 — Auto-popular distribuição.** VendasKpis ganha sub-card
+>   "Vincular ao empreendimento" com select de emp + input de mês. Em 1
+>   clique, orquestra `POST /vendas-mensais` + `POST /vendas-mensais/
+>   distribuicao`. Página `/vendas` virou server component carregando
+>   `empreendimentos`. Fluxo Comercial troca pra **Real** automaticamente.
+> - **#29 — Rota `/promocoes`.** Nova página com 4 filtros (Ativas /
+>   Vencendo 7d / Todas / Expiradas), busca, KPIs e cards. Sidebar passa
+>   a ter **6 itens** (acrescentou "Promoções"). Botão "Exportar PDF"
+>   também aqui.
+> - **#30 — Chip 🔥 "promoção" + handoff (PRs #26-#29).** Cards de
+>   empreendimento em `/incorporadoras/[id]` ganham chip verde quando há
+>   evento ativo hoje. Página carrega `/benchmark/eventos?ativos=true`
+>   junto. Documentação atualizada.
+>
+> **Addendum anterior (PRs #20-#25):**
 > - **#20 — docs: handoff atualizado.**
 > - **#21 — Busca na Carteira.** Campo de search em `/incorporadoras` e em
 >   `/incorporadoras/[id]` (filtragem por nome/bairro/cidade, client-side).
