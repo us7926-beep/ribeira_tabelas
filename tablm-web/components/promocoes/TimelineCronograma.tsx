@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 
 import { Card } from "@/components/ui/Card";
@@ -45,6 +46,7 @@ function mesAbreviado(d: Date): string {
 }
 
 export function TimelineCronograma({ eventos, empreendimentos, incorporadoras }: Props) {
+  const router = useRouter();
   const mapEmp = useMemo(
     () => new Map(empreendimentos.map((e) => [e.id, e])),
     [empreendimentos],
@@ -199,6 +201,7 @@ export function TimelineCronograma({ eventos, empreendimentos, incorporadoras }:
             const nome = (emp?.nome ?? "Empreendimento").slice(0, 26);
             const cores = corBarra(linha.ev);
             const descricao = linha.ev.descricao ?? linha.ev.condicoes_comerciais ?? "";
+            const sufixoTooltip = emp ? " · clique para abrir o dossiê" : "";
             const tooltip = [
               emp?.nome ?? "Empreendimento",
               inc?.nome,
@@ -206,9 +209,29 @@ export function TimelineCronograma({ eventos, empreendimentos, incorporadoras }:
               `${dataBR(linha.ev.data_inicio)} → ${dataBR(linha.ev.data_fim)}`,
             ]
               .filter(Boolean)
-              .join(" · ");
+              .join(" · ") + sufixoTooltip;
+            const abrirDossie = () => {
+              if (emp) router.push(`/empreendimentos/${emp.id}`);
+            };
             return (
-              <g key={linha.ev.id}>
+              <g
+                key={linha.ev.id}
+                onClick={emp ? abrirDossie : undefined}
+                onKeyDown={
+                  emp
+                    ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          abrirDossie();
+                        }
+                      }
+                    : undefined
+                }
+                tabIndex={emp ? 0 : -1}
+                role={emp ? "button" : undefined}
+                aria-label={emp ? `Abrir dossiê de ${emp.nome}` : undefined}
+                className={emp ? "cursor-pointer hover:opacity-75 focus:opacity-75 outline-none transition-opacity" : undefined}
+              >
                 <text
                   x={PAD_LEFT - 10}
                   y={y + 4}
