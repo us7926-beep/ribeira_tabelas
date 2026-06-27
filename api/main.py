@@ -273,6 +273,10 @@ class IncorporadoraIn(BaseModel):
     nome: str
 
 
+class IncorporadoraPatch(BaseModel):
+    nome: str | None = None
+
+
 class EmpreendimentoIn(BaseModel):
     incorporadora_id: str
     nome: str
@@ -354,6 +358,24 @@ def listar_incorporadoras(_: str = Depends(security.usuario_autenticado)):
 @app.post("/incorporadoras")
 def criar_incorporadora(dados: IncorporadoraIn, _: str = Depends(security.usuario_autenticado)):
     return _db_ou_503(db.inserir, "incorporadoras", dados.model_dump())
+
+
+@app.patch("/incorporadoras/{id_}")
+def atualizar_incorporadora(
+    id_: str,
+    dados: IncorporadoraPatch,
+    _: str = Depends(security.usuario_autenticado),
+):
+    """Atualiza campos basicos da incorporadora (hoje só `nome`)."""
+    campos = dados.model_dump(exclude_none=True)
+    # Aceita string vazia como "limpar" nao — mantem o original.
+    campos = {k: v for k, v in campos.items() if isinstance(v, str) and v.strip()}
+    if not campos:
+        raise HTTPException(status_code=400, detail="Nada para atualizar")
+    atual = _db_ou_503(db.obter, "incorporadoras", id_)
+    if not atual:
+        raise HTTPException(status_code=404, detail="Incorporadora não encontrada")
+    return _db_ou_503(db.atualizar, "incorporadoras", id_, campos)
 
 
 @app.delete("/incorporadoras/{id_}")
