@@ -27,6 +27,8 @@ jobs:
       - run: npm ci
       - name: TypeScript typecheck
         run: npx tsc --noEmit
+      - name: Vitest
+        run: npx vitest run
       - name: Next build
         # NEXT_PUBLIC_API_URL nao e usado em build-time pelas rotas (so server-side
         # nos route handlers), mas defino aqui para evitar warning silencioso.
