@@ -15,6 +15,7 @@ import type {
 
 interface Props {
   empreendimentoId: string;
+  totalUnidades?: number | null;
 }
 
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
@@ -32,7 +33,75 @@ function moedaCurta(n: number | null | undefined): string {
   return `R$ ${Math.round(n)}`;
 }
 
-export function AbaVendasMensais({ empreendimentoId }: Props) {
+interface PontoVso {
+  mes: string;
+  acumulado: number;
+  vso: number;
+}
+
+/** Gráfico de área SVG do VSO acumulado por mês.
+ * Sem lib externa — segue o padrão do sparkline em AbaTabela. */
+function GraficoVso({ serie, totalUnidades }: { serie: PontoVso[]; totalUnidades: number }) {
+  const W = 640;
+  const H = 180;
+  const padX = 36;
+  const padY = 28;
+  const n = serie.length;
+  const escalaX = (i: number) => (n > 1 ? padX + (i * (W - 2 * padX)) / (n - 1) : W / 2);
+  const escalaY = (v: number) => H - padY - (Math.min(100, v) / 100) * (H - 2 * padY);
+  const xs = serie.map((_, i) => escalaX(i));
+  const ys = serie.map((p) => escalaY(p.vso));
+  const pontos = xs.map((x, i) => `${x},${ys[i]}`).join(" ");
+  const areaPoligono = `${padX},${H - padY} ${pontos} ${W - padX},${H - padY}`;
+  const linhasRef = [25, 50, 75, 100];
+  return (
+    <div className="w-full overflow-x-auto">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="w-full h-[200px]"
+        preserveAspectRatio="none"
+      >
+        {linhasRef.map((p) => {
+          const y = escalaY(p);
+          return (
+            <g key={p}>
+              <line
+                x1={padX}
+                x2={W - padX}
+                y1={y}
+                y2={y}
+                stroke="var(--color-line-soft)"
+                strokeWidth={1}
+                strokeDasharray={p === 100 ? "" : "3 3"}
+              />
+              <text x={padX - 6} y={y + 3} fill="var(--color-faint)" fontSize={10} fontWeight={700} textAnchor="end">
+                {p}%
+              </text>
+            </g>
+          );
+        })}
+        <polyline points={areaPoligono} fill="#EAF0FE" stroke="none" />
+        <polyline points={pontos} fill="none" stroke="#2347C5" strokeWidth={2.5} />
+        {xs.map((x, i) => (
+          <g key={i}>
+            <circle cx={x} cy={ys[i]} r={4} fill="#2347C5" stroke="#fff" strokeWidth={2} />
+            <text x={x} y={ys[i] - 10} fill="#14203A" fontSize={11} fontWeight={700} textAnchor="middle">
+              {serie[i].vso.toFixed(1)}%
+            </text>
+            <text x={x} y={H - 6} fill="#97A2B5" fontSize={10} fontWeight={600} textAnchor="middle">
+              {serie[i].mes.slice(5, 7)}/{serie[i].mes.slice(2, 4)}
+            </text>
+          </g>
+        ))}
+        <title>
+          {`VSO acumulado: ${serie[n - 1].vso.toFixed(1)}% (${serie[n - 1].acumulado}/${totalUnidades})`}
+        </title>
+      </svg>
+    </div>
+  );
+}
+
+export function AbaVendasMensais({ empreendimentoId, totalUnidades }: Props) {
   const [vendas, setVendas] = useState<VendaMensal[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
@@ -236,6 +305,20 @@ export function AbaVendasMensais({ empreendimentoId }: Props) {
 
   const maxUn = vendas.reduce((a, v) => Math.max(a, v.unidades_vendidas), 0);
 
+  const serieVso = useMemo(() => {
+    if (!totalUnidades || totalUnidades <= 0 || vendas.length === 0) return [];
+    const ordenadas = [...vendas].sort((a, b) => a.mes.localeCompare(b.mes));
+    let acc = 0;
+    return ordenadas.map((v) => {
+      acc += v.unidades_vendidas;
+      return {
+        mes: v.mes,
+        acumulado: acc,
+        vso: Math.min(100, (acc / totalUnidades) * 100),
+      };
+    });
+  }, [vendas, totalUnidades]);
+
   return (
     <div className="flex flex-col gap-5 tablm-up">
       {kpis && (
@@ -276,6 +359,27 @@ export function AbaVendasMensais({ empreendimentoId }: Props) {
           </div>
         )}
       </Card>
+
+      {totalUnidades && totalUnidades > 0 && serieVso.length > 0 && (
+        <Card variant="lg">
+          <div className="flex items-baseline justify-between gap-3 mb-2 flex-wrap">
+            <div>
+              <div className="text-[16px] font-bold text-ink">VSO acumulado</div>
+              <div className="text-[12.5px] text-muted mt-0.5">
+                Velocidade de venda sobre <b className="text-ink tnum">{totalUnidades}</b>{" "}
+                unidades totais ·{" "}
+                <b className="text-ink tnum">
+                  {serieVso[serieVso.length - 1].acumulado}
+                </b>{" "}
+                vendidas até{" "}
+                <b className="text-ink">{formatarMes(serieVso[serieVso.length - 1].mes)}</b>.
+              </div>
+            </div>
+            <Chip tom="royal">{serieVso[serieVso.length - 1].vso.toFixed(1)}% atual</Chip>
+          </div>
+          <GraficoVso serie={serieVso} totalUnidades={totalUnidades} />
+        </Card>
+      )}
 
       <Card variant="lg">
         <div className="text-[16px] font-bold text-ink mb-3">Adicionar mês</div>

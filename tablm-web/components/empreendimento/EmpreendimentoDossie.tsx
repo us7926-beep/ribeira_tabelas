@@ -57,7 +57,12 @@ export function EmpreendimentoDossie({
       {aba === "ficha" && <AbaFichaTecnica empreendimento={empreendimento} />}
       {aba === "tabela" && <AbaTabela empreendimentoId={empreendimento.id} />}
       {aba === "fluxo" && <AbaFluxoComercial empreendimentoId={empreendimento.id} />}
-      {aba === "vendas" && <AbaVendasMensais empreendimentoId={empreendimento.id} />}
+      {aba === "vendas" && (
+        <AbaVendasMensais
+          empreendimentoId={empreendimento.id}
+          totalUnidades={empreendimento.total_unidades_calc ?? empreendimento.total_unidades}
+        />
+      )}
       {aba === "documentos" && (
         <Documentos empreendimentoId={empreendimento.id} documentos={documentos} />
       )}
