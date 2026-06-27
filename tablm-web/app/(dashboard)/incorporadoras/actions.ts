@@ -56,6 +56,38 @@ export async function excluirEmpreendimento(
   }
 }
 
+/** Atualiza campos basicos do empreendimento (nome/cidade/bairro/padrao).
+ * Reusa PATCH /empreendimentos/{id}/ficha — o backend ja aceita esses
+ * campos (entre varios outros da ficha tecnica). */
+export async function atualizarEmpreendimento(
+  id: string,
+  incorporadoraId: string,
+  dados: { nome?: string; cidade?: string; bairro?: string; padrao?: string },
+): Promise<{ ok: true } | { ok: false; erro: string }> {
+  if (!id) return { ok: false, erro: "ID ausente" };
+  const corpo: Record<string, string> = {};
+  for (const [k, v] of Object.entries(dados)) {
+    const trim = (v ?? "").trim();
+    if (trim) corpo[k] = trim;
+  }
+  if (Object.keys(corpo).length === 0) {
+    return { ok: false, erro: "Nada para atualizar" };
+  }
+  try {
+    await api(`/empreendimentos/${id}/ficha`, {
+      method: "PATCH",
+      token: await getToken(),
+      body: JSON.stringify(corpo),
+    });
+    if (incorporadoraId) revalidatePath(`/incorporadoras/${incorporadoraId}`);
+    revalidatePath("/incorporadoras");
+    revalidatePath("/empreendimentos");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, erro: (e as Error).message };
+  }
+}
+
 /** Remove uma incorporadora. Backend devolve 409 quando há
  * empreendimentos vinculados — devolvemos uma mensagem amigável
  * pro frontend exibir em vez do "Erro 409" cru. */
