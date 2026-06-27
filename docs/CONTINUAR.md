@@ -2,7 +2,7 @@
 
 > Cole/abra este arquivo numa nova janela do Claude Code. Tem TUDO para continuar
 > a evolução do TabLM de onde paramos. **Sem segredos** (ficam só em `api/.env` e
-> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-26 (após PR #45).
+> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-26 (após PR #48).
 
 ## Resumo de 1 linha
 TabLM (Ribeira Empreendimentos) está **migrado e no ar**: Next.js (frontend) +
@@ -129,7 +129,7 @@ docs/CONTINUAR.md  ESTE arquivo
   então `CORS_ORIGINS=http://localhost:3000` no Render não bloqueia o app em produção.
   Por correção, mude no Render para `https://ribeira-tabelas-tablm.vercel.app`.
 
-## O que entrou após PR #19 (45 PRs no total)
+## O que entrou após PR #19 (48 PRs no total)
 - **PR #20** — docs: handoff atualizado.
 - **PR #21** — **Busca na Carteira** (search em `/incorporadoras` e detalhe).
 - **PR #22** — **Diff por unidade** entre versões na Aba Tabela (Adicionadas /
@@ -281,7 +281,27 @@ docs/CONTINUAR.md  ESTE arquivo
   - `components/ui/KpiDelta.test.tsx` (3): seta + cor por direção.
   - CI: job `frontend` ganha step **Vitest** entre tsc e next build
     — falha de teste bloqueia merge.
-  - **Totais agora**: pytest 99 + vitest 16 = **115 testes**.
+- **PR #47** — Botão de **excluir empreendimento** no card da
+  Carteira. Antes era impossível remover via UI — só via Supabase
+  direto. Server action `excluirEmpreendimento(id, incorporadoraId)`
+  devolve `{ok, erro?}` (padrão Next 16). Card vira `opacity-50 +
+  pointer-events-none` durante a action; erro vira banner vermelho.
+  Confirm nativo descreve o estrago (documentos/tabelas/vendas
+  vinculados também somem). `preventDefault + stopPropagation` no
+  clique para não disparar o `<Link>` que envolve o card.
+- **PR #48** — Helper **`lib/csv`** reusável (escaparCelula,
+  montarCsv, baixarCsv, exportarTabelaCsv) + export plugado em duas
+  telas:
+  - `/promocoes` — botão "Baixar CSV" ao lado de "+ Nova promoção"
+    exporta os eventos **filtrados** (empreendimento, incorporadora,
+    descrição, condições, datas, dias até vencer).
+  - `/incorporadoras/[id]` — link "Baixar CSV" ao lado da busca
+    exporta os empreendimentos **filtrados** com KPIs (preço/m²,
+    ticket, VGV, VSO, unidades).
+  - Refatora `AbaTabela.baixarCsvUnidades` para usar o helper (~25
+    linhas a menos de código duplicado).
+  - 8 testes Vitest novos em `lib/csv.test.ts` cobrindo escapamento
+    RFC4180. **Totais agora**: pytest 99 + vitest 24 = **123 testes**.
 
 ## Próximos passos sugeridos
 
@@ -300,10 +320,11 @@ operacional seu nos painéis:
 
 Ideias maiores que ainda não viraram pedido — listadas só para futura
 sessão decidir: notificação por **push** (web push opt-in), tabela
-real de `usuarios` com email (hoje `TABLM_USERS` é env), painel de
-admin de **empreendimentos** (CRUD bulk via UI — hoje só DELETE/POST
-individual), mais cobertura Vitest (átomos restantes + componentes
-de Benchmark), export CSV de qualquer tela com tabela.
+real de `usuarios` com email (hoje `TABLM_USERS` é env), mais
+cobertura Vitest (componentes de Benchmark, atomos restantes,
+helpers de swot/benchmark), export CSV em mais telas
+(`/vendas-mensais`, fluxo comercial), painel de admin global de
+empreendimentos (criar/editar fora do dossiê de uma incorporadora).
 
 ## Segurança (MANTER)
 - Repo público → nenhum segredo no código. `api/.env` e `tablm-web/.env.local` são gitignored.
