@@ -2,7 +2,7 @@
 
 > Cole/abra este arquivo numa nova janela do Claude Code. Tem TUDO para continuar
 > a evolução do TabLM de onde paramos. **Sem segredos** (ficam só em `api/.env` e
-> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-26 (após PR #48).
+> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-26 (após PR #51).
 
 ## Resumo de 1 linha
 TabLM (Ribeira Empreendimentos) está **migrado e no ar**: Next.js (frontend) +
@@ -129,7 +129,7 @@ docs/CONTINUAR.md  ESTE arquivo
   então `CORS_ORIGINS=http://localhost:3000` no Render não bloqueia o app em produção.
   Por correção, mude no Render para `https://ribeira-tabelas-tablm.vercel.app`.
 
-## O que entrou após PR #19 (48 PRs no total)
+## O que entrou após PR #19 (51 PRs no total)
 - **PR #20** — docs: handoff atualizado.
 - **PR #21** — **Busca na Carteira** (search em `/incorporadoras` e detalhe).
 - **PR #22** — **Diff por unidade** entre versões na Aba Tabela (Adicionadas /
@@ -301,7 +301,20 @@ docs/CONTINUAR.md  ESTE arquivo
   - Refatora `AbaTabela.baixarCsvUnidades` para usar o helper (~25
     linhas a menos de código duplicado).
   - 8 testes Vitest novos em `lib/csv.test.ts` cobrindo escapamento
-    RFC4180. **Totais agora**: pytest 99 + vitest 24 = **123 testes**.
+    RFC4180.
+- **PR #50** — Export CSV na **AbaVendasMensais**: dois botões
+  "Baixar CSV" novos no dossiê (Card "Vendas por mês" exporta a
+  série ordenada; Card "Distribuição por modalidade" exporta as
+  linhas > 0 do mês selecionado). Tudo client-side sobre o estado
+  já carregado.
+- **PR #51** — **25 testes Vitest** novos cobrindo
+  `lib/benchmark` (18) e `lib/swot` (7). Cobre toda a API pública
+  de helpers do Benchmark Competitivo: KPIs (real vs fallback
+  determinístico), score/corAmeaca, ranking de ameaça, scatter,
+  movimentos classificados, heatmap excluindo Ribeira. Para SWOT:
+  estrutura sempre presente, max 3 bullets, conteúdo concreto
+  quando há dados. **Totais agora**: pytest 99 + vitest 49 = **148
+  testes**.
 
 ## Próximos passos sugeridos
 
@@ -320,11 +333,12 @@ operacional seu nos painéis:
 
 Ideias maiores que ainda não viraram pedido — listadas só para futura
 sessão decidir: notificação por **push** (web push opt-in), tabela
-real de `usuarios` com email (hoje `TABLM_USERS` é env), mais
-cobertura Vitest (componentes de Benchmark, atomos restantes,
-helpers de swot/benchmark), export CSV em mais telas
-(`/vendas-mensais`, fluxo comercial), painel de admin global de
-empreendimentos (criar/editar fora do dossiê de uma incorporadora).
+real de `usuarios` com email (hoje `TABLM_USERS` é env), painel de
+admin global de empreendimentos (criar/editar fora do dossiê de uma
+incorporadora), mais cobertura Vitest (átomos restantes:
+KpiCard/Tabs/Dropzone/HBar/DonutConic/Button/Card/PageHeader; ou
+componentes maiores como ListaPromocoes/TimelineCronograma com
+testes de interação).
 
 ## Segurança (MANTER)
 - Repo público → nenhum segredo no código. `api/.env` e `tablm-web/.env.local` são gitignored.
