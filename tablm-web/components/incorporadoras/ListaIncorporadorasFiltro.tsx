@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 
+import { excluirIncorporadora } from "@/app/(dashboard)/incorporadoras/actions";
 import { Chip } from "@/components/ui/Chip";
 import type { Incorporadora } from "@/types";
 
@@ -12,6 +13,24 @@ const campo =
 /** Lista de incorporadoras com busca client-side por nome. */
 export function ListaIncorporadorasFiltro({ lista }: { lista: Incorporadora[] }) {
   const [busca, setBusca] = useState("");
+  const [excluindoId, setExcluindoId] = useState<string | null>(null);
+  const [erroExclusao, setErroExclusao] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
+
+  function excluir(inc: Incorporadora) {
+    if (!confirm(`Excluir a incorporadora "${inc.nome}"? Só funciona se não houver empreendimentos vinculados.`)) {
+      return;
+    }
+    setExcluindoId(inc.id);
+    setErroExclusao(null);
+    startTransition(async () => {
+      const resultado = await excluirIncorporadora(inc.id);
+      if (!resultado.ok) {
+        setErroExclusao(resultado.erro);
+      }
+      setExcluindoId(null);
+    });
+  }
 
   const filtradas = useMemo(() => {
     const termo = busca.trim().toLowerCase();
@@ -35,6 +54,12 @@ export function ListaIncorporadorasFiltro({ lista }: { lista: Incorporadora[] })
         )}
       </div>
 
+      {erroExclusao && (
+        <div className="rounded-[12px] bg-down-bg text-down-strong text-[13.5px] px-4 py-3 border border-down-line">
+          {erroExclusao}
+        </div>
+      )}
+
       {filtradas.length === 0 ? (
         <div className="text-[14px] text-muted">
           Nenhuma incorporadora encontrada com &quot;{busca}&quot;.
@@ -43,11 +68,12 @@ export function ListaIncorporadorasFiltro({ lista }: { lista: Incorporadora[] })
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {filtradas.map((inc) => {
             const nossa = inc.nome.toLowerCase().includes("ribeira");
+            const excluindo = excluindoId === inc.id;
             return (
               <Link
                 key={inc.id}
                 href={`/incorporadoras/${inc.id}`}
-                className="bg-white border border-line rounded-[14px] p-[18px_20px] shadow-[0_1px_3px_rgba(20,40,90,0.05)] hover:border-royal transition-colors flex items-center gap-3"
+                className={`relative bg-white border border-line rounded-[14px] p-[18px_20px] shadow-[0_1px_3px_rgba(20,40,90,0.05)] hover:border-royal transition-colors flex items-center gap-3 ${excluindo ? "opacity-50 pointer-events-none" : ""}`}
               >
                 <span
                   className={
@@ -64,6 +90,20 @@ export function ListaIncorporadorasFiltro({ lista }: { lista: Incorporadora[] })
                 </div>
                 {nossa && <Chip tom="royal">RIBEIRA</Chip>}
                 <span className="text-[12px] text-muted">→</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    excluir(inc);
+                  }}
+                  disabled={excluindo}
+                  aria-label={`Excluir ${inc.nome}`}
+                  title="Excluir incorporadora"
+                  className="absolute top-2 right-2 w-7 h-7 rounded-full text-faint hover:text-down-strong hover:bg-down-bg grid place-items-center text-[18px] leading-none transition-colors"
+                >
+                  {excluindo ? "…" : "×"}
+                </button>
               </Link>
             );
           })}

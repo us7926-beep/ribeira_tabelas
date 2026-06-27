@@ -55,3 +55,30 @@ export async function excluirEmpreendimento(
     return { ok: false, erro: (e as Error).message };
   }
 }
+
+/** Remove uma incorporadora. Backend devolve 409 quando há
+ * empreendimentos vinculados — devolvemos uma mensagem amigável
+ * pro frontend exibir em vez do "Erro 409" cru. */
+export async function excluirIncorporadora(
+  id: string,
+): Promise<{ ok: true } | { ok: false; erro: string }> {
+  if (!id) return { ok: false, erro: "ID ausente" };
+  try {
+    await api(`/incorporadoras/${id}`, {
+      method: "DELETE",
+      token: await getToken(),
+    });
+    revalidatePath("/incorporadoras");
+    return { ok: true };
+  } catch (e) {
+    const msg = (e as Error).message;
+    if (/409/.test(msg) || /vinculad/i.test(msg)) {
+      return {
+        ok: false,
+        erro:
+          "Esta incorporadora ainda tem empreendimentos vinculados — exclua-os primeiro (entre na incorporadora e use o × em cada card).",
+      };
+    }
+    return { ok: false, erro: msg };
+  }
+}
