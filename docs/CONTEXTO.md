@@ -3,9 +3,25 @@
 > Documento único com **tudo** que importa para continuar o trabalho em qualquer
 > janela: estado, arquitetura, PRs feitos, decisões, gotchas e próximos passos.
 > Complementar a [`CONTINUAR.md`](CONTINUAR.md) (handoff curto) e
-> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-26 (após PR #42).
+> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-26 (após PR #45).
 
-> **Addendum desta sessão (PRs #41-#42):**
+> **Addendum desta sessão (PRs #44-#45):**
+> - **#44 — testes pytest do admin + sparkline trio.** Cobre PATCH/
+>   DELETE de eventos com 8 fixtures (body vazio, sem Supabase, id
+>   inexistente, fluxo feliz, `exclude_none` protegendo de wipe).
+>   AbaTabela: "Evolução entre versões" agora mostra 3 mini-sparklines
+>   (preço/m² royal, ticket verde, VGV âmbar) em pequenos múltiplos,
+>   cada um auto-normalizado no próprio range com delta vs versão
+>   inicial.
+> - **#45 — Vitest no frontend.** Setup vitest.config.ts (jsdom,
+>   alias `@`, glob `{lib,components}/**/*.{test,spec}.{ts,tsx}`) +
+>   jest-dom matchers. 16 testes em 3 arquivos cobrindo
+>   `lib/promocoes` (diasAteVencer/contarVencendo com fakeTimers),
+>   Chip (classes por tom) e KpiDelta (seta + cor). Job `frontend`
+>   do CI ganha step `vitest run` entre tsc e next build. Totais
+>   agora: pytest 99 + vitest 16 = **115 testes**.
+>
+> **Addendum anterior (PRs #41-#42):**
 > - **#41 — VSO acumulado por mês no dossiê.** Aba Histórico de Vendas
 >   ganha Card com gráfico de área SVG (sem lib) calculando
 >   `sum(vendidas até o mês) / total_unidades`. Eixo Y 0-100% com
