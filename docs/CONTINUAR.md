@@ -2,7 +2,7 @@
 
 > Cole/abra este arquivo numa nova janela do Claude Code. Tem TUDO para continuar
 > a evolução do TabLM de onde paramos. **Sem segredos** (ficam só em `api/.env` e
-> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-26 (após PR #37).
+> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-26 (após PR #39).
 
 ## Resumo de 1 linha
 TabLM (Ribeira Empreendimentos) está **migrado e no ar**: Next.js (frontend) +
@@ -129,7 +129,7 @@ docs/CONTINUAR.md  ESTE arquivo
   então `CORS_ORIGINS=http://localhost:3000` no Render não bloqueia o app em produção.
   Por correção, mude no Render para `https://ribeira-tabelas-tablm.vercel.app`.
 
-## O que entrou após PR #19 (37 PRs no total)
+## O que entrou após PR #19 (39 PRs no total)
 - **PR #20** — docs: handoff atualizado.
 - **PR #21** — **Busca na Carteira** (search em `/incorporadoras` e detalhe).
 - **PR #22** — **Diff por unidade** entre versões na Aba Tabela (Adicionadas /
@@ -230,21 +230,35 @@ docs/CONTINUAR.md  ESTE arquivo
   partir daí, PR que quebrar tipo/build do Next não consegue ser
   mergeada — antes, falhas de SSR ou `params`/`searchParams` Promise
   só apareciam local ou no preview do Vercel.
+- **PR #39** — `TimelineCronograma` ganha prop opcional
+  `onFiltrarIncorporadora`. `ListaPromocoes` passa o
+  `trocarIncorporadora` — assim **shift+click** numa barra atualiza
+  o select de Incorporadora e o `?inc=` na URL sem sair da página.
+  Clique sem shift mantém o drill-down (abrir dossiê). Tooltip e
+  `aria-label` refletem a ação dupla; Enter/Space também respeitam
+  o estado da shift.
 
 ## Próximos passos sugeridos
-1. **Filtro pré-aplicado de incorporadora ao clicar timeline** —
-   alternativa ao drill-down atual: shift+click numa barra de
-   `/promocoes` pré-aplica `?inc=<id>` em vez de navegar pro dossiê.
-   Útil para comparar promoções da mesma incorporadora sem sair da tela.
-2. **Configurar Resend + envs (você)** — sem isso a PR #35 fica inerte.
+
+Lista de **código pendente** está vazia. O que sobra é setup
+operacional seu nos painéis:
+
+1. **Configurar Resend + envs (você)** — sem isso a PR #35 fica inerte.
    Passo a passo em [docs/DEPLOY.md secao 4](docs/DEPLOY.md).
-3. **Desligar Vercel Authentication** (ação no painel, Settings → Deployment
+2. **Desligar Vercel Authentication** (ação no painel, Settings → Deployment
    Protection).
-4. **Domínio próprio** (ex.: `tablm.ribeira.com.br`) — Vercel + Render aceitam
+3. **Domínio próprio** (ex.: `tablm.ribeira.com.br`) — Vercel + Render aceitam
    custom.
-5. **Trocar senha do leonardo** (apareceu no chat em sessão antiga). Gerar hash:
+4. **Trocar senha do leonardo** (apareceu no chat em sessão antiga). Gerar hash:
    `python -c "import hashlib;print(hashlib.sha256('SENHA'.encode()).hexdigest())"`
    → atualizar `TABLM_USERS` no `api/.env` local **e** no painel do Render.
+
+Ideias maiores que ainda não viraram pedido — listadas só para futura
+sessão decidir: notificação por **push** (web push opt-in), tabela
+real de `usuarios` com email (hoje `TABLM_USERS` é env), testes
+Vitest pros átomos `ui/`, painel de admin de promoções (CRUD direto
+sem ir via flyer), gráfico de evolução de VSO/preço-m² por
+empreendimento.
 
 ## Segurança (MANTER)
 - Repo público → nenhum segredo no código. `api/.env` e `tablm-web/.env.local` são gitignored.

@@ -3,9 +3,18 @@
 > Documento único com **tudo** que importa para continuar o trabalho em qualquer
 > janela: estado, arquitetura, PRs feitos, decisões, gotchas e próximos passos.
 > Complementar a [`CONTINUAR.md`](CONTINUAR.md) (handoff curto) e
-> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-26 (após PR #37).
+> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-26 (após PR #39).
 
-> **Addendum desta sessão (PR #37):**
+> **Addendum desta sessão (PR #39):**
+> - **#39 — Timeline: shift+click filtra pela incorporadora.**
+>   `TimelineCronograma` ganha prop opcional `onFiltrarIncorporadora`;
+>   `ListaPromocoes` passa o `trocarIncorporadora`. Shift+click numa
+>   barra atualiza o select de Incorporadora e o `?inc=` na URL sem
+>   sair da página. Clique normal mantém drill-down. Tooltip e
+>   `aria-label` refletem a ação dupla; Enter/Space também respeitam
+>   o `shiftKey`. Fecha a lista de código aberto do CONTINUAR.md.
+>
+> **Addendum anterior (PR #37):**
 > - **#37 — CI roda tsc + next build.** Job novo `frontend` paralelo ao
 >   `test`: setup Node 22, `npm ci` em `tablm-web` com cache por
 >   `package-lock.json`, `tsc --noEmit` e `next build`
