@@ -2,7 +2,7 @@
 
 > Cole/abra este arquivo numa nova janela do Claude Code. Tem TUDO para continuar
 > a evolução do TabLM de onde paramos. **Sem segredos** (ficam só em `api/.env` e
-> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-26 (após PR #39).
+> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-26 (após PR #42).
 
 ## Resumo de 1 linha
 TabLM (Ribeira Empreendimentos) está **migrado e no ar**: Next.js (frontend) +
@@ -129,7 +129,7 @@ docs/CONTINUAR.md  ESTE arquivo
   então `CORS_ORIGINS=http://localhost:3000` no Render não bloqueia o app em produção.
   Por correção, mude no Render para `https://ribeira-tabelas-tablm.vercel.app`.
 
-## O que entrou após PR #19 (39 PRs no total)
+## O que entrou após PR #19 (42 PRs no total)
 - **PR #20** — docs: handoff atualizado.
 - **PR #21** — **Busca na Carteira** (search em `/incorporadoras` e detalhe).
 - **PR #22** — **Diff por unidade** entre versões na Aba Tabela (Adicionadas /
@@ -237,6 +237,25 @@ docs/CONTINUAR.md  ESTE arquivo
   Clique sem shift mantém o drill-down (abrir dossiê). Tooltip e
   `aria-label` refletem a ação dupla; Enter/Space também respeitam
   o estado da shift.
+- **PR #41** — Aba **Histórico de Vendas** ganha Card "VSO acumulado"
+  com gráfico de área SVG (sem lib, mesmo padrão do sparkline da
+  AbaTabela). Calcula `sum(vendidas até o mês) / total_unidades_calc`
+  por mês ordenado; eixo Y 0-100% com linhas de referência em
+  25/50/75/100; eixo X em MM/AA. Chip royal mostra VSO atual. Esconde
+  silenciosamente quando o empreendimento não tem `total_unidades`
+  cadastrado.
+- **PR #42** — Admin de promoções dentro de `/promocoes` (antes
+  promoção só nascia via flyer e ficava imutável). Backend ganha
+  `EventoPatch` + `PATCH /benchmark/eventos/{id}` (404/400) e
+  `DELETE /benchmark/eventos/{id}`. Frontend ganha
+  `ModalEvento.tsx` (overlay com form completo, fecha por Escape ou
+  clique fora, `role="dialog"`, Excluir no rodapé em modo edição com
+  confirm) + route handler proxy
+  `app/api/benchmark/eventos/[id]/route.ts`. ListaPromocoes ganha
+  botão **"+ Nova promoção"** no header e **Editar** em cada card;
+  `router.refresh()` após salvar/excluir. Quando o filtro de
+  incorporadora está aplicado, o modal abre com um empreendimento
+  daquela incorporadora pré-selecionado.
 
 ## Próximos passos sugeridos
 
@@ -256,9 +275,10 @@ operacional seu nos painéis:
 Ideias maiores que ainda não viraram pedido — listadas só para futura
 sessão decidir: notificação por **push** (web push opt-in), tabela
 real de `usuarios` com email (hoje `TABLM_USERS` é env), testes
-Vitest pros átomos `ui/`, painel de admin de promoções (CRUD direto
-sem ir via flyer), gráfico de evolução de VSO/preço-m² por
-empreendimento.
+Vitest pros átomos `ui/`, painel de admin de **empreendimentos**
+(CRUD direto e bulk), gráfico de evolução de preço/m² entre versões
+de tabela (hoje só o sparkline), testes pytest para PATCH/DELETE de
+eventos.
 
 ## Segurança (MANTER)
 - Repo público → nenhum segredo no código. `api/.env` e `tablm-web/.env.local` são gitignored.
