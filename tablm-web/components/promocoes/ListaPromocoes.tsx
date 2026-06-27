@@ -4,7 +4,9 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 
+import { ModalEvento } from "@/components/promocoes/ModalEvento";
 import { TimelineCronograma } from "@/components/promocoes/TimelineCronograma";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { Tabs } from "@/components/ui/Tabs";
@@ -64,6 +66,26 @@ export function ListaPromocoes({
     incorporadoraIdInicial ?? TODAS_INCS,
   );
   const [padrao, setPadrao] = useState(padraoInicial ?? TODOS_PADROES);
+
+  // Modal de criar/editar evento
+  const [modalAberto, setModalAberto] = useState(false);
+  const [eventoEditando, setEventoEditando] = useState<EventoPromocional | null>(null);
+
+  function abrirNovo() {
+    setEventoEditando(null);
+    setModalAberto(true);
+  }
+  function abrirEdicao(ev: EventoPromocional) {
+    setEventoEditando(ev);
+    setModalAberto(true);
+  }
+  function fecharModal() {
+    setModalAberto(false);
+    setEventoEditando(null);
+  }
+  function recarregarApos() {
+    router.refresh();
+  }
 
   const atualizarUrl = useCallback(
     (chave: string, valor: string, vazio: string) => {
@@ -221,6 +243,11 @@ export function ListaPromocoes({
             Limpar filtros
           </button>
         )}
+        <div className="ml-auto">
+          <Button variante="secondary" onClick={abrirNovo}>
+            + Nova promoção
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
@@ -326,12 +353,31 @@ export function ListaPromocoes({
                       {dataBR(ev.data_inicio)} → {dataBR(ev.data_fim)}
                     </div>
                   </div>
+                  <button
+                    onClick={() => abrirEdicao(ev)}
+                    className="text-[12.5px] font-bold text-royal hover:underline shrink-0"
+                  >
+                    Editar
+                  </button>
                 </div>
               </Card>
             );
           })}
         </div>
       )}
+
+      <ModalEvento
+        aberto={modalAberto}
+        evento={eventoEditando}
+        empreendimentos={empreendimentos}
+        empreendimentoIdInicial={
+          incorporadoraId !== TODAS_INCS
+            ? empreendimentos.find((e) => e.incorporadora_id === incorporadoraId)?.id
+            : undefined
+        }
+        onFechar={fecharModal}
+        onMudou={recarregarApos}
+      />
     </div>
   );
 }

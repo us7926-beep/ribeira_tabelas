@@ -290,6 +290,16 @@ class EventoIn(BaseModel):
     condicoes_comerciais: str | None = None
 
 
+class EventoPatch(BaseModel):
+    """Mesmos campos de EventoIn, todos opcionais — para PATCH parcial."""
+    empreendimento_id: str | None = None
+    documento_id: str | None = None
+    descricao: str | None = None
+    data_inicio: str | None = None
+    data_fim: str | None = None
+    condicoes_comerciais: str | None = None
+
+
 def _db_ou_503(funcao, *args, **kwargs):
     try:
         return funcao(*args, **kwargs)
@@ -1139,6 +1149,30 @@ def listar_eventos(
 @app.post("/benchmark/eventos")
 def criar_evento(dados: EventoIn, _: str = Depends(security.usuario_autenticado)):
     return _db_ou_503(db.inserir, "eventos_promocionais", dados.model_dump(exclude_none=True))
+
+
+@app.patch("/benchmark/eventos/{id_}")
+def atualizar_evento(
+    id_: str,
+    dados: EventoPatch,
+    _: str = Depends(security.usuario_autenticado),
+):
+    campos = dados.model_dump(exclude_none=True)
+    if not campos:
+        raise HTTPException(status_code=400, detail="Nada para atualizar")
+    atual = _db_ou_503(db.obter, "eventos_promocionais", id_)
+    if not atual:
+        raise HTTPException(status_code=404, detail="Evento não encontrado")
+    return _db_ou_503(db.atualizar, "eventos_promocionais", id_, campos)
+
+
+@app.delete("/benchmark/eventos/{id_}")
+def deletar_evento(id_: str, _: str = Depends(security.usuario_autenticado)):
+    atual = _db_ou_503(db.obter, "eventos_promocionais", id_)
+    if not atual:
+        raise HTTPException(status_code=404, detail="Evento não encontrado")
+    _db_ou_503(db.deletar, "eventos_promocionais", id_)
+    return {"ok": True}
 
 
 # --------------------------------------------------------------------------- #
