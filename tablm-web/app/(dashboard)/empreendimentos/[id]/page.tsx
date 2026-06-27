@@ -10,7 +10,7 @@ import type { Documento, Empreendimento } from "@/types";
 
 export const dynamic = "force-dynamic";
 
-type Aba = "ficha" | "tabela" | "fluxo" | "vendas" | "documentos";
+type Aba = "ficha" | "tabela" | "fluxo" | "vendas" | "promocoes" | "documentos";
 type SearchParams = Promise<{ aba?: string }>;
 
 export default async function EmpreendimentoPage({
@@ -26,11 +26,13 @@ export default async function EmpreendimentoPage({
 
   let emp: Empreendimento | null = null;
   let documentos: Documento[] = [];
+  let empreendimentos: Empreendimento[] = [];
   let erro = "";
   try {
-    [emp, documentos] = await Promise.all([
+    [emp, documentos, empreendimentos] = await Promise.all([
       api<Empreendimento>(`/empreendimentos/${id}`, { token }),
       api<Documento[]>(`/empreendimentos/${id}/documentos`, { token }),
+      api<Empreendimento[]>("/empreendimentos", { token }),
     ]);
   } catch (e) {
     erro = (e as Error).message;
@@ -41,7 +43,8 @@ export default async function EmpreendimentoPage({
       (emp?.padrao ? ` · padrão ${emp.padrao}` : "") || "Empreendimento";
 
   const abaInicial: Aba =
-    aba === "tabela" || aba === "fluxo" || aba === "vendas" || aba === "documentos"
+    aba === "tabela" || aba === "fluxo" || aba === "vendas" ||
+    aba === "promocoes" || aba === "documentos"
       ? aba
       : "ficha";
 
@@ -91,6 +94,7 @@ export default async function EmpreendimentoPage({
         <EmpreendimentoDossie
           empreendimento={emp}
           documentos={documentos}
+          empreendimentos={empreendimentos}
           abaInicial={abaInicial}
         />
       )}

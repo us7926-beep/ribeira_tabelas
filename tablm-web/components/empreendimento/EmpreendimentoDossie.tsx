@@ -9,28 +9,34 @@ import type { Documento, Empreendimento } from "@/types";
 
 import { AbaFichaTecnica } from "./AbaFichaTecnica";
 import { AbaFluxoComercial } from "./AbaFluxoComercial";
+import { AbaPromocoes } from "./AbaPromocoes";
 import { AbaTabela } from "./AbaTabela";
 import { AbaVendasMensais } from "./AbaVendasMensais";
 
-type Aba = "ficha" | "tabela" | "fluxo" | "vendas" | "documentos";
+type Aba = "ficha" | "tabela" | "fluxo" | "vendas" | "promocoes" | "documentos";
 
 const ABAS: { id: Aba; label: string }[] = [
   { id: "ficha", label: "Ficha Técnica" },
   { id: "tabela", label: "Tabela de Preços" },
   { id: "fluxo", label: "Fluxo Comercial" },
   { id: "vendas", label: "Histórico de Vendas" },
+  { id: "promocoes", label: "Promoções" },
   { id: "documentos", label: "Documentos" },
 ];
 
 interface Props {
   empreendimento: Empreendimento;
   documentos: Documento[];
+  /** Lista global de empreendimentos — usada pelo modal de promoções
+   * para permitir trocar de empreendimento ao editar. */
+  empreendimentos?: Empreendimento[];
   abaInicial?: Aba;
 }
 
 export function EmpreendimentoDossie({
   empreendimento,
   documentos,
+  empreendimentos = [],
   abaInicial = "ficha",
 }: Props) {
   const router = useRouter();
@@ -61,6 +67,12 @@ export function EmpreendimentoDossie({
         <AbaVendasMensais
           empreendimentoId={empreendimento.id}
           totalUnidades={empreendimento.total_unidades_calc ?? empreendimento.total_unidades}
+        />
+      )}
+      {aba === "promocoes" && (
+        <AbaPromocoes
+          empreendimento={empreendimento}
+          empreendimentos={empreendimentos.length > 0 ? empreendimentos : [empreendimento]}
         />
       )}
       {aba === "documentos" && (
