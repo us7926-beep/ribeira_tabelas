@@ -188,3 +188,35 @@ export interface DeteccaoFlyer {
   data_fim: string;
   condicoes_comerciais: string;
 }
+
+/** Modalidades aceitas em POST /financiamento/calcular-renda.
+ * Veja `tablm-web/lib/financiamento.ts` PRESETS_TAXA para label/descrição. */
+export type ModalidadeFinanciamento =
+  | "mcmv_faixa1"
+  | "mcmv_faixa2"
+  | "mcmv_faixa3"
+  | "mcmv_faixa4"
+  | "sbpe"
+  | "personalizada";
+
+export interface CalculoRendaRequest {
+  parcela_obra_mensal: number;
+  saldo_financiar: number;
+  modalidade: ModalidadeFinanciamento;
+  /** Obrigatório quando `modalidade === "personalizada"`. */
+  taxa_personalizada_anual?: number | null;
+  prazo_meses: number;
+  /** Default 0.30 — fração da renda comprometida (0.10 a 0.50). */
+  percentual_renda?: number;
+}
+
+export interface CalculoRendaResponse {
+  taxa_anual_usada: number;
+  taxa_mensal_usada: number;
+  parcela_financiamento: number;
+  total_mensal_comprometido: number;
+  renda_necessaria: number;
+  label_modalidade: string;
+  descricao_modalidade: string;
+  alertas: string[];
+}

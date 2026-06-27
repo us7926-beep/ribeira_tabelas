@@ -13,7 +13,7 @@ from fastapi import Body, Depends, FastAPI, Form, Header, HTTPException, UploadF
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from . import config, db, gemini, incc_api, mercado_api, notificacoes, security, vendas_api
+from . import config, db, financiamento, gemini, incc_api, mercado_api, notificacoes, security, vendas_api
 
 app = FastAPI(title="TabLM API", version="0.1.0")
 app.add_middleware(
@@ -1364,3 +1364,20 @@ def disparar_promocoes_vencendo(_: None = Depends(_cron_autorizado)):
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Falha no envio: {exc}")
+
+
+# --------------------------------------------------------------------------- #
+# Financiamento — cálculo de renda mínima necessária
+# --------------------------------------------------------------------------- #
+@app.post("/financiamento/calcular-renda", response_model=financiamento.CalculoRendaOut)
+def calcular_renda(
+    req: financiamento.CalculoRendaIn,
+    _: str = Depends(security.usuario_autenticado),
+):
+    """Calcula renda mínima necessária a partir da parcela de obra + saldo
+    a financiar + modalidade (presets MCMV/SBPE/Personalizada) + prazo.
+    Stateless — não persiste nada."""
+    try:
+        return financiamento.calcular_renda_necessaria(req)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
