@@ -3,9 +3,26 @@
 > Documento único com **tudo** que importa para continuar o trabalho em qualquer
 > janela: estado, arquitetura, PRs feitos, decisões, gotchas e próximos passos.
 > Complementar a [`CONTINUAR.md`](CONTINUAR.md) (handoff curto) e
-> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-26 (após PR #48).
+> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-26 (após PR #51).
 
-> **Addendum desta sessão (PRs #47-#48):**
+> **Addendum desta sessão (PRs #50-#51):**
+> - **#50 — Export CSV na AbaVendasMensais.** Dois botões "Baixar
+>   CSV" novos no dossiê reusando `lib/csv` (PR #48): vendas por mês
+>   exporta a série ordenada; distribuição por modalidade exporta as
+>   linhas > 0 do mês selecionado. Client-side, sem nova rota backend.
+> - **#51 — 25 testes Vitest pros helpers de Benchmark.**
+>   `lib/benchmark.test.ts` (18) cobre toda a API pública: KPIs com
+>   real vs fallback determinístico, `score`/`corAmeaca`,
+>   `acharRibeira`, `pontosScatter` (limite 12 + marca ours),
+>   `rankingAmeaca` (top 4 exc. ribeira), `paraMovimentos`
+>   (classificação + ordenação) e `montarHeatmap` (grid 4×4 + GAP).
+>   `lib/swot.test.ts` (7) cobre `analisarSwot`: estrutura sempre
+>   presente, max 3 bullets, conteúdo concreto quando há dados (VSO
+>   acima da média, bairros sem oferta nossa, contagem de
+>   concorrentes, eventos de reajuste/lançamento). Totais: pytest
+>   99 + vitest 49 = **148 testes**.
+>
+> **Addendum anterior (PRs #47-#48):**
 > - **#47 — Excluir empreendimento direto no card da Carteira.**
 >   Botão × no canto do card; server action `excluirEmpreendimento`
 >   devolve `{ok, erro?}` e revalida `/incorporadoras/[id]` +
