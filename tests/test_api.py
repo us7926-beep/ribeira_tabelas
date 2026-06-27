@@ -270,3 +270,94 @@ def test_delete_evento_remove_quando_existe(cliente, monkeypatch):
     assert r.status_code == 200
     assert r.json() == {"ok": True}
     assert deletados == [("eventos_promocionais", "abc")]
+
+
+# --------------------------------------------------------------------------- #
+# Parser CSV de Tabela de Precos — normalizar_unidades (fix smoke 2026-06-27)
+# --------------------------------------------------------------------------- #
+def test_normalizar_unidades_mapeia_csv_para_schema_canonico():
+    """CSV "valor,area" deve virar registros com preco_total/area_m2 — sem
+    isso, kpisDaVersao no frontend devolvia 0 e o sparkline trio ficava
+    vazio."""
+    import io
+
+    import pandas as pd
+
+    from api import mercado_api
+
+    csv = "unidade,area_m2,valor\n101,50,500000\n102,60,600000\n"
+    df = pd.read_csv(io.StringIO(csv))
+    unidades = mercado_api.normalizar_unidades(df)
+    assert len(unidades) == 2
+    assert unidades[0]["preco_total"] == 500000
+    assert unidades[0]["area_m2"] == 50
+    assert unidades[0]["unidade"] == "101"
+    assert unidades[1]["preco_total"] == 600000
+
+
+def test_normalizar_unidades_reconhece_sinonimos_de_coluna():
+    """Aceita area/metragem/preco/r$ etc — substring case-insensitive."""
+    import io
+
+    import pandas as pd
+
+    from api import mercado_api
+
+    csv = "Apto,Metragem,Preço (R$)\nA-01,72,820000\n"
+    df = pd.read_csv(io.StringIO(csv))
+    unidades = mercado_api.normalizar_unidades(df)
+    assert len(unidades) == 1
+    assert unidades[0]["preco_total"] == 820000
+    assert unidades[0]["area_m2"] == 72
+    assert unidades[0]["unidade"] == "A-01"
+
+
+def test_normalizar_unidades_inclui_opcionais_quando_presentes():
+    """Andar, vaga, entrada, parcelas_mensais, financiamento entram quando
+    a coluna existe — caso contrario ficam de fora (nao viram null
+    forcado)."""
+    import io
+
+    import pandas as pd
+
+    from api import mercado_api
+
+    csv = (
+        "unidade,andar,vaga,area_m2,valor,entrada,parcelas_mensais,financiamento\n"
+        "101,5,1,50,500000,50000,3000,400000\n"
+    )
+    df = pd.read_csv(io.StringIO(csv))
+    unidades = mercado_api.normalizar_unidades(df)
+    assert unidades[0]["andar"] == "5"
+    assert unidades[0]["vaga"] == "1"
+    assert unidades[0]["entrada"] == 50000
+    assert unidades[0]["parcelas_mensais"] == 3000
+    assert unidades[0]["financiamento"] == 400000
+
+
+def test_normalizar_unidades_devolve_vazio_sem_colunas_obrigatorias():
+    """Sem coluna de valor OU area, devolve []. O caller decide se isso
+    eh erro ou apenas registro vazio."""
+    import io
+
+    import pandas as pd
+
+    from api import mercado_api
+
+    csv = "qualquer,outra\nx,y\n"
+    df = pd.read_csv(io.StringIO(csv))
+    assert mercado_api.normalizar_unidades(df) == []
+
+
+def test_normalizar_unidades_pula_linhas_sem_valor_nem_area():
+    import io
+
+    import pandas as pd
+
+    from api import mercado_api
+
+    csv = "unidade,area_m2,valor\n101,50,500000\n102,,\n"
+    df = pd.read_csv(io.StringIO(csv))
+    unidades = mercado_api.normalizar_unidades(df)
+    assert len(unidades) == 1
+    assert unidades[0]["unidade"] == "101"

@@ -66,6 +66,47 @@ Environment do Render/Vercel e no `api/.env` local (gitignored).
 
 ---
 
+## Anexo: formato de arquivos aceitos na Tabela de Preços
+
+`POST /empreendimentos/{id}/tabelas-precos` aceita 2 caminhos:
+
+**1. PDF ou imagem** (`.pdf`, `.png`, `.jpg`, `.jpeg`) → Gemini extrai
+unidades + condições + promoções. Funciona com espelho-tabela
+fotografado/scaneado.
+
+**2. CSV ou Excel** (`.csv`, `.xlsx`) → detecção por **substring case-insensitive** no nome das colunas. Mínimo necessário:
+
+| Conceito | Substrings aceitas (qualquer uma) | Obrigatória? |
+|---|---|---|
+| Valor | `valor`, `preço`, `preco`, `r$` | **sim** |
+| Área | `área`, `area`, `priv`, `m2`, `m²`, `metragem` | **sim** |
+| Unidade | `unid`, `apto`, `apt`, `casa`, `lote`, `sala` | recomendada |
+| Andar | `andar`, `pavimento` | opcional |
+| Vaga | `vaga` | opcional |
+| Entrada | `entrada`, `ato` | opcional |
+| Parcelas mensais | `parcela`, `mensal` | opcional |
+| Financiamento | `financ` | opcional |
+
+Exemplo mínimo que funciona:
+
+```csv
+unidade,area_m2,valor
+101,50,500000
+102,60,600000
+```
+
+Exemplo completo (todos os opcionais):
+
+```csv
+unidade,andar,vaga,area_m2,valor,entrada,parcelas_mensais,financiamento
+101,5,1,50,500000,50000,3000,400000
+```
+
+Sem coluna de valor ou área a request devolve `400` com o detalhe
+"Não identifiquei as colunas de valor e/ou área".
+
+---
+
 ## 4. Notificações por email (Vercel Cron + Resend)
 
 Email diário às **9h BRT** (12h UTC) listando as promoções com `data_fim`

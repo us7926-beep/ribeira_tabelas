@@ -76,6 +76,92 @@ def _detectar(df: pd.DataFrame, candidatos: list[str]) -> str | None:
     return None
 
 
+def _num(v) -> float | None:
+    try:
+        n = float(pd.to_numeric(v, errors="coerce"))
+    except (TypeError, ValueError):
+        return None
+    if pd.isna(n):
+        return None
+    return n
+
+
+def _texto(v) -> str | None:
+    """Formata um valor de célula como string limpa. Trata int promovido a
+    float pelo pandas (quando outra linha da mesma coluna tem NaN) — '101.0'
+    vira '101' quando o valor é inteiro."""
+    if v is None:
+        return None
+    if isinstance(v, float):
+        if pd.isna(v):
+            return None
+        if v == int(v):
+            return str(int(v))
+        return str(v)
+    s = str(v).strip()
+    return s or None
+
+
+def normalizar_unidades(df: pd.DataFrame) -> list[dict]:
+    """Mapeia o DataFrame bruto de um CSV/XLS para o schema canônico de
+    unidades que o frontend espera (mesmo formato que `gemini.extrair_
+    tabela_precos` devolve): preco_total, area_m2, unidade + andar, vaga,
+    entrada, parcelas_mensais, financiamento (opcionais).
+
+    Reusa `_detectar` por substring case-insensitive nos nomes de coluna.
+    `valor`/`preço`/`r$` -> `preco_total`; `area`/`m2`/`metragem` -> `area_m2`;
+    `unid`/`apto`/`apt`/`casa`/`lote`/`sala` -> `unidade`; etc.
+
+    Sem coluna de valor ou área, devolve [] (o caller decide se erra).
+    """
+    if df is None or df.empty:
+        return []
+    col_valor = _detectar(df, ["valor", "preço", "preco", "r$"])
+    col_area = _detectar(df, ["área", "area", "priv", "m2", "m²", "metragem"])
+    if not col_valor or not col_area:
+        return []
+    col_unidade = _detectar(df, ["unid", "apto", "apt", "casa", "lote", "sala"])
+    col_andar = _detectar(df, ["andar", "pavimento"])
+    col_vaga = _detectar(df, ["vaga"])
+    col_entrada = _detectar(df, ["entrada", "ato"])
+    col_parcelas = _detectar(df, ["parcela", "mensal"])
+    col_financ = _detectar(df, ["financ"])
+
+    unidades: list[dict] = []
+    for _, linha in df.iterrows():
+        preco = _num(linha.get(col_valor))
+        area = _num(linha.get(col_area))
+        if preco is None and area is None:
+            continue  # linha sem nada útil
+        registro: dict = {
+            "preco_total": preco,
+            "area_m2": area,
+        }
+        if col_unidade:
+            s = _texto(linha.get(col_unidade))
+            if s is not None:
+                registro["unidade"] = s
+        if col_andar:
+            s = _texto(linha.get(col_andar))
+            if s is not None:
+                registro["andar"] = s
+        if col_vaga:
+            s = _texto(linha.get(col_vaga))
+            if s is not None:
+                registro["vaga"] = s
+        for chave, col in (
+            ("entrada", col_entrada),
+            ("parcelas_mensais", col_parcelas),
+            ("financiamento", col_financ),
+        ):
+            if col:
+                n = _num(linha.get(col))
+                if n is not None:
+                    registro[chave] = n
+        unidades.append(registro)
+    return unidades
+
+
 def comparativo(
     df: pd.DataFrame,
     *,
