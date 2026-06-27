@@ -3,9 +3,18 @@
 > Documento único com **tudo** que importa para continuar o trabalho em qualquer
 > janela: estado, arquitetura, PRs feitos, decisões, gotchas e próximos passos.
 > Complementar a [`CONTINUAR.md`](CONTINUAR.md) (handoff curto) e
-> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-26 (após PR #54).
+> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-26 (após PR #56).
 
-> **Addendum desta sessão (PRs #53-#54):**
+> **Addendum desta sessão (PR #56):**
+> - **#56 — Excluir incorporadora direto da Carteira.** Botão × no
+>   card; server action detecta o 409 do backend (DELETE bloqueia
+>   quando há empreendimentos vinculados) e mostra mensagem amigável
+>   pedindo pra excluir os empreendimentos primeiro. Mesma UX de #47
+>   (excluir empreendimento). Fecha o CRUD da Carteira: agora dá pra
+>   criar, navegar e excluir incorporadoras + empreendimentos +
+>   promoções inteiramente pela UI.
+>
+> **Addendum anterior (PRs #53-#54):**
 > - **#53 — 15 testes Vitest pros átomos UI restantes mais usados:**
 >   KpiCard (5), Tabs (4) e Button (6). `fireEvent.click` testa
 >   handlers; `disabled` bloqueando; variantes com classes
