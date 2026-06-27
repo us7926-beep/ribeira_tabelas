@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui/Button";
 import type { Empreendimento, TabelaPrecos, UnidadePreco } from "@/types";
@@ -47,6 +48,11 @@ export function ModalSelecionarUnidade({
   const [unidadeIdx, setUnidadeIdx] = useState<number | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!aberto) {
@@ -100,7 +106,7 @@ export function ModalSelecionarUnidade({
     [empreendimentos, empId],
   );
 
-  if (!aberto) return null;
+  if (!aberto || !mounted) return null;
 
   function confirmar() {
     if (!empId || unidadeIdx == null) return;
@@ -114,7 +120,7 @@ export function ModalSelecionarUnidade({
     });
   }
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-start justify-center bg-ink/40 backdrop-blur-sm overflow-y-auto p-4 sm:p-8"
       onClick={onFechar}
@@ -206,6 +212,7 @@ export function ModalSelecionarUnidade({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
