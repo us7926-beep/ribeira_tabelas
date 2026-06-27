@@ -13,7 +13,7 @@ from fastapi import Body, Depends, FastAPI, Form, Header, HTTPException, UploadF
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from . import config, db, financiamento, gemini, incc_api, mercado_api, notificacoes, security, vendas_api
+from . import config, db, financiamento, fluxo_simulador, gemini, incc_api, mercado_api, notificacoes, security, vendas_api
 
 app = FastAPI(title="TabLM API", version="0.1.0")
 app.add_middleware(
@@ -1379,5 +1379,23 @@ def calcular_renda(
     Stateless — não persiste nada."""
     try:
         return financiamento.calcular_renda_necessaria(req)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+# --------------------------------------------------------------------------- #
+# Simulador de Fluxo Comercial — multi-linha, stateless
+# --------------------------------------------------------------------------- #
+@app.post("/fluxo/simular", response_model=fluxo_simulador.FluxoSimularOut)
+def simular_fluxo(
+    req: fluxo_simulador.FluxoSimularIn,
+    _: str = Depends(security.usuario_autenticado),
+):
+    """Recebe N linhas (empreendimento/unidade + configuração de fluxo) e
+    devolve os valores em R$ por coluna + parcelas + diferenças entre as
+    duas primeiras linhas. Stateless. Validações: soma ±0.01 do 100%,
+    quantidade > 0 quando percentual > 0 (mensais/anuais/semestrais)."""
+    try:
+        return fluxo_simulador.simular(req)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))

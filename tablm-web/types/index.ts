@@ -220,3 +220,65 @@ export interface CalculoRendaResponse {
   descricao_modalidade: string;
   alertas: string[];
 }
+
+// --------------------------------------------------------------------------- //
+// Simulador de Fluxo Comercial (FEATURE_SIMULADOR_FLUXO)
+// --------------------------------------------------------------------------- //
+
+export interface ColunaSimples {
+  percentual: number;
+  data: string;
+}
+
+export interface ColunaParcelada {
+  percentual: number;
+  quantidade: number;
+  data_inicio: string;
+}
+
+export interface FluxoConfig {
+  ato: ColunaSimples;
+  dias30: ColunaSimples;
+  dias60: ColunaSimples;
+  dias90: ColunaSimples;
+  mensais: ColunaParcelada;
+  anuais: ColunaParcelada;
+  semestrais: ColunaParcelada;
+  parcela_unica: ColunaSimples;
+  financiamento: ColunaSimples;
+}
+
+export interface SimuladorLinha {
+  id: string;
+  empreendimentoId: string;
+  empreendimentoNome: string;
+  unidadeLabel: string;
+  valorUnidade: number;
+  fluxo: FluxoConfig;
+  /** Cor de identificação da linha no comparativo (royal/up/warn/down). */
+  cor: "royal" | "up" | "warn" | "down";
+}
+
+export interface ColunaResultado {
+  total: number;
+  parcela: number;
+}
+
+export interface ResultadoLinha {
+  id: string;
+  colunas: Record<string, ColunaResultado>;
+  soma_percentuais: number;
+  valida: boolean;
+}
+
+export interface FluxoSimularResponse {
+  linhas: ResultadoLinha[];
+  /** Delta por coluna entre linhas[0] e linhas[1] (A - B). null quando < 2 linhas. */
+  diferencas: Record<string, number> | null;
+}
+
+export interface ConfigRendaLinha {
+  modalidade: ModalidadeFinanciamento;
+  taxaPersonalizada: number | null;
+  prazoMeses: number;
+}
