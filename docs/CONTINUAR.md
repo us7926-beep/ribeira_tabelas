@@ -2,7 +2,7 @@
 
 > Cole/abra este arquivo numa nova janela do Claude Code. Tem TUDO para continuar
 > a evolução do TabLM de onde paramos. **Sem segredos** (ficam só em `api/.env` e
-> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-26 (após PR #54).
+> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-26 (após PR #56).
 
 ## Resumo de 1 linha
 TabLM (Ribeira Empreendimentos) está **migrado e no ar**: Next.js (frontend) +
@@ -129,7 +129,7 @@ docs/CONTINUAR.md  ESTE arquivo
   então `CORS_ORIGINS=http://localhost:3000` no Render não bloqueia o app em produção.
   Por correção, mude no Render para `https://ribeira-tabelas-tablm.vercel.app`.
 
-## O que entrou após PR #19 (54 PRs no total)
+## O que entrou após PR #19 (56 PRs no total)
 - **PR #20** — docs: handoff atualizado.
 - **PR #21** — **Busca na Carteira** (search em `/incorporadoras` e detalhe).
 - **PR #22** — **Diff por unidade** entre versões na Aba Tabela (Adicionadas /
@@ -324,6 +324,14 @@ docs/CONTINUAR.md  ESTE arquivo
   valor_medio_parcela, n_parcelas, unidades). Nome inclui versão da
   tabela + mês usado em modo Real. **Totais agora**: pytest 99 +
   vitest 64 = **163 testes**.
+- **PR #56** — Botão **excluir incorporadora** no card da Carteira
+  fecha o último gap de admin. Server action `excluirIncorporadora`
+  detecta o 409 do backend (DELETE bloqueia quando há
+  empreendimentos vinculados) e mostra mensagem amigável no banner
+  vermelho em vez do "Erro 409" cru. Mesma UX do excluir
+  empreendimento (#47): × no canto, confirm, opacity-50 durante a
+  ação, `preventDefault + stopPropagation` no clique para não disparar
+  o Link.
 
 ## Próximos passos sugeridos
 
