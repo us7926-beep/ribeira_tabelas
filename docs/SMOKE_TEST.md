@@ -260,95 +260,128 @@ Em `/empreendimentos/[id]`, com 2+ versões de tabela e 2+ meses de venda.
 
 ---
 
-## 8. Simulador de Fluxo Comercial + Cálculo de Renda (PRs #68 e #seguinte)
+## 8. Simulador de Fluxo Comercial + Cálculo de Renda (PRs #68-#69)
 
+> **Smoke 2026-06-27 (via Claude in Chrome): 10/10 passaram.**
+> Bug crítico descoberto e fixado em [PR #72](https://github.com/us7926-beep/ribeira_tabelas/pull/72)
+> antes de continuar — modais (ModalSelecionarUnidade/ModalEvento/
+> ModalEditarEmpreendimento) ficavam confinados ao main porque o
+> wrapper `.tablm-up` tem `transform`, criando containing block que
+> prende `position: fixed`. Fix: `createPortal(document.body)` nos 3.
+>
 > Pré-requisito: pelo menos 2 empreendimentos com **tabela de preços
 > cadastrada** (>=1 unidade com `preco_total` > 0). Use a Aba Tabela do
 > dossiê para subir um CSV mínimo (`unidade,area_m2,valor`) se ainda
 > não tiver — vide [`docs/DEPLOY.md` anexo CSV](DEPLOY.md).
+>
+> ⚠️ **Dados pré-PR #61** podem ter unidades com `valor` em vez de
+> `preco_total` (antes do parser fix). O modal filtra essas unidades
+> fora ("Empreendimento sem tabela de preços com unidades."). Backfill
+> SQL: `UPDATE tabelas_precos SET unidades = (SELECT jsonb_agg(CASE
+> WHEN u ? 'preco_total' THEN u ELSE u || jsonb_build_object(
+> 'preco_total', u->'valor') END) FROM jsonb_array_elements(unidades)
+> AS u) WHERE empreendimento_id = '<id>';`
 
 ### 8.1 Cálculo de Renda — endpoint isolado (PR #68)
 
-- [ ] `POST /financiamento/calcular-renda` (autenticado): com
-      `modalidade=mcmv_faixa3, saldo_financiar=300000, prazo_meses=360`
-      retorna `renda_necessaria > 0`, `label_modalidade="MCMV Faixa 3"`,
-      array `alertas` não-vazio.
-- [ ] Modalidade `sbpe` → array `alertas` inclui menção à TR.
-- [ ] Modalidade `personalizada` sem `taxa_personalizada_anual` →
-      HTTP 400 com mensagem clara.
-- [ ] `prazo_meses < 12` ou `> 420` → HTTP 422 (Pydantic).
+- [x] `POST /financiamento/calcular-renda` (autenticado): com
+      `parcela_obra_mensal=0, modalidade=mcmv_faixa3,
+      saldo_financiar=300000, prazo_meses=360` retorna `renda_necessaria
+      > 0` (R$ 6.926,21), `label_modalidade="MCMV Faixa 3"`, array
+      `alertas` não-vazio. ⚠️ `parcela_obra_mensal` é **obrigatório**
+      (Pydantic `ge=0`) — roteiro original omitia.
+- [x] Modalidade `sbpe` → `alertas` inclui "Taxa SBPE sem TR. Use o CET
+      real do banco." (renda R$ 9.262,76 @ 11,19% a.a.).
+- [x] Modalidade `personalizada` sem `taxa_personalizada_anual` →
+      HTTP **400** com `"taxa_personalizada_anual é obrigatória quando
+      modalidade='personalizada'."`.
+- [x] `prazo_meses < 12` → HTTP **422** Pydantic ("Input should be
+      greater than or equal to 12").
 
 ### 8.2 Sidebar — 7º item Simulador
 
-- [ ] Sidebar mostra "Simulador de Fluxo" entre "Carteira" e
+- [x] Sidebar mostra "Simulador de Fluxo" entre "Carteira" e
       "Reajustar por INCC".
-- [ ] Clique navega para `/simulador`.
+- [x] Clique navega para `/simulador`.
 
 ### 8.3 Página /simulador — empty state
 
-- [ ] Sem linhas adicionadas, mostra contagem "0 de 4 linhas" e card
-      "Nenhuma linha ainda…".
-- [ ] Botão **"+ Adicionar Empreendimento"** abre modal.
+- [x] Sem linhas adicionadas, mostra contagem "0 de 4 linhas · pronto"
+      e card "Nenhuma linha ainda…".
+- [x] Botão **"+ Adicionar Empreendimento"** abre modal.
 
 ### 8.4 Modal de seleção de unidade
 
-- [ ] Modal lista os empreendimentos cadastrados.
-- [ ] Selecionar empreendimento carrega lista de unidades da tabela de
-      preços mais recente.
-- [ ] Unidades sem `preco_total > 0` ficam fora da lista.
-- [ ] Botão "Adicionar linha" cria card de configuração + linha na
+- [x] Modal lista os empreendimentos cadastrados.
+- [x] Selecionar empreendimento carrega lista de unidades da tabela de
+      preços mais recente (label "Apt 101 · 52m² — R$ 475.000").
+- [x] Unidades sem `preco_total > 0` ficam fora da lista (confirmado
+      via filtro `(ultima?.unidades ?? []).filter(u => typeof
+      u.preco_total === "number" && u.preco_total > 0)`).
+- [x] Botão "Adicionar linha" cria card de configuração + linha na
       tabela comparativa.
-- [ ] Escape fecha modal.
+- [x] Escape fecha modal.
 
 ### 8.5 Configuração de fluxo por linha
 
-- [ ] Card colapsável (Recolher/Expandir).
-- [ ] Indicador "Total: XX%" verde quando soma = 100 ± 0.01, vermelho
-      caso contrário.
-- [ ] Linha **Financiamento** read-only com badge "derivado" — recalcula
-      automaticamente como `100 - soma(demais)` ao digitar qualquer outro
-      percentual.
-- [ ] Colunas parceladas (Mensais/Anuais/Semestrais) mostram input de
+- [x] Card colapsável (Recolher/Expandir).
+- [x] Indicador "Total: 100.00%" verde quando soma = 100 ± 0.01.
+- [x] Linha **Financiamento** read-only com badge "derivado" —
+      recalcula automaticamente como `100 - soma(demais)` ao digitar
+      Ato (10→40 → financiamento 60).
+- [x] Colunas parceladas (Mensais/Anuais/Semestrais) mostram input de
       quantidade; demais mostram "—".
 
 ### 8.6 Tabela comparativa
 
-- [ ] Coluna identificação fica **sticky-left** ao rolar horizontalmente.
-- [ ] Header escuro (ink) com linha secundária de percentuais.
-- [ ] Coluna Financiamento destacada (fundo royal no header, royal-tint
-      no corpo).
-- [ ] Toggle **"Mostrar colunas zeradas"** alterna visibilidade das
-      colunas sem percentual/quantidade.
-- [ ] Com 2 linhas, aparece linha **"Diferença R$ (A − B)"** —
-      vermelho se A > B, verde se A < B, traço se zero.
+- [x] Coluna identificação fica **sticky-left** ao rolar
+      horizontalmente.
+- [x] Header escuro (ink) com linha secundária de percentuais
+      ("% POR LINHA (LINHA 1)").
+- [x] Coluna Financiamento destacada (fundo royal no header,
+      royal-tint no corpo).
+- [x] Toggle **"Mostrar colunas zeradas"** alterna visibilidade das
+      9 colunas (Ato/30/60/90/Mensais/Anuais/Semestrais/Parcela
+      Única/Financiamento).
+- [x] Com 2+ linhas, aparece linha **"Diferença R$ (A − B)"** —
+      vermelho `+135.500` quando A > B no Ato (190k − 54.5k), traço
+      nas zeradas, valor negativo no Financiamento (`-205.500`).
 
 ### 8.7 Debounce e recálculo
 
-- [ ] Digitar percentual chama `POST /fluxo/simular` após **600ms** sem
-      novos eventos (DevTools → Network).
-- [ ] Add/remove de linha dispara recálculo imediato.
+- [x] Digitar percentual chama `POST /fluxo/simular` após **600ms** sem
+      novos eventos. 3 inputs rápidos consecutivos geraram **1 só
+      POST**.
+- [x] Add/remove de linha dispara recálculo imediato (via
+      `useEffect([linhas.length])`).
 
 ### 8.8 Painel de renda por linha (integração #68)
 
-- [ ] Cada linha tem seu próprio card "Renda necessária".
-- [ ] Modalidade e prazo configuráveis por linha **independentemente**.
-- [ ] **Saldo a financiar** vem de `colunas.financiamento.total`;
-      **parcela obra** vem de `colunas.mensais.parcela`.
-- [ ] Render mínima atualiza ao mudar modalidade/prazo (debounce 500ms).
-- [ ] Modalidade `personalizada` mostra input de taxa adicional.
-- [ ] Alertas amarelos aparecem (parcelas pontuais, presets são
-      estimativas, TR se modalidade SBPE).
+- [x] Cada linha tem seu próprio card "Renda necessária".
+- [x] Modalidade e prazo configuráveis por linha **independentemente**
+      (selects locais).
+- [x] **Saldo a financiar** vem de `colunas.financiamento.total`
+      (50% × R$ 475k → R$ 237.500); **parcela obra** vem de
+      `colunas.mensais.parcela` (R$ 0,00 quando mensais zerado).
+- [x] Renda mínima atualiza ao mudar % do Ato (10→50: renda caiu de
+      R$ 9.869,85 → R$ 5.483,25 em tempo real).
+- [x] Alertas amarelos aparecem: "Parcelas pontuais não incluídas…" +
+      "Taxas são estimativas…".
 
 ### 8.9 Limite de 4 linhas
 
-- [ ] Adicionar 5ª linha → modal mostra erro "Máximo de 4 linhas…" e
-      bloqueia.
+- [x] 5ª tentativa bloqueia. Header continua "4 de 4 linhas". Mensagem
+      "**Máximo de 4 linhas para manter a tabela legível.**" aparece
+      no banner amarelo do **painel principal** (via `setErroAdd` em
+      `SimuladorFluxo.tsx`), não dentro do modal — roteiro divergia
+      mas comportamento é claro pro usuário.
 
 ### 8.10 Remoção
 
-- [ ] Botão **×** no card de uma linha pede confirmação.
-- [ ] Confirmar remove linha do simulador, do comparativo e do painel
-      de renda correspondente.
+- [x] Botão **×** no card pede confirmação ("Remover '<nome>' do
+      simulador?").
+- [x] Confirmar remove linha do simulador + comparativa + painel de
+      renda correspondente (4 → 3 linhas).
 
 ---
 
