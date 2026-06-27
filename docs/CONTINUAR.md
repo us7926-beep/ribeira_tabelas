@@ -2,7 +2,7 @@
 
 > Cole/abra este arquivo numa nova janela do Claude Code. Tem TUDO para continuar
 > a evolução do TabLM de onde paramos. **Sem segredos** (ficam só em `api/.env` e
-> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-26 (após PR #58).
+> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-27 (após PR #64).
 
 ## Resumo de 1 linha
 TabLM (Ribeira Empreendimentos) está **migrado e no ar**: Next.js (frontend) +
@@ -129,7 +129,7 @@ docs/CONTINUAR.md  ESTE arquivo
   então `CORS_ORIGINS=http://localhost:3000` no Render não bloqueia o app em produção.
   Por correção, mude no Render para `https://ribeira-tabelas-tablm.vercel.app`.
 
-## O que entrou após PR #19 (58 PRs no total)
+## O que entrou após PR #19 (64 PRs no total)
 - **PR #20** — docs: handoff atualizado.
 - **PR #21** — **Busca na Carteira** (search em `/incorporadoras` e detalhe).
 - **PR #22** — **Diff por unidade** entre versões na Aba Tabela (Adicionadas /
@@ -342,6 +342,48 @@ docs/CONTINUAR.md  ESTE arquivo
   "Ver todos os empreendimentos →" no PageHeader de
   `/incorporadoras` leva pra rota nova. Coexiste sem conflito com
   `/empreendimentos/[id]`.
+- **Smoke test 2026-06-27** (via Claude in Chrome): 34 pass, 0
+  falhas, 9 skips por falta de pré-requisito, 1 bug menor. Resultado
+  em [docs/SMOKE_TEST_RESULTS_2026-06-27.md](SMOKE_TEST_RESULTS_2026-06-27.md).
+  Daí saíram as 5 PRs abaixo:
+- **PR #60** — `fix: race condition na URL sync de filtros`. Causa:
+  `atualizarUrl` lia `sp?.toString()` (snapshot stale do
+  `useSearchParams`) — `router.replace` já tinha mudado a URL no
+  browser mas o hook só rerenderiza no próximo tick. Trocar 2
+  selects em <1s sobrescrevia o param do primeiro. Fix: usar
+  `window.location.search` (síncrono com o browser), SSR-safe via
+  `typeof window`. Aplicado nos 3 componentes que tinham o padrão:
+  `ListaGlobalEmpreendimentos`, `ListaPromocoes`, `BenchmarkApp`.
+- **PR #61** — `fix: parser CSV de Tabela de Preços popula schema
+  canônico`. Causa: `criar_tabela_precos` persistia
+  `df.to_dict(orient="records")` cru — preservava `valor`/`area_m2`
+  do CSV em vez de mapear para `preco_total`/`area_m2` que o
+  `kpisDaVersao` espera. Sparkline trio (PR #44) ficava vazio mesmo
+  com 2 versões. Fix: nova `mercado_api.normalizar_unidades(df)`
+  com detecção por substring (`valor`/`preço`/`r$`,
+  `area`/`m2`/`metragem`, etc.) + opcionais
+  (`andar`/`vaga`/`entrada`/`parcelas_mensais`/`financiamento`).
+  Schema documentado em [`docs/DEPLOY.md`](DEPLOY.md) anexo. **5
+  testes pytest** novos.
+- **PR #62** — Botão **✎** no card de empreendimento abre modal
+  pequeno (`ModalEditarEmpreendimento.tsx`) com 4 inputs (nome /
+  cidade / bairro / padrão). Server action `atualizarEmpreendimento`
+  reusa o PATCH existente `/empreendimentos/{id}/ficha`. Antes a
+  correção rápida de nome obrigava entrar no dossiê e clicar em cada
+  campo da Aba Ficha Técnica — ou pior, excluir+recriar.
+- **PR #63** — Renomear incorporadora direto do card. Backend ganha
+  `IncorporadoraPatch` + `PATCH /incorporadoras/{id_}` (400 quando
+  body vazio ou só espaços, 404 quando id não existe). Frontend
+  usa `window.prompt()` inline (1 campo só não merece modal). **4
+  testes pytest** cobrindo todos os caminhos.
+- **PR #64** — Nova aba **Promoções** no dossiê do empreendimento
+  (entre Histórico de Vendas e Documentos). Lista local filtrada por
+  Ativas/Todas/Expiradas com chips de urgência e Baixar CSV. Reusa o
+  `ModalEvento` (#42) com `empreendimentoIdInicial` pré-selecionado.
+  Antes era preciso sair pra `/promocoes` global pra ver/editar as
+  promoções de um empreendimento específico. URL `?aba=promocoes`
+  abre direto.
+  **Totais agora**: pytest 108 + vitest 64 = **172 testes**.
 
 ## Smoke test manual
 

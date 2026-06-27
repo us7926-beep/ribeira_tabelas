@@ -1,13 +1,34 @@
-# TabLM — Contexto completo da sessão (2026-06-26)
+# TabLM — Contexto completo da sessão (2026-06-27)
 
 > Documento único com **tudo** que importa para continuar o trabalho em qualquer
 > janela: estado, arquitetura, PRs feitos, decisões, gotchas e próximos passos.
 > Complementar a [`CONTINUAR.md`](CONTINUAR.md) (handoff curto),
 > [`DEPLOY.md`](DEPLOY.md) (guia operacional) e
 > [`SMOKE_TEST.md`](SMOKE_TEST.md) (roteiro de teste manual das features
-> novas). Última atualização: 2026-06-26 (após PR #58).
+> novas). Última atualização: 2026-06-27 (após PR #64).
 
-> **Addendum desta sessão (PR #58 + SMOKE_TEST.md):**
+> **Addendum desta sessão (PRs #60-#64 — pós-smoke):**
+> - **#60 — fix URL sync race.** `useSearchParams` é snapshot e fica
+>   stale entre 2 `router.replace` em <1s. Trocar pra
+>   `window.location.search` (síncrono) em ListaGlobalEmpreendimentos,
+>   ListaPromocoes, BenchmarkApp.
+> - **#61 — fix parser CSV de Tabela de Preços.**
+>   `mercado_api.normalizar_unidades(df)` mapeia colunas reais para o
+>   schema canônico (`preco_total`/`area_m2`/etc) — o
+>   `df.to_dict(orient="records")` cru mantinha nomes originais e
+>   quebrava o sparkline trio (#44). Formato CSV documentado em
+>   DEPLOY.md.
+> - **#62 — editar empreendimento (modal ✎).** Reusa
+>   `PATCH /empreendimentos/{id}/ficha`. Antes precisava entrar no
+>   dossiê pra mudar nome.
+> - **#63 — renomear incorporadora (PATCH novo).** Backend ganha
+>   `IncorporadoraPatch` + endpoint; frontend usa `window.prompt()`.
+> - **#64 — aba Promoções no dossiê.** Lista interna filtrada
+>   reusando ModalEvento (#42). 6 abas total no dossiê.
+>
+> Totais: pytest 108 + vitest 64 = **172 testes**.
+>
+> **Addendum anterior (PR #58 + SMOKE_TEST.md):**
 > - **#58 — Nova rota `/empreendimentos`** com visão global
 >   cross-incorporadora (server component + client component). 4 selects
 >   (Inc/Padrão/Cidade/Bairro em cascata) + URL sync + KPIs do subset +
