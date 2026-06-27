@@ -34,3 +34,24 @@ export async function criarEmpreendimento(formData: FormData) {
   });
   revalidatePath(`/incorporadoras/${incorporadora_id}`);
 }
+
+/** Remove um empreendimento. Devolve `{ok, erro?}` para o cliente
+ * exibir o motivo sem mascarar (Next 16 mascara erros lançados em
+ * server actions na produção). */
+export async function excluirEmpreendimento(
+  id: string,
+  incorporadoraId: string,
+): Promise<{ ok: true } | { ok: false; erro: string }> {
+  if (!id) return { ok: false, erro: "ID ausente" };
+  try {
+    await api(`/empreendimentos/${id}`, {
+      method: "DELETE",
+      token: await getToken(),
+    });
+    if (incorporadoraId) revalidatePath(`/incorporadoras/${incorporadoraId}`);
+    revalidatePath("/incorporadoras");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, erro: (e as Error).message };
+  }
+}
