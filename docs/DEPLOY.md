@@ -107,6 +107,35 @@ Sem coluna de valor ou área a request devolve `400` com o detalhe
 
 ---
 
+## Anexo: cálculo de renda mínima (POST /financiamento/calcular-renda)
+
+Endpoint stateless que combina parcela de obra + parcela de financiamento
+(Tabela Price) e devolve a renda mínima familiar para 30% de
+comprometimento (configurável entre 10% e 50%).
+
+**Modalidades aceitas** (presets mantidos em [`api/financiamento.py`](../api/financiamento.py)
+e em [`tablm-web/lib/financiamento.ts`](../tablm-web/lib/financiamento.ts) — manter em sync):
+
+| Modalidade (`modalidade`) | Taxa a.a. | Faixa de renda | Observação |
+|---|---|---|---|
+| `mcmv_faixa1` | 4,50 % | até R$ 3.200/mês | Média 4% – 5,25% a.a. |
+| `mcmv_faixa2` | 5,75 % | até R$ 5.000/mês | Média 4,75% – 7% a.a. |
+| `mcmv_faixa3` | 7,66 % | até R$ 9.600/mês | Média 6,5% – 8,16% a.a. |
+| `mcmv_faixa4` | 10,00 % | até R$ 13.000/mês | Classe Média |
+| `sbpe` | 11,19 % | imóveis até R$ 2,25 mi | TR não incluída — usar CET real |
+| `personalizada` | livre | — | requer `taxa_personalizada_anual` (1.0–30.0) |
+
+**Alertas** automáticos no response:
+- Sempre: "Parcelas pontuais (ato/anuais/única) não incluídas" + "Taxas são estimativas".
+- Adicional para `sbpe`: "TR não incluída".
+
+**Validações**:
+- `prazo_meses` entre 12 e 420 (`422` Pydantic se fora).
+- `saldo_financiar > 0`.
+- `modalidade === "personalizada"` exige `taxa_personalizada_anual` ∈ [1.0, 30.0] (`400` no caso contrário).
+
+---
+
 ## 4. Notificações por email (Vercel Cron + Resend)
 
 Email diário às **9h BRT** (12h UTC) listando as promoções com `data_fim`
