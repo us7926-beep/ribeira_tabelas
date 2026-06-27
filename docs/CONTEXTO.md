@@ -3,9 +3,21 @@
 > Documento único com **tudo** que importa para continuar o trabalho em qualquer
 > janela: estado, arquitetura, PRs feitos, decisões, gotchas e próximos passos.
 > Complementar a [`CONTINUAR.md`](CONTINUAR.md) (handoff curto) e
-> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-26 (após PR #51).
+> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-26 (após PR #54).
 
-> **Addendum desta sessão (PRs #50-#51):**
+> **Addendum desta sessão (PRs #53-#54):**
+> - **#53 — 15 testes Vitest pros átomos UI restantes mais usados:**
+>   KpiCard (5), Tabs (4) e Button (6). `fireEvent.click` testa
+>   handlers; `disabled` bloqueando; variantes com classes
+>   diferentes; `className` extra preservando classes da variante.
+> - **#54 — Export CSV no Fluxo Comercial.** Quinta tela exportando:
+>   AbaFluxoComercial ganha link "Baixar CSV" no header do Card
+>   principal exportando condicao/ticket_medio/pct_total/
+>   valor_medio_parcela/n_parcelas/unidades. Nome do arquivo combina
+>   versão da tabela + mês usado em modo Real. Totais: pytest 99 +
+>   vitest 64 = **163 testes**.
+>
+> **Addendum anterior (PRs #50-#51):**
 > - **#50 — Export CSV na AbaVendasMensais.** Dois botões "Baixar
 >   CSV" novos no dossiê reusando `lib/csv` (PR #48): vendas por mês
 >   exporta a série ordenada; distribuição por modalidade exporta as
