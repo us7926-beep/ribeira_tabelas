@@ -16,6 +16,29 @@ export async function criarIncorporadora(formData: FormData) {
   revalidatePath("/incorporadoras");
 }
 
+/** Renomeia uma incorporadora. Devolve `{ok, erro?}` (padrao do projeto). */
+export async function atualizarIncorporadora(
+  id: string,
+  nome: string,
+): Promise<{ ok: true } | { ok: false; erro: string }> {
+  if (!id) return { ok: false, erro: "ID ausente" };
+  const trim = nome.trim();
+  if (!trim) return { ok: false, erro: "Nome é obrigatório" };
+  try {
+    await api(`/incorporadoras/${id}`, {
+      method: "PATCH",
+      token: await getToken(),
+      body: JSON.stringify({ nome: trim }),
+    });
+    revalidatePath("/incorporadoras");
+    revalidatePath(`/incorporadoras/${id}`);
+    revalidatePath("/empreendimentos");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, erro: (e as Error).message };
+  }
+}
+
 export async function criarEmpreendimento(formData: FormData) {
   const incorporadora_id = String(formData.get("incorporadora_id") ?? "");
   const nome = String(formData.get("nome") ?? "").trim();

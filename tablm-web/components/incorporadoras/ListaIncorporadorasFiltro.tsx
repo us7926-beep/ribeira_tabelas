@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 
-import { excluirIncorporadora } from "@/app/(dashboard)/incorporadoras/actions";
+import {
+  atualizarIncorporadora,
+  excluirIncorporadora,
+} from "@/app/(dashboard)/incorporadoras/actions";
 import { Chip } from "@/components/ui/Chip";
 import type { Incorporadora } from "@/types";
 
@@ -29,6 +32,18 @@ export function ListaIncorporadorasFiltro({ lista }: { lista: Incorporadora[] })
         setErroExclusao(resultado.erro);
       }
       setExcluindoId(null);
+    });
+  }
+
+  function renomear(inc: Incorporadora) {
+    const novo = window.prompt(`Renomear "${inc.nome}":`, inc.nome);
+    if (novo === null) return; // cancelado
+    const trim = novo.trim();
+    if (!trim || trim === inc.nome) return;
+    setErroExclusao(null);
+    startTransition(async () => {
+      const r = await atualizarIncorporadora(inc.id, trim);
+      if (!r.ok) setErroExclusao(`Falha ao renomear: ${r.erro}`);
     });
   }
 
@@ -90,6 +105,19 @@ export function ListaIncorporadorasFiltro({ lista }: { lista: Incorporadora[] })
                 </div>
                 {nossa && <Chip tom="royal">RIBEIRA</Chip>}
                 <span className="text-[12px] text-muted">→</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    renomear(inc);
+                  }}
+                  aria-label={`Renomear ${inc.nome}`}
+                  title="Renomear incorporadora"
+                  className="absolute top-2 right-10 w-7 h-7 rounded-full text-faint hover:text-royal hover:bg-royal-tint grid place-items-center text-[14px] leading-none transition-colors"
+                >
+                  ✎
+                </button>
                 <button
                   type="button"
                   onClick={(e) => {
