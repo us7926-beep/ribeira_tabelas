@@ -204,6 +204,62 @@ Em `/empreendimentos/[id]`, com 2+ versões de tabela e 2+ meses de venda.
 
 ---
 
+## 7. Pós-smoke 2026-06-27 (PRs #60–#66) — adicionado na rodada de fix+rush
+
+### 7.1 Fix URL sync race (PR #60)
+
+- [ ] Em `/empreendimentos` trocar **2 selects em <1s** (ex.: Padrão Alto + Cidade Mogi). URL ganha **ambos** os params (`?padrao=...&cidade=...`).
+- [ ] F5 mantém os dois filtros.
+- [ ] Repetir em `/promocoes` e `/benchmark` — comportamento idêntico.
+
+### 7.2 Fix parser CSV de Tabela de Preços (PR #61)
+
+- [ ] Subir 2 CSVs simples (`unidade,area_m2,valor`) com **preços diferentes** em versões distintas na Aba Tabela.
+- [ ] Card "Diferenças entre versões" agora mostra **N alteradas** (não mais "0").
+- [ ] Sparkline trio (Preço/m² + Ticket + VGV) popula com números reais.
+- [ ] Documentação do formato CSV aceito está em [`docs/DEPLOY.md`](DEPLOY.md) anexo.
+
+### 7.3 Editar empreendimento direto do card (PR #62)
+
+- [ ] Em `/incorporadoras/[id]`, botão **✎** no canto superior direito do card abre modal.
+- [ ] Modal mostra 4 inputs (nome, cidade, bairro, padrão) pré-preenchidos.
+- [ ] Salvar atualiza o card sem refresh.
+- [ ] Refresh + verificar em `/empreendimentos` (lista global) → nome novo aparece.
+- [ ] Escape fecha; clique fora fecha; nome em branco rejeita.
+
+### 7.4 Renomear incorporadora (PR #63)
+
+- [ ] Em `/incorporadoras`, botão **✎** no card abre `prompt()` nativo com nome atual.
+- [ ] Renomear → card atualiza.
+- [ ] Refresh → nome novo no card; em `/incorporadoras/[id]` (header) também.
+- [ ] Em `/empreendimentos` (lista global), coluna **incorporadora** do CSV também reflete.
+- [ ] Cancelar ou nome igual = no-op (sem chamada ao backend).
+
+### 7.5 Aba Promoções no dossiê (PR #64)
+
+- [ ] Em `/empreendimentos/[id]?aba=promocoes` aparece nova aba **Promoções**.
+- [ ] Lista mostra só promoções daquele empreendimento (filtra por `empreendimento_id` no client).
+- [ ] Filtros Ativas/Todas/Expiradas funcionam.
+- [ ] **+ Nova promoção** pré-seleciona o empreendimento atual; salvar atualiza a lista local sem refresh.
+- [ ] **Editar** num card abre `ModalEvento` pré-preenchido; salvar atualiza.
+- [ ] **Baixar CSV** exporta as 5 colunas (descrição, condições, datas, dias).
+
+### 7.6 Comparar empreendimentos lado a lado (PR #66)
+
+- [ ] Em `/empreendimentos`, cada card tem **checkbox** no canto superior direito.
+- [ ] Click no checkbox **não** navega pro dossiê (preventDefault funciona).
+- [ ] Card selecionado ganha borda royal + ring.
+- [ ] Barra flutuante no rodapé aparece com contagem + botão "Comparar (N)".
+- [ ] N=1 → botão diz "Selecione mais 1" e está desabilitado.
+- [ ] N≥2 → clicar leva pra `/comparar?ids=...`
+- [ ] Tabela comparativa mostra 10 linhas (Padrão/Cidade/Bairro + 7 KPIs).
+- [ ] Para KPIs numéricos, **célula verde + chip "líder"** marca o melhor (maior valor; exceto "unidades disponíveis" onde menor é melhor).
+- [ ] Empate técnico não destaca ninguém.
+- [ ] Nome no header de cada coluna é link pro dossiê.
+- [ ] Empty states: 0 selecionados ou 1 selecionado mostram instrução.
+
+---
+
 ## Como reportar problemas
 
 Pra cada item que falhar, abrir issue ou comentário no PR original com:
