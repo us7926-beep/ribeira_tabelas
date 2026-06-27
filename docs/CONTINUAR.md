@@ -2,7 +2,8 @@
 
 > Cole/abra este arquivo numa nova janela do Claude Code. Tem TUDO para continuar
 > a evolução do TabLM de onde paramos. **Sem segredos** (ficam só em `api/.env` e
-> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-27 (após PRs #68-#69).
+> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-27 (após PR #72
+> e smoke test seção 8 — 10/10).
 
 ## Resumo de 1 linha
 TabLM (Ribeira Empreendimentos) está **migrado e no ar**: Next.js (frontend) +
@@ -129,7 +130,7 @@ docs/CONTINUAR.md  ESTE arquivo
   então `CORS_ORIGINS=http://localhost:3000` no Render não bloqueia o app em produção.
   Por correção, mude no Render para `https://ribeira-tabelas-tablm.vercel.app`.
 
-## O que entrou após PR #19 (69 PRs no total)
+## O que entrou após PR #19 (70 PRs no total)
 - **PR #20** — docs: handoff atualizado.
 - **PR #21** — **Busca na Carteira** (search em `/incorporadoras` e detalhe).
 - **PR #22** — **Diff por unidade** entre versões na Aba Tabela (Adicionadas /
@@ -408,6 +409,19 @@ docs/CONTINUAR.md  ESTE arquivo
   endpoint #68. Roteiro de smoke completo em
   [`docs/SMOKE_TEST.md`](SMOKE_TEST.md) seção 8.
   **Totais agora**: pytest 120 + vitest 69 = **189 testes**.
+- **PR #72** — **fix: modais via `createPortal` no `document.body`**.
+  Smoke test do Simulador (seção 8.4) descobriu que o modal
+  "Adicionar empreendimento" renderizava apenas com o header visível
+  — overlay `fixed inset-0` ficava confinado em 1160×133 px em vez
+  do viewport inteiro. Culprit: wrapper `<div class="flex flex-col
+  gap-5 tablm-up">` em `SimuladorFluxo.tsx:32` — a animação
+  `.tablm-up` (`globals.css:84`) usa `transform: matrix(...)`, que
+  cria novo containing block e prende `position: fixed` ao wrapper.
+  Mesmo padrão (wrapper `.tablm-up` envolvendo modal) afetava
+  `ModalEvento` e `ModalEditarEmpreendimento`. Fix: `createPortal(
+  jsx, document.body)` nos 3 + state `mounted` (useEffect setState
+  true) pra evitar hydration mismatch. **Smoke test seção 8 passou
+  10/10 após o fix.**
 
 ## Smoke test manual
 

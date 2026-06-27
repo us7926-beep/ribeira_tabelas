@@ -5,9 +5,39 @@
 > Complementar a [`CONTINUAR.md`](CONTINUAR.md) (handoff curto),
 > [`DEPLOY.md`](DEPLOY.md) (guia operacional) e
 > [`SMOKE_TEST.md`](SMOKE_TEST.md) (roteiro de teste manual das features
-> novas). Última atualização: 2026-06-27 (após PRs #68-#69).
+> novas). Última atualização: 2026-06-27 (após PR #72 e smoke test seção 8).
 
-> **Addendum desta sessão (PRs #68-#69 — Renda + Simulador):**
+> **Addendum desta sessão (PR #72 + smoke test seção 8 — 10/10):**
+> - **Smoke test seção 8 (Simulador + Renda)** executado via Claude in
+>   Chrome — **10/10 passaram**: endpoint isolado (4 cenários incl.
+>   SBPE com alerta TR), sidebar 7º item, empty state, modal de
+>   seleção, config por linha (Financiamento derivado), tabela
+>   comparativa (9 colunas + linha "Diferença A−B"), debounce 600ms
+>   confirmado (3 inputs rápidos → 1 POST), painel de renda por linha
+>   (atualiza ao mudar % do Ato), limite de 4 linhas (banner amarelo
+>   "Máximo de 4 linhas…"), remoção (confirm + sumiço de
+>   config/comparativa/painel).
+> - **PR #72 — fix: `createPortal` nos modais.** Smoke 8.4 descobriu
+>   que `ModalSelecionarUnidade` renderizava cortado (header visível,
+>   resto invisível). Overlay `fixed inset-0` ficava confinado em
+>   1160×133 px porque o ancestor `<div class="flex flex-col gap-5
+>   tablm-up">` em `SimuladorFluxo.tsx:32` aplica `.tablm-up` →
+>   `animation: tablm-up via transform` → cria containing block →
+>   prende `position: fixed`. Mesmo padrão afetava `ModalEvento`
+>   (`/promocoes`, dossiê aba Promoções) e `ModalEditarEmpreendimento`
+>   (`/incorporadoras/[id]`). Fix: `createPortal(jsx, document.body)`
+>   nos 3 + state `mounted` (`useEffect setState true`) pra evitar
+>   hydration mismatch SSR. Branch `fix/modal-portal` mergeada em
+>   `master` (`6f83cd3`) com vitest 69/69 + tsc OK.
+> - **Achado operacional**: dados pré-PR #61 podem ter unidades com
+>   `valor` em vez de `preco_total` — modal filtra essas fora
+>   ("Empreendimento sem tabela de preços com unidades."). Backfill
+>   SQL no anexo do `SMOKE_TEST.md` seção 8.
+> - **Doc do `parcela_obra_mensal` obrigatório** no endpoint
+>   `/financiamento/calcular-renda` (Pydantic `ge=0`) — roteiro
+>   original omitia, atualizado.
+
+> **Addendum anterior (PRs #68-#69 — Renda + Simulador):**
 > - **#68 — Cálculo de Renda.** Endpoint `POST /financiamento/
 >   calcular-renda` + módulo `api/financiamento.py` (presets MCMV
 >   1-4/SBPE/personalizada, helpers `_taxa_anual_para_mensal`
