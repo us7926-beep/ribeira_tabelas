@@ -3,9 +3,24 @@
 > Documento único com **tudo** que importa para continuar o trabalho em qualquer
 > janela: estado, arquitetura, PRs feitos, decisões, gotchas e próximos passos.
 > Complementar a [`CONTINUAR.md`](CONTINUAR.md) (handoff curto) e
-> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-26 (após PR #39).
+> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-26 (após PR #42).
 
-> **Addendum desta sessão (PR #39):**
+> **Addendum desta sessão (PRs #41-#42):**
+> - **#41 — VSO acumulado por mês no dossiê.** Aba Histórico de Vendas
+>   ganha Card com gráfico de área SVG (sem lib) calculando
+>   `sum(vendidas até o mês) / total_unidades`. Eixo Y 0-100% com
+>   referências em 25/50/75/100; eixo X em MM/AA. Esconde quando o
+>   empreendimento não tem `total_unidades`.
+> - **#42 — Admin direto de promoções em `/promocoes`.** Backend ganha
+>   `PATCH/DELETE /benchmark/eventos/{id}` (404/400, reusa
+>   `db.atualizar`/`db.deletar`). Novo `ModalEvento.tsx` (overlay com
+>   form completo, role=dialog, Escape/clique-fora, Excluir no rodapé
+>   em modo edição com confirm). Botão "+ Nova promoção" no header e
+>   "Editar" em cada card. Quando o filtro de incorporadora está
+>   aplicado, o modal abre com um empreendimento daquela incorporadora
+>   pré-selecionado. `router.refresh()` após salvar/excluir.
+>
+> **Addendum anterior (PR #39):**
 > - **#39 — Timeline: shift+click filtra pela incorporadora.**
 >   `TimelineCronograma` ganha prop opcional `onFiltrarIncorporadora`;
 >   `ListaPromocoes` passa o `trocarIncorporadora`. Shift+click numa
