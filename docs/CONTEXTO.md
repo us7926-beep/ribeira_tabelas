@@ -3,9 +3,25 @@
 > Documento único com **tudo** que importa para continuar o trabalho em qualquer
 > janela: estado, arquitetura, PRs feitos, decisões, gotchas e próximos passos.
 > Complementar a [`CONTINUAR.md`](CONTINUAR.md) (handoff curto) e
-> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-26 (após PR #45).
+> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-26 (após PR #48).
 
-> **Addendum desta sessão (PRs #44-#45):**
+> **Addendum desta sessão (PRs #47-#48):**
+> - **#47 — Excluir empreendimento direto no card da Carteira.**
+>   Botão × no canto do card; server action `excluirEmpreendimento`
+>   devolve `{ok, erro?}` e revalida `/incorporadoras/[id]` +
+>   `/incorporadoras`. Confirm nativo descreve o estrago (documentos,
+>   tabelas, vendas vinculados também somem). Endpoint
+>   `DELETE /empreendimentos/{id}` já existia — esta PR só liga a UI.
+> - **#48 — `lib/csv` reusável + export em /promocoes e
+>   /incorporadoras.** `lib/csv.ts` com `escaparCelula` (RFC4180),
+>   `montarCsv`, `baixarCsv` e `exportarTabelaCsv`. Refatora
+>   `AbaTabela.baixarCsvUnidades` para usar o helper. Botão **Baixar
+>   CSV** em `/promocoes` (eventos filtrados) e em
+>   `/incorporadoras/[id]` (empreendimentos filtrados com KPIs).
+>   8 testes Vitest novos cobrindo escapamento. Totais agora: pytest
+>   99 + vitest 24 = **123 testes**.
+>
+> **Addendum anterior (PRs #44-#45):**
 > - **#44 — testes pytest do admin + sparkline trio.** Cobre PATCH/
 >   DELETE de eventos com 8 fixtures (body vazio, sem Supabase, id
 >   inexistente, fluxo feliz, `exclude_none` protegendo de wipe).
