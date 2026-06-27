@@ -2,7 +2,7 @@
 
 > Cole/abra este arquivo numa nova janela do Claude Code. Tem TUDO para continuar
 > a evolução do TabLM de onde paramos. **Sem segredos** (ficam só em `api/.env` e
-> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-26 (após PR #42).
+> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-26 (após PR #45).
 
 ## Resumo de 1 linha
 TabLM (Ribeira Empreendimentos) está **migrado e no ar**: Next.js (frontend) +
@@ -129,7 +129,7 @@ docs/CONTINUAR.md  ESTE arquivo
   então `CORS_ORIGINS=http://localhost:3000` no Render não bloqueia o app em produção.
   Por correção, mude no Render para `https://ribeira-tabelas-tablm.vercel.app`.
 
-## O que entrou após PR #19 (42 PRs no total)
+## O que entrou após PR #19 (45 PRs no total)
 - **PR #20** — docs: handoff atualizado.
 - **PR #21** — **Busca na Carteira** (search em `/incorporadoras` e detalhe).
 - **PR #22** — **Diff por unidade** entre versões na Aba Tabela (Adicionadas /
@@ -256,6 +256,32 @@ docs/CONTINUAR.md  ESTE arquivo
   `router.refresh()` após salvar/excluir. Quando o filtro de
   incorporadora está aplicado, o modal abre com um empreendimento
   daquela incorporadora pré-selecionado.
+- **PR #44** — Lote `testes pytest + sparkline trio` (2 commits):
+  - **Testes pytest do admin de promoções** (`tests/test_api.py`):
+    8 fixtures novas cobrindo `PATCH/DELETE /benchmark/eventos/{id}`
+    da #42 (body vazio → 400; sem Supabase → 503; id inexistente →
+    404; fluxo feliz; `exclude_none` descarta campos omitidos
+    protegendo contra wipe acidental). Suite 91 → 99.
+  - **Sparkline trio** na AbaTabela: Card "Evolução entre versões"
+    com 3 mini-sparklines (preço/m² royal, ticket verde, VGV âmbar)
+    em pequenos múltiplos. Cada um auto-normaliza no próprio range
+    + chip de delta % vs versão inicial + valor atual em destaque.
+    Empty state inline quando preço/m² ou ticket não tem ≥2 pontos
+    válidos.
+- **PR #45** — **Vitest no frontend** (16 testes em 3 arquivos):
+  - Setup `vitest.config.ts` (jsdom, alias `@`, glob
+    `{lib,components}/**/*.{test,spec}.{ts,tsx}`) +
+    `vitest.setup.ts` (jest-dom matchers).
+  - `lib/promocoes.test.ts` (8): `diasAteVencer` em casos
+    null/inválido/hoje/futuro/passado/ISO-com-hora; `contarVencendo`
+    em listas vazias, expiradas ignoradas, faixas `<=3` e `<=7`.
+    `vi.useFakeTimers` trava o relógio em 2026-06-20 UTC.
+  - `components/ui/Chip.test.tsx` (5): render + classes por tom +
+    `className` extra preservando tom.
+  - `components/ui/KpiDelta.test.tsx` (3): seta + cor por direção.
+  - CI: job `frontend` ganha step **Vitest** entre tsc e next build
+    — falha de teste bloqueia merge.
+  - **Totais agora**: pytest 99 + vitest 16 = **115 testes**.
 
 ## Próximos passos sugeridos
 
@@ -274,11 +300,10 @@ operacional seu nos painéis:
 
 Ideias maiores que ainda não viraram pedido — listadas só para futura
 sessão decidir: notificação por **push** (web push opt-in), tabela
-real de `usuarios` com email (hoje `TABLM_USERS` é env), testes
-Vitest pros átomos `ui/`, painel de admin de **empreendimentos**
-(CRUD direto e bulk), gráfico de evolução de preço/m² entre versões
-de tabela (hoje só o sparkline), testes pytest para PATCH/DELETE de
-eventos.
+real de `usuarios` com email (hoje `TABLM_USERS` é env), painel de
+admin de **empreendimentos** (CRUD bulk via UI — hoje só DELETE/POST
+individual), mais cobertura Vitest (átomos restantes + componentes
+de Benchmark), export CSV de qualquer tela com tabela.
 
 ## Segurança (MANTER)
 - Repo público → nenhum segredo no código. `api/.env` e `tablm-web/.env.local` são gitignored.
