@@ -11,6 +11,9 @@ interface Props {
   eventos: EventoPromocional[];
   empreendimentos: Empreendimento[];
   incorporadoras: Incorporadora[];
+  /** Opcional. Quando definido, shift+click numa barra chama o callback
+   * com o `incorporadora_id`; sem ele, shift+click cai no drill-down padrão. */
+  onFiltrarIncorporadora?: (incorporadoraId: string) => void;
 }
 
 const DIA_MS = 24 * 60 * 60 * 1000;
@@ -45,7 +48,12 @@ function mesAbreviado(d: Date): string {
   ];
 }
 
-export function TimelineCronograma({ eventos, empreendimentos, incorporadoras }: Props) {
+export function TimelineCronograma({
+  eventos,
+  empreendimentos,
+  incorporadoras,
+  onFiltrarIncorporadora,
+}: Props) {
   const router = useRouter();
   const mapEmp = useMemo(
     () => new Map(empreendimentos.map((e) => [e.id, e])),
@@ -201,36 +209,53 @@ export function TimelineCronograma({ eventos, empreendimentos, incorporadoras }:
             const nome = (emp?.nome ?? "Empreendimento").slice(0, 26);
             const cores = corBarra(linha.ev);
             const descricao = linha.ev.descricao ?? linha.ev.condicoes_comerciais ?? "";
-            const sufixoTooltip = emp ? " · clique para abrir o dossiê" : "";
-            const tooltip = [
-              emp?.nome ?? "Empreendimento",
-              inc?.nome,
-              descricao,
-              `${dataBR(linha.ev.data_inicio)} → ${dataBR(linha.ev.data_fim)}`,
-            ]
-              .filter(Boolean)
-              .join(" · ") + sufixoTooltip;
-            const abrirDossie = () => {
+            const podeFiltrarInc = !!(onFiltrarIncorporadora && inc?.id);
+            const sufixosTooltip = [
+              emp ? "clique para abrir o dossiê" : null,
+              podeFiltrarInc ? "shift+clique para filtrar pela incorporadora" : null,
+            ].filter(Boolean);
+            const tooltip =
+              [
+                emp?.nome ?? "Empreendimento",
+                inc?.nome,
+                descricao,
+                `${dataBR(linha.ev.data_inicio)} → ${dataBR(linha.ev.data_fim)}`,
+              ]
+                .filter(Boolean)
+                .join(" · ") +
+              (sufixosTooltip.length ? " · " + sufixosTooltip.join(" · ") : "");
+            const acionar = (comShift: boolean) => {
+              if (comShift && podeFiltrarInc) {
+                onFiltrarIncorporadora!(inc!.id);
+                return;
+              }
               if (emp) router.push(`/empreendimentos/${emp.id}`);
             };
+            const interativo = emp || podeFiltrarInc;
             return (
               <g
                 key={linha.ev.id}
-                onClick={emp ? abrirDossie : undefined}
+                onClick={interativo ? (e) => acionar(e.shiftKey) : undefined}
                 onKeyDown={
-                  emp
+                  interativo
                     ? (e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          abrirDossie();
+                          acionar(e.shiftKey);
                         }
                       }
                     : undefined
                 }
-                tabIndex={emp ? 0 : -1}
-                role={emp ? "button" : undefined}
-                aria-label={emp ? `Abrir dossiê de ${emp.nome}` : undefined}
-                className={emp ? "cursor-pointer hover:opacity-75 focus:opacity-75 outline-none transition-opacity" : undefined}
+                tabIndex={interativo ? 0 : -1}
+                role={interativo ? "button" : undefined}
+                aria-label={
+                  emp
+                    ? podeFiltrarInc
+                      ? `Abrir dossiê de ${emp.nome} (shift+clique filtra por ${inc!.nome})`
+                      : `Abrir dossiê de ${emp.nome}`
+                    : undefined
+                }
+                className={interativo ? "cursor-pointer hover:opacity-75 focus:opacity-75 outline-none transition-opacity" : undefined}
               >
                 <text
                   x={PAD_LEFT - 10}

@@ -262,6 +262,7 @@ export function ListaPromocoes({
         eventos={filtrados}
         empreendimentos={empreendimentos}
         incorporadoras={incorporadoras}
+        onFiltrarIncorporadora={trocarIncorporadora}
       />
 
       {filtrados.length === 0 ? (
