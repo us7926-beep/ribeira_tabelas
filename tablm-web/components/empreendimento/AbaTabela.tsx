@@ -118,60 +118,146 @@ const ROTULO_CAMPO: Record<DeltaCampo["campo"], string> = {
   financiamento: "Financiamento",
 };
 
-/** Sparkline simples em SVG da série de preço/m² médio. */
-function Sparkline({
-  serie,
+interface PontoSerie {
+  versao: string;
+  data: string;
+  pm2: number | null;
+  ticket: number | null;
+  vgv: number;
+}
+
+function moedaCompacta(n: number): string {
+  if (n >= 1_000_000_000) return `R$ ${(n / 1_000_000_000).toFixed(1)} bi`;
+  if (n >= 1_000_000) return `R$ ${(n / 1_000_000).toFixed(1)} mi`;
+  if (n >= 1000) return `R$ ${Math.round(n / 1000)} mil`;
+  return "R$ " + Math.round(n).toLocaleString("pt-BR");
+}
+
+function moedaInt(n: number): string {
+  return "R$ " + Math.round(n).toLocaleString("pt-BR");
+}
+
+/** Mini-sparkline para uma métrica (auto-normaliza no próprio range).
+ * Mostra título, valor atual, delta vs início e linha + pontos. */
+function MiniSpark({
+  titulo,
+  valores,
+  labels,
+  cor,
+  fundo,
+  formatar,
 }: {
-  serie: { versao: string; data: string; pm2: number }[];
+  titulo: string;
+  valores: number[];
+  labels: string[];
+  cor: string;
+  fundo: string;
+  formatar: (n: number) => string;
 }) {
-  const W = 640;
-  const H = 140;
-  const padX = 24;
-  const padY = 18;
-  const xs = serie.map((_, i) => padX + (i * (W - 2 * padX)) / (serie.length - 1));
-  const valores = serie.map((p) => p.pm2);
+  const W = 320;
+  const H = 110;
+  const padX = 16;
+  const padY = 22;
   const minV = Math.min(...valores);
   const maxV = Math.max(...valores);
   const range = Math.max(1, maxV - minV);
+  const xs = valores.map((_, i) =>
+    valores.length > 1 ? padX + (i * (W - 2 * padX)) / (valores.length - 1) : W / 2,
+  );
   const ys = valores.map((v) => H - padY - ((v - minV) / range) * (H - 2 * padY));
   const pontos = xs.map((x, i) => `${x},${ys[i]}`).join(" ");
   const areaPoligono = `${padX},${H - padY} ${pontos} ${W - padX},${H - padY}`;
+  const atual = valores[valores.length - 1];
+  const inicio = valores[0];
+  const deltaPct = inicio === 0 ? 0 : ((atual - inicio) / inicio) * 100;
+  const tomDelta =
+    Math.abs(deltaPct) < 0.5 ? "text-muted" : deltaPct > 0 ? "text-up-strong" : "text-down-strong";
+  const seta = Math.abs(deltaPct) < 0.5 ? "·" : deltaPct > 0 ? "▲" : "▼";
 
   return (
-    <div className="w-full overflow-x-auto">
+    <div className="rounded-[12px] border border-line-soft bg-white p-3">
+      <div className="flex items-baseline justify-between gap-2 mb-1">
+        <div className="text-[11.5px] font-bold uppercase tracking-[0.4px] text-muted">
+          {titulo}
+        </div>
+        <div className={`text-[12px] font-bold tnum ${tomDelta}`}>
+          {seta} {Math.abs(deltaPct).toFixed(1)}%
+        </div>
+      </div>
+      <div className="text-[18px] font-extrabold text-ink tnum mb-1">{formatar(atual)}</div>
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        className="w-full h-[160px]"
+        className="w-full h-[100px]"
         preserveAspectRatio="none"
       >
-        <polyline points={areaPoligono} fill="#EAF0FE" stroke="none" />
-        <polyline points={pontos} fill="none" stroke="#2347C5" strokeWidth={2.5} />
+        <polyline points={areaPoligono} fill={fundo} stroke="none" />
+        <polyline points={pontos} fill="none" stroke={cor} strokeWidth={2} />
         {xs.map((x, i) => (
           <g key={i}>
-            <circle cx={x} cy={ys[i]} r={4} fill="#2347C5" stroke="#fff" strokeWidth={2} />
-            <text
-              x={x}
-              y={ys[i] - 10}
-              fill="#14203A"
-              fontSize={11}
-              fontWeight={700}
-              textAnchor="middle"
-            >
-              {"R$ " + Math.round(serie[i].pm2).toLocaleString("pt-BR")}
-            </text>
+            <circle cx={x} cy={ys[i]} r={3} fill={cor} stroke="#fff" strokeWidth={1.5} />
             <text
               x={x}
               y={H - 4}
               fill="#97A2B5"
-              fontSize={10}
+              fontSize={9}
               fontWeight={600}
               textAnchor="middle"
             >
-              {serie[i].versao}
+              {labels[i]}
             </text>
           </g>
         ))}
       </svg>
+    </div>
+  );
+}
+
+/** Trio de mini-sparklines: preço/m², ticket médio, VGV. Auto-normaliza
+ * cada um no próprio range (escalas R$ muito diferentes entre eles). */
+function SparklineTrio({ serie }: { serie: PontoSerie[] }) {
+  const labels = serie.map((p) => p.versao);
+  const pm2 = serie.map((p) => p.pm2).filter((v): v is number => v != null);
+  const ticket = serie.map((p) => p.ticket).filter((v): v is number => v != null);
+  const vgv = serie.map((p) => p.vgv);
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      {pm2.length >= 2 ? (
+        <MiniSpark
+          titulo="Preço/m² médio"
+          valores={pm2}
+          labels={labels.slice(0, pm2.length)}
+          cor="#2347C5"
+          fundo="#EAF0FE"
+          formatar={moedaInt}
+        />
+      ) : (
+        <div className="rounded-[12px] border border-line-soft bg-thead p-3 text-[12.5px] text-muted">
+          Preço/m² indisponível (área das unidades não informada).
+        </div>
+      )}
+      {ticket.length >= 2 ? (
+        <MiniSpark
+          titulo="Ticket médio"
+          valores={ticket}
+          labels={labels.slice(0, ticket.length)}
+          cor="#15A34A"
+          fundo="#E9FBF0"
+          formatar={moedaCompacta}
+        />
+      ) : (
+        <div className="rounded-[12px] border border-line-soft bg-thead p-3 text-[12.5px] text-muted">
+          Ticket médio indisponível.
+        </div>
+      )}
+      <MiniSpark
+        titulo="VGV total"
+        valores={vgv}
+        labels={labels}
+        cor="#E0B23A"
+        fundo="#FBF3DD"
+        formatar={moedaCompacta}
+      />
     </div>
   );
 }
@@ -315,17 +401,21 @@ export function AbaTabela({ empreendimentoId }: Props) {
     );
   }, [tabela, tabelaB]);
 
-  // Série de preço/m² médio por versão (cronológica) — para sparkline SVG.
-  const serie = useMemo(() => {
+  // Série dos 3 KPIs por versão (cronológica) — alimenta o SparklineTrio.
+  const serie = useMemo<PontoSerie[]>(() => {
     return tabelas
       .slice()
       .reverse()
-      .map((t) => ({
-        versao: t.versao,
-        data: t.data_referencia,
-        pm2: kpisDaVersao(t).precoM2Medio,
-      }))
-      .filter((p) => p.pm2 != null) as { versao: string; data: string; pm2: number }[];
+      .map((t) => {
+        const k = kpisDaVersao(t);
+        return {
+          versao: t.versao,
+          data: t.data_referencia,
+          pm2: k.precoM2Medio,
+          ticket: k.ticketMedio,
+          vgv: k.vgvTotal,
+        };
+      });
   }, [tabelas]);
 
   return (
@@ -439,16 +529,18 @@ export function AbaTabela({ empreendimentoId }: Props) {
             </div>
           )}
 
-          {/* Sparkline: evolução do preço/m² médio por versão (>= 2 pontos). */}
+          {/* Trio de sparklines: preço/m², ticket, VGV (>= 2 versões). */}
           {serie.length >= 2 && (
             <Card variant="lg">
               <div className="text-[16px] font-bold text-ink mb-1">
-                Evolução de preço/m² médio
+                Evolução entre versões
               </div>
               <div className="text-[12.5px] text-muted mb-3">
-                {serie.length} versão(ões) na linha do tempo.
+                {serie.length} versão(ões) na linha do tempo · cada métrica se
+                normaliza no próprio range, então as escalas diferentes (R$/m² vs VGV) ficam
+                comparáveis lado a lado.
               </div>
-              <Sparkline serie={serie} />
+              <SparklineTrio serie={serie} />
             </Card>
           )}
 
