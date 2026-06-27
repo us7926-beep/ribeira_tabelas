@@ -5,7 +5,32 @@
 > Complementar a [`CONTINUAR.md`](CONTINUAR.md) (handoff curto),
 > [`DEPLOY.md`](DEPLOY.md) (guia operacional) e
 > [`SMOKE_TEST.md`](SMOKE_TEST.md) (roteiro de teste manual das features
-> novas). Última atualização: 2026-06-27 (após PR #64).
+> novas). Última atualização: 2026-06-27 (após PRs #68-#69).
+
+> **Addendum desta sessão (PRs #68-#69 — Renda + Simulador):**
+> - **#68 — Cálculo de Renda.** Endpoint `POST /financiamento/
+>   calcular-renda` + módulo `api/financiamento.py` (presets MCMV
+>   1-4/SBPE/personalizada, helpers `_taxa_anual_para_mensal`
+>   composta, `_parcela_price` Price). Frontend
+>   `CalculoRendaFinanciamento.tsx` com debounce 500ms e modo
+>   controlado (parcela_obra + saldo viram read-only) — pronto pra
+>   ser embutido no Simulador. 6 pytest + 5 vitest. Anexo de
+>   presets em `docs/DEPLOY.md`.
+> - **#69 — Simulador de Fluxo Comercial.** Rota `/simulador` +
+>   Sidebar 7º item. Backend `api/fluxo_simulador.py` (9 colunas
+>   ato/30/60/90/mensais/anuais/semestrais/parcela_unica/
+>   financiamento; mensais/anuais/semestrais aceitam quantidade;
+>   validações soma 100±0.01 e qtd>0 quando %>0). Frontend:
+>   `lib/fluxoColunas.ts` como **fonte única** das colunas (Tabela
+>   e Grid iteram dela); custom hook `useSimuladorFluxo`
+>   (debounce 600ms, max 4 linhas); 9 componentes em
+>   `components/fluxo/` (IndicadorSomaPercentual → FluxoGridConfig
+>   → TabelaLinhaUnidade → TabelaDiferenca → TabelaComparativa →
+>   PainelRendaLinha → ModalSelecionarUnidade → SimuladorLinhaConfig
+>   → SimuladorFluxo). `PainelRendaLinha` integra com endpoint
+>   #68. Financiamento derivado (100 − soma demais) client +
+>   validado server. 6 pytest novos. Totais: pytest 120 + vitest
+>   69 = **189 testes**.
 
 > **Addendum desta sessão (PRs #60-#64 — pós-smoke):**
 > - **#60 — fix URL sync race.** `useSearchParams` é snapshot e fica
