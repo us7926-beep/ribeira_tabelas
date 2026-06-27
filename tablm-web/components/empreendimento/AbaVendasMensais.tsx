@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { HBar } from "@/components/ui/HBar";
 import { KpiCard } from "@/components/ui/KpiCard";
+import { baixarCsv, montarCsv } from "@/lib/csv";
 import type {
   DistribuicaoModalidade,
   ModalidadeSugerida,
@@ -335,7 +336,26 @@ export function AbaVendasMensais({ empreendimentoId, totalUnidades }: Props) {
       )}
 
       <Card variant="lg">
-        <div className="text-[16px] font-bold text-ink mb-3">Vendas por mês</div>
+        <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+          <div className="text-[16px] font-bold text-ink">Vendas por mês</div>
+          <button
+            type="button"
+            onClick={() => {
+              if (vendas.length === 0) return;
+              const linhas = [...vendas]
+                .sort((a, b) => a.mes.localeCompare(b.mes))
+                .map((v) => [v.mes, v.unidades_vendidas, v.vgv_mes ?? ""]);
+              baixarCsv(
+                `vendas-mensais-${empreendimentoId.slice(0, 8)}.csv`,
+                montarCsv(["mes", "unidades_vendidas", "vgv_mes"], linhas),
+              );
+            }}
+            disabled={vendas.length === 0}
+            className="text-[12.5px] font-bold text-royal hover:underline disabled:text-faint disabled:no-underline"
+          >
+            Baixar CSV
+          </button>
+        </div>
         {carregando ? (
           <div className="text-[13.5px] text-muted">Carregando…</div>
         ) : vendas.length === 0 ? (
@@ -582,17 +602,41 @@ export function AbaVendasMensais({ empreendimentoId, totalUnidades }: Props) {
               </div>
             )}
 
-            <div className="flex justify-end gap-2 items-center">
-              {feedbackDist && (
-                <div
-                  className={`text-[12.5px] ${feedbackDist.toLowerCase().includes("salva") ? "text-up-strong" : "text-down-strong"}`}
-                >
-                  {feedbackDist}
-                </div>
-              )}
-              <Button onClick={salvarDistribuicao} disabled={salvandoDist}>
-                {salvandoDist ? "Salvando…" : "Salvar distribuição"}
-              </Button>
+            <div className="flex justify-between gap-2 items-center flex-wrap">
+              <button
+                type="button"
+                onClick={() => {
+                  const linhasCsv = linhasDist
+                    .filter((l) => l.unidades_vendidas > 0)
+                    .map((l) => [mesDist, l.modalidade, l.unidades_vendidas, l.vgv ?? ""]);
+                  if (linhasCsv.length === 0) return;
+                  baixarCsv(
+                    `distribuicao-${mesDist || "mes"}.csv`,
+                    montarCsv(
+                      ["mes", "modalidade", "unidades_vendidas", "vgv"],
+                      linhasCsv,
+                    ),
+                  );
+                }}
+                disabled={
+                  linhasDist.filter((l) => l.unidades_vendidas > 0).length === 0
+                }
+                className="text-[12.5px] font-bold text-royal hover:underline disabled:text-faint disabled:no-underline"
+              >
+                Baixar CSV
+              </button>
+              <div className="flex gap-2 items-center ml-auto">
+                {feedbackDist && (
+                  <div
+                    className={`text-[12.5px] ${feedbackDist.toLowerCase().includes("salva") ? "text-up-strong" : "text-down-strong"}`}
+                  >
+                    {feedbackDist}
+                  </div>
+                )}
+                <Button onClick={salvarDistribuicao} disabled={salvandoDist}>
+                  {salvandoDist ? "Salvando…" : "Salvar distribuição"}
+                </Button>
+              </div>
             </div>
           </>
         )}
