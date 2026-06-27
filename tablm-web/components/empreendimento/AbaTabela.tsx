@@ -9,6 +9,7 @@ import { Chip } from "@/components/ui/Chip";
 import { Dropzone } from "@/components/ui/Dropzone";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { KpiDelta } from "@/components/ui/KpiDelta";
+import { exportarTabelaCsv } from "@/lib/csv";
 import type { TabelaPrecos, UnidadePreco } from "@/types";
 
 function moeda(n: number | null | undefined): string {
@@ -266,31 +267,22 @@ function SparklineTrio({ serie }: { serie: PontoSerie[] }) {
 function baixarCsvUnidades(t: TabelaPrecos): void {
   const unidades = (t.unidades ?? []) as UnidadePreco[];
   if (unidades.length === 0) return;
-  const colunas = [
-    "andar", "unidade", "area_m2", "vaga",
-    "entrada", "parcelas_mensais", "financiamento",
-    "preco_total", "avaliacao",
-  ] as const;
-  const linhas: string[] = [colunas.join(",")];
-  for (const u of unidades) {
-    linhas.push(
-      colunas
-        .map((c) => {
-          const v = (u as Record<string, unknown>)[c];
-          if (v === undefined || v === null) return "";
-          const s = String(v).replace(/"/g, '""');
-          return /[",\n]/.test(s) ? `"${s}"` : s;
-        })
-        .join(","),
-    );
-  }
-  const blob = new Blob([linhas.join("\n")], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `tabela-${t.versao.replace(/[\\/\s]+/g, "_")}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  const colunas: { chave: string; label: string }[] = [
+    { chave: "andar", label: "andar" },
+    { chave: "unidade", label: "unidade" },
+    { chave: "area_m2", label: "area_m2" },
+    { chave: "vaga", label: "vaga" },
+    { chave: "entrada", label: "entrada" },
+    { chave: "parcelas_mensais", label: "parcelas_mensais" },
+    { chave: "financiamento", label: "financiamento" },
+    { chave: "preco_total", label: "preco_total" },
+    { chave: "avaliacao", label: "avaliacao" },
+  ];
+  exportarTabelaCsv(
+    `tabela-${t.versao.replace(/[\\/\s]+/g, "_")}.csv`,
+    colunas,
+    unidades,
+  );
 }
 
 interface Props {
