@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { KpiDelta } from "@/components/ui/KpiDelta";
+import { baixarCsv, montarCsv } from "@/lib/csv";
 import type { DistribuicaoModalidade, FluxoComercial } from "@/types";
 
 function moeda(n: number | null | undefined): string {
@@ -146,6 +147,43 @@ export function AbaFluxoComercial({ empreendimentoId }: Props) {
                 ))}
               </select>
             )}
+            <button
+              type="button"
+              onClick={() => {
+                const linhas = comparativo.tipos.map((tipo) => {
+                  const l = comparativo.por_tipo[tipo];
+                  return [
+                    tipo,
+                    l.ticket_medio,
+                    l.pct_total,
+                    l.valor_medio_parcela ?? "",
+                    l.n_parcelas ?? "",
+                    l.unidades ?? "",
+                  ];
+                });
+                const versaoSegura = (dados.versao || "tabela").replace(/[\\/\s]+/g, "_");
+                const mesSegura = (mesUsado || "").replace(/[\\/\s]+/g, "_");
+                const nome = `fluxo-comercial-${versaoSegura}${mesSegura ? `-${mesSegura}` : ""}.csv`;
+                baixarCsv(
+                  nome,
+                  montarCsv(
+                    [
+                      "condicao",
+                      "ticket_medio",
+                      "pct_total",
+                      "valor_medio_parcela",
+                      "n_parcelas",
+                      "unidades",
+                    ],
+                    linhas,
+                  ),
+                );
+              }}
+              disabled={comparativo.tipos.length === 0}
+              className="text-[12.5px] font-bold text-royal hover:underline disabled:text-faint disabled:no-underline"
+            >
+              Baixar CSV
+            </button>
           </div>
         </div>
 
