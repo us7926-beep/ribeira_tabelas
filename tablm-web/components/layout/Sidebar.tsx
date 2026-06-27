@@ -15,6 +15,7 @@ const NAV: { href: string; label: string }[] = [
   { href: "/flyers", label: "Análise por IA" },
   { href: "/promocoes", label: "Promoções" },
   { href: "/incorporadoras", label: "Carteira" },
+  { href: "/simulador", label: "Simulador de Fluxo" },
   { href: "/incc", label: "Reajustar por INCC" },
 ];
 
