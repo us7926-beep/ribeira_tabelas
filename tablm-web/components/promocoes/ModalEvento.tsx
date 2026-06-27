@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui/Button";
 import type { Empreendimento, EventoPromocional } from "@/types";
@@ -34,6 +35,11 @@ export function ModalEvento({
   const [salvando, setSalvando] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
   const [erro, setErro] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!aberto) return;
@@ -62,7 +68,7 @@ export function ModalEvento({
     return () => document.removeEventListener("keydown", onKey);
   }, [aberto, salvando, excluindo, onFechar]);
 
-  if (!aberto) return null;
+  if (!aberto || !mounted) return null;
 
   async function salvar() {
     if (!empId) {
@@ -124,7 +130,7 @@ export function ModalEvento({
     }
   }
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-start justify-center bg-ink/40 backdrop-blur-sm overflow-y-auto p-4 sm:p-8"
       onClick={() => !salvando && !excluindo && onFechar()}
@@ -254,6 +260,7 @@ export function ModalEvento({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

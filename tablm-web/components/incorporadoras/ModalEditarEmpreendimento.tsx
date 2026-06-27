@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 
 import { atualizarEmpreendimento } from "@/app/(dashboard)/incorporadoras/actions";
 import { Button } from "@/components/ui/Button";
@@ -23,6 +24,11 @@ export function ModalEditarEmpreendimento({ aberto, empreendimento, onFechar }: 
   const [erro, setErro] = useState("");
   const [, startTransition] = useTransition();
   const [salvando, setSalvando] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!aberto || !empreendimento) return;
@@ -42,7 +48,7 @@ export function ModalEditarEmpreendimento({ aberto, empreendimento, onFechar }: 
     return () => document.removeEventListener("keydown", onKey);
   }, [aberto, salvando, onFechar]);
 
-  if (!aberto || !empreendimento) return null;
+  if (!aberto || !empreendimento || !mounted) return null;
 
   function salvar() {
     if (!nome.trim()) {
@@ -66,7 +72,7 @@ export function ModalEditarEmpreendimento({ aberto, empreendimento, onFechar }: 
     });
   }
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-start justify-center bg-ink/40 backdrop-blur-sm overflow-y-auto p-4 sm:p-8"
       onClick={() => !salvando && onFechar()}
@@ -154,6 +160,7 @@ export function ModalEditarEmpreendimento({ aberto, empreendimento, onFechar }: 
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
