@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 
 import { excluirEmpreendimento } from "@/app/(dashboard)/incorporadoras/actions";
+import { ModalEditarEmpreendimento } from "@/components/incorporadoras/ModalEditarEmpreendimento";
 import { Chip } from "@/components/ui/Chip";
 import { baixarCsv, montarCsv } from "@/lib/csv";
 import type { Empreendimento, EventoPromocional } from "@/types";
@@ -30,6 +31,7 @@ export function ListaEmpreendimentosFiltro({ lista, eventos = [] }: Props) {
   const [busca, setBusca] = useState("");
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
   const [erroExclusao, setErroExclusao] = useState<string | null>(null);
+  const [editando, setEditando] = useState<Empreendimento | null>(null);
   const [, startTransition] = useTransition();
 
   function excluir(emp: Empreendimento) {
@@ -146,6 +148,19 @@ export function ListaEmpreendimentosFiltro({ lista, eventos = [] }: Props) {
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
+                    setEditando(emp);
+                  }}
+                  aria-label={`Editar ${emp.nome}`}
+                  title="Editar empreendimento"
+                  className="absolute top-2 right-10 w-7 h-7 rounded-full text-faint hover:text-royal hover:bg-royal-tint grid place-items-center text-[14px] leading-none transition-colors"
+                >
+                  ✎
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     excluir(emp);
                   }}
                   disabled={excluindo}
@@ -178,6 +193,12 @@ export function ListaEmpreendimentosFiltro({ lista, eventos = [] }: Props) {
           })}
         </div>
       )}
+
+      <ModalEditarEmpreendimento
+        aberto={!!editando}
+        empreendimento={editando}
+        onFechar={() => setEditando(null)}
+      />
     </div>
   );
 }
