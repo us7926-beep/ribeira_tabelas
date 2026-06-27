@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { ImportarEmpreendimentoBook } from "@/components/incorporadoras/ImportarEmpreendimentoBook";
 import { ListaIncorporadorasFiltro } from "@/components/incorporadoras/ListaIncorporadorasFiltro";
 import { Button } from "@/components/ui/Button";
@@ -29,7 +31,17 @@ export default async function IncorporadorasPage() {
         eyebrow="Carteira"
         title="Incorporadoras"
         subtitle="Navegue pela hierarquia de incorporadoras e seus empreendimentos. A Ribeira aparece destacada com bolinha royal; concorrentes em cinza."
-        acao={<ImportarEmpreendimentoBook incorporadoras={lista} />}
+        acao={
+          <div className="flex items-center gap-3 flex-wrap">
+            <Link
+              href="/empreendimentos"
+              className="text-[12.5px] font-bold text-royal hover:underline"
+            >
+              Ver todos os empreendimentos →
+            </Link>
+            <ImportarEmpreendimentoBook incorporadoras={lista} />
+          </div>
+        }
       />
 
       <Card variant="lg" className="mb-5 tablm-up">
