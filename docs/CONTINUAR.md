@@ -2,8 +2,9 @@
 
 > Cole/abra este arquivo numa nova janela do Claude Code. Tem TUDO para continuar
 > a evolução do TabLM de onde paramos. **Sem segredos** (ficam só em `api/.env` e
-> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-27 (após PR #72
-> e smoke test seção 8 — 10/10).
+> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-27 (após PRs
+> #72 e #74 + smoke test cobrindo 8 + extras: 1, 2.4, 4.3, 7.1, 7.3, 7.4, 7.5,
+> 7.6).
 
 ## Resumo de 1 linha
 TabLM (Ribeira Empreendimentos) está **migrado e no ar**: Next.js (frontend) +
@@ -130,7 +131,7 @@ docs/CONTINUAR.md  ESTE arquivo
   então `CORS_ORIGINS=http://localhost:3000` no Render não bloqueia o app em produção.
   Por correção, mude no Render para `https://ribeira-tabelas-tablm.vercel.app`.
 
-## O que entrou após PR #19 (70 PRs no total)
+## O que entrou após PR #19 (71 PRs no total)
 - **PR #20** — docs: handoff atualizado.
 - **PR #21** — **Busca na Carteira** (search em `/incorporadoras` e detalhe).
 - **PR #22** — **Diff por unidade** entre versões na Aba Tabela (Adicionadas /
@@ -422,6 +423,19 @@ docs/CONTINUAR.md  ESTE arquivo
   jsx, document.body)` nos 3 + state `mounted` (useEffect setState
   true) pra evitar hydration mismatch. **Smoke test seção 8 passou
   10/10 após o fix.**
+- **PR #74** — **fix: adiciona `GET /api/benchmark/eventos` pra Aba
+  Promoções do dossiê.** Smoke da seção 7.5 descobriu que a aba
+  Promoções dentro do dossiê do empreendimento (PR #64) mostrava
+  banner vermelho `Failed to execute 'json' on 'Response': Unexpected
+  end of JSON input`. Causa: o route handler `app/api/benchmark/
+  eventos/route.ts` só exportava `POST`, e `AbaPromocoes.tsx:44`
+  chamava sem método (= GET) → Next responde 405 com body vazio. Bug
+  só aparecia no dossiê — as outras páginas (`/promocoes`,
+  `/benchmark`, `/`, `/incorporadoras/[id]`) chamam o backend
+  diretamente via `lib/api` server-side. Fix: handler GET no mesmo
+  route.ts proxiando pro backend, preservando query string e cookie
+  JWT. **Smoke 1, 2.4, 4.3, 7.1, 7.3, 7.4, 7.5, 7.6 confirmados
+  após o fix.**
 
 ## Smoke test manual
 

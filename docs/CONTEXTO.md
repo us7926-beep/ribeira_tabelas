@@ -5,9 +5,43 @@
 > Complementar a [`CONTINUAR.md`](CONTINUAR.md) (handoff curto),
 > [`DEPLOY.md`](DEPLOY.md) (guia operacional) e
 > [`SMOKE_TEST.md`](SMOKE_TEST.md) (roteiro de teste manual das features
-> novas). Última atualização: 2026-06-27 (após PR #72 e smoke test seção 8).
+> novas). Última atualização: 2026-06-27 (após PRs #72 e #74 + smoke
+> extras).
 
-> **Addendum desta sessão (PR #72 + smoke test seção 8 — 10/10):**
+> **Addendum desta sessão (PR #74 + smoke extras):**
+> - **PR #74 — fix: `GET /api/benchmark/eventos`.** Smoke 7.5
+>   descobriu que a Aba Promoções do dossiê do empreendimento mostrava
+>   banner vermelho `Failed to execute 'json' on 'Response': Unexpected
+>   end of JSON input`. O route handler `app/api/benchmark/eventos/
+>   route.ts` só exportava `POST`. `AbaPromocoes.tsx:44` chama sem
+>   método (= GET) → Next responde 405 com body vazio. Outras páginas
+>   (`/promocoes`, `/benchmark`, `/`, `/incorporadoras/[id]`) chamam o
+>   backend diretamente server-side via `lib/api`, então não eram
+>   afetadas. Fix: handler GET no mesmo route.ts proxiando pro backend
+>   com cookie JWT, preservando query string. Branch
+>   `fix/get-handler-eventos` mergeada em master `05b12cd`.
+> - **Smoke extras validados (Claude in Chrome) após #74:**
+>   - Seção 1 — sidebar badge "2" vermelho (`#FF4D4F`) por promoção
+>     expirando em 1 dia, tooltip via `title=` attr.
+>   - Seção 2.4 — ModalEvento abre em criar e editar, Escape e
+>     clique-fora fecham. Salvar/excluir não rodados (destrutivo).
+>   - Seção 4.3 — sparkline trio do Alegria: 3 mini-cards Preço/m²
+>     ▲4.8% R$9.276 royal, Ticket ▲4.8% R$545mil verde, VGV ▲4.8%
+>     R$3.3mi âmbar (Jun→Jul/2026).
+>   - Seção 7.1 — URL sync race confirmado: trocar Padrão + Cidade
+>     com 100ms entre eles → ambos persistem (`?padrao=Alto&cidade=
+>     Mogi+das+Cruzes`), F5 mantém.
+>   - Seção 7.3 — round-trip editou Helbor Passeo via modal ✎ →
+>     "(smoke)" → reverteu pro original sem refresh manual.
+>   - Seção 7.4 — round-trip renomeou HABRAS via `window.prompt` →
+>     "(smoke)" → reverteu (revalidatePath ~2s).
+>   - Seção 7.5 — após fix #74: aba Promoções carrega "1 ativa(s) ·
+>     0 expirada(s)" com card "Bônus de obra: 5% no ato".
+>   - Seção 7.6 — Comparar /comparar mostra tabela 10×N com Padrão/
+>     Cidade/Bairro + 7 KPIs (líder verde não testado porque
+>     selecionei 2 sem KPIs sincronizados; estrutura OK).
+
+> **Addendum anterior (PR #72 + smoke test seção 8 — 10/10):**
 > - **Smoke test seção 8 (Simulador + Renda)** executado via Claude in
 >   Chrome — **10/10 passaram**: endpoint isolado (4 cenários incl.
 >   SBPE com alerta TR), sidebar 7º item, empty state, modal de

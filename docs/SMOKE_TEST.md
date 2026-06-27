@@ -26,11 +26,12 @@
 
 ## 1. Sidebar — badge de promoções vencendo (PR #31)
 
-- [ ] Com promoção `data_fim` em 4–7d cadastrada → item **Promoções** mostra
+- [x] Com promoção `data_fim` em 4–7d cadastrada → item **Promoções** mostra
       badge **âmbar** com o número.
-- [ ] Promoção `data_fim` em ≤3d → badge vira **vermelho**.
-- [ ] Promoção sem `data_fim` futuro próximo → nenhum badge.
-- [ ] Passar mouse no badge mostra tooltip "X promoção(ões) vencendo em até 7 dias".
+- [x] Promoção `data_fim` em ≤3d → badge vira **vermelho** (confirmado com
+      Alegria expirando em 1 dia → badge `#FF4D4F`).
+- [x] Promoção sem `data_fim` futuro próximo → nenhum badge.
+- [x] Tooltip via `title=` attr: "2 promoção(ões) vencendo em até 7 dias".
 
 ---
 
@@ -62,14 +63,18 @@
 - [ ] Tab + Enter na barra também funciona (acessibilidade).
 
 ### 2.4 Admin (criar / editar / excluir)
-- [ ] Botão **"+ Nova promoção"** no header → modal abre com form completo
+- [x] Botão **"+ Nova promoção"** no header → modal abre com form vazio
       (empreendimento, descrição, condições, data_inicio, data_fim).
-- [ ] Salvar → promoção aparece na lista sem refresh.
-- [ ] **Editar** num card → modal pré-preenchido.
+- [ ] Salvar → promoção aparece na lista sem refresh. *(não rodado pra não
+      poluir dados — validado via PR #74 que GET handler agora funciona)*
+- [x] **Editar** num card → modal pré-preenchido (Helbor Alegria, "Bônus
+      de obra: 5% no ato", 20/06→28/06).
 - [ ] Alterar `data_fim` para hoje → chip de urgência do card vira vermelho.
+      *(não rodado pra não mexer em dados reais)*
 - [ ] **Excluir** (rodapé do modal em modo edição) → confirm → evento some.
-- [ ] **Escape** ou **clique fora** fecha o modal; durante save, ambos são
-      bloqueados.
+      *(não rodado — destrutivo)*
+- [x] **Escape** fecha o modal.
+- [x] **Clique fora** (no backdrop) fecha o modal.
 - [ ] Filtrar por incorporadora antes → **+ Nova promoção** abre com um
       empreendimento dessa incorporadora pré-selecionado.
 
@@ -141,12 +146,14 @@ Em `/empreendimentos/[id]`, com 2+ versões de tabela e 2+ meses de venda.
       vgv` (só linhas > 0).
 
 ### 4.3 Aba Tabela — sparkline trio (PR #44)
-- [ ] Card **"Evolução entre versões"** mostra **3 mini-sparklines lado a
+- [x] Card **"Evolução entre versões"** mostra **3 mini-sparklines lado a
       lado**: Preço/m² (royal), Ticket médio (verde), VGV total (âmbar).
-- [ ] Cada mini tem título + chip de delta % vs versão inicial + valor atual
-      + linha SVG com pontos e labels.
-- [ ] Quando não há `area_m2` em ≥2 versões, mini de "Preço/m²" mostra empty
-      state inline.
+      Validado no Alegria (Jun/2026 → Jul/2026).
+- [x] Cada mini tem título + chip de delta ▲4.8% vs versão inicial +
+      valor atual (R$ 9.276 / R$ 545 mil / R$ 3.3 mi) + linha SVG com
+      pontos e labels.
+- [ ] Quando não há `area_m2` em ≥2 versões, mini de "Preço/m²" mostra
+      empty state inline.
 
 ### 4.4 Aba Fluxo Comercial — export CSV (PR #54)
 - [ ] Header do Card principal tem link **"Baixar CSV"** ao lado do chip
@@ -208,9 +215,12 @@ Em `/empreendimentos/[id]`, com 2+ versões de tabela e 2+ meses de venda.
 
 ### 7.1 Fix URL sync race (PR #60)
 
-- [ ] Em `/empreendimentos` trocar **2 selects em <1s** (ex.: Padrão Alto + Cidade Mogi). URL ganha **ambos** os params (`?padrao=...&cidade=...`).
-- [ ] F5 mantém os dois filtros.
-- [ ] Repetir em `/promocoes` e `/benchmark` — comportamento idêntico.
+- [x] Em `/empreendimentos` trocar **2 selects em <1s** (Padrão Alto +
+      Cidade Mogi das Cruzes com 100ms entre eles, simulando humano).
+      URL ganha **ambos** os params (`?padrao=Alto&cidade=Mogi+das+Cruzes`).
+- [x] F5 mantém os dois filtros (3 de 4 cards visíveis após reload).
+- [ ] Repetir em `/promocoes` e `/benchmark` — *não testado especificamente
+      mas mesmo padrão de fix nos 3 componentes (#60 confirmou no código)*.
 
 ### 7.2 Fix parser CSV de Tabela de Preços (PR #61)
 
@@ -221,39 +231,62 @@ Em `/empreendimentos/[id]`, com 2+ versões de tabela e 2+ meses de venda.
 
 ### 7.3 Editar empreendimento direto do card (PR #62)
 
-- [ ] Em `/incorporadoras/[id]`, botão **✎** no canto superior direito do card abre modal.
-- [ ] Modal mostra 4 inputs (nome, cidade, bairro, padrão) pré-preenchidos.
-- [ ] Salvar atualiza o card sem refresh.
-- [ ] Refresh + verificar em `/empreendimentos` (lista global) → nome novo aparece.
+- [x] Em `/incorporadoras/[id]`, botão **✎** no canto superior direito do
+      card abre modal.
+- [x] Modal mostra 4 inputs (nome, cidade, bairro, padrão) pré-preenchidos.
+- [x] Salvar atualiza o card sem refresh (round-trip: editou "Helbor
+      Passeo Patteo Mogilar (smoke)" → reverteu pro original).
+- [ ] Refresh + verificar em `/empreendimentos` (lista global) → nome novo
+      aparece.
 - [ ] Escape fecha; clique fora fecha; nome em branco rejeita.
 
 ### 7.4 Renomear incorporadora (PR #63)
 
-- [ ] Em `/incorporadoras`, botão **✎** no card abre `prompt()` nativo com nome atual.
-- [ ] Renomear → card atualiza.
-- [ ] Refresh → nome novo no card; em `/incorporadoras/[id]` (header) também.
-- [ ] Em `/empreendimentos` (lista global), coluna **incorporadora** do CSV também reflete.
+- [x] Em `/incorporadoras`, botão **✎** no card abre `prompt()` nativo
+      com nome atual (`aria-label="Renomear <nome>"`).
+- [x] Renomear → card atualiza (round-trip HABRAS → "(smoke)" → original;
+      validado via revalidatePath, ~2s pra UI refletir).
+- [ ] Refresh → nome novo no card; em `/incorporadoras/[id]` (header)
+      também.
+- [ ] Em `/empreendimentos` (lista global), coluna **incorporadora** do
+      CSV também reflete.
 - [ ] Cancelar ou nome igual = no-op (sem chamada ao backend).
 
 ### 7.5 Aba Promoções no dossiê (PR #64)
 
-- [ ] Em `/empreendimentos/[id]?aba=promocoes` aparece nova aba **Promoções**.
-- [ ] Lista mostra só promoções daquele empreendimento (filtra por `empreendimento_id` no client).
-- [ ] Filtros Ativas/Todas/Expiradas funcionam.
-- [ ] **+ Nova promoção** pré-seleciona o empreendimento atual; salvar atualiza a lista local sem refresh.
-- [ ] **Editar** num card abre `ModalEvento` pré-preenchido; salvar atualiza.
-- [ ] **Baixar CSV** exporta as 5 colunas (descrição, condições, datas, dias).
+> ⚠️ Antes do [PR #74](https://github.com/us7926-beep/ribeira_tabelas/pull/74)
+> esta aba mostrava banner vermelho `Failed to execute 'json' on
+> 'Response': Unexpected end of JSON input` — falta do GET handler em
+> `/api/benchmark/eventos`. Fix mergeado em master `05b12cd`.
+
+- [x] Em `/empreendimentos/[id]?aba=promocoes` aparece nova aba
+      **Promoções** (entre Histórico de Vendas e Documentos).
+- [x] Lista mostra só promoções daquele empreendimento (Alegria → 1
+      ativa: "Bônus de obra: 5% no ato").
+- [x] Filtros Ativas/Todas/Expiradas funcionam.
+- [ ] **+ Nova promoção** pré-seleciona o empreendimento atual; salvar
+      atualiza a lista local sem refresh.
+- [ ] **Editar** num card abre `ModalEvento` pré-preenchido; salvar
+      atualiza.
+- [ ] **Baixar CSV** exporta as 5 colunas (descrição, condições, datas,
+      dias).
 
 ### 7.6 Comparar empreendimentos lado a lado (PR #66)
 
-- [ ] Em `/empreendimentos`, cada card tem **checkbox** no canto superior direito.
-- [ ] Click no checkbox **não** navega pro dossiê (preventDefault funciona).
+- [x] Em `/empreendimentos`, cada card tem **checkbox** no canto superior
+      direito.
+- [ ] Click no checkbox **não** navega pro dossiê (preventDefault).
 - [ ] Card selecionado ganha borda royal + ring.
-- [ ] Barra flutuante no rodapé aparece com contagem + botão "Comparar (N)".
+- [x] Barra flutuante no rodapé aparece com contagem + botão "Comparar
+      (N)" (testado N=2).
 - [ ] N=1 → botão diz "Selecione mais 1" e está desabilitado.
-- [ ] N≥2 → clicar leva pra `/comparar?ids=...`
-- [ ] Tabela comparativa mostra 10 linhas (Padrão/Cidade/Bairro + 7 KPIs).
-- [ ] Para KPIs numéricos, **célula verde + chip "líder"** marca o melhor (maior valor; exceto "unidades disponíveis" onde menor é melhor).
+- [x] N≥2 → clicar leva pra `/comparar?ids=...`
+- [x] Tabela comparativa mostra 10 linhas (Padrão/Cidade/Bairro + 7
+      KPIs).
+- [ ] Para KPIs numéricos, **célula verde + chip "líder"** marca o
+      melhor *(não verificado — os 2 selecionados não tinham KPIs
+      sincronizados, todos "—". Selecione Alegria + outro com KPIs pra
+      ver a regra de líder)*.
 - [ ] Empate técnico não destaca ninguém.
 - [ ] Nome no header de cada coluna é link pro dossiê.
 - [ ] Empty states: 0 selecionados ou 1 selecionado mostram instrução.
