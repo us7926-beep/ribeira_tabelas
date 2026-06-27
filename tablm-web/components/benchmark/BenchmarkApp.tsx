@@ -61,7 +61,15 @@ export function BenchmarkApp({
   // Atualiza um param na URL sem disparar reload — mantém deep link e refresh-safe.
   const atualizarUrl = useCallback(
     (chave: string, valor: string) => {
-      const params = new URLSearchParams(sp?.toString() ?? "");
+      // Lê window.location direto para evitar race com o snapshot stale do
+      // useSearchParams quando 2+ filtros sao trocados em <1s — o
+      // router.replace ja atualizou o browser mas o `sp` so vai refletir
+      // no proximo render do React. SSR-safe via guard.
+      const atual =
+        typeof window !== "undefined"
+          ? window.location.search
+          : (sp?.toString() ?? "");
+      const params = new URLSearchParams(atual);
       if (!valor || valor === "Todos") params.delete(chave);
       else params.set(chave, valor);
       const qs = params.toString();
