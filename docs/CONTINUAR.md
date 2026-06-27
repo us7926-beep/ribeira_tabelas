@@ -2,7 +2,7 @@
 
 > Cole/abra este arquivo numa nova janela do Claude Code. Tem TUDO para continuar
 > a evolução do TabLM de onde paramos. **Sem segredos** (ficam só em `api/.env` e
-> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-27 (após PR #64).
+> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-27 (após PRs #68-#69).
 
 ## Resumo de 1 linha
 TabLM (Ribeira Empreendimentos) está **migrado e no ar**: Next.js (frontend) +
@@ -129,7 +129,7 @@ docs/CONTINUAR.md  ESTE arquivo
   então `CORS_ORIGINS=http://localhost:3000` no Render não bloqueia o app em produção.
   Por correção, mude no Render para `https://ribeira-tabelas-tablm.vercel.app`.
 
-## O que entrou após PR #19 (64 PRs no total)
+## O que entrou após PR #19 (69 PRs no total)
 - **PR #20** — docs: handoff atualizado.
 - **PR #21** — **Busca na Carteira** (search em `/incorporadoras` e detalhe).
 - **PR #22** — **Diff por unidade** entre versões na Aba Tabela (Adicionadas /
@@ -383,7 +383,31 @@ docs/CONTINUAR.md  ESTE arquivo
   Antes era preciso sair pra `/promocoes` global pra ver/editar as
   promoções de um empreendimento específico. URL `?aba=promocoes`
   abre direto.
-  **Totais agora**: pytest 108 + vitest 64 = **172 testes**.
+- **PR #66** — **Comparar empreendimentos lado a lado**
+  (`/comparar?ids=`). Checkbox no card em `/empreendimentos`; barra
+  flutuante com "Comparar (N)". Tabela 10 linhas × N colunas com
+  destaque verde + chip "líder" pra cada KPI (regra inversa em
+  "disponíveis": menor é melhor).
+- **PR #68** — **Cálculo de Renda** (`POST /financiamento/
+  calcular-renda`). `api/financiamento.py` com presets MCMV (faixas
+  1-4) + SBPE + personalizada, conversão composta de taxa anual ->
+  mensal, fórmula Price. Frontend: componente
+  `CalculoRendaFinanciamento` reusável com debounce 500ms. Modo
+  "controlado" pra ser embutido no Simulador (#69).
+- **PR #69** — **Simulador de Fluxo Comercial** (`/simulador` —
+  novo 7º item na Sidebar). Compara até **4 empreendimentos lado a
+  lado** com config livre por linha (% + qtd parcelas + datas) em 9
+  colunas (ato/30/60/90/mensais/anuais/semestrais/parcela_única/
+  financiamento). Backend `api/fluxo_simulador.py` calcula
+  total + parcela por coluna + diferenças entre linhas[0] e
+  linhas[1]. Frontend: 9 componentes em `components/fluxo/` +
+  hook `useSimuladorFluxo` (debounce 600ms, max 4 linhas) +
+  `lib/fluxoColunas.ts` como **fonte única** das colunas (Tabela
+  e Grid iteram dela). Financiamento derivado (100 − soma demais),
+  validado client + server. Painel de renda por linha consome o
+  endpoint #68. Roteiro de smoke completo em
+  [`docs/SMOKE_TEST.md`](SMOKE_TEST.md) seção 8.
+  **Totais agora**: pytest 120 + vitest 69 = **189 testes**.
 
 ## Smoke test manual
 
