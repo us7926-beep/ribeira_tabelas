@@ -2,7 +2,7 @@
 
 > Cole/abra este arquivo numa nova janela do Claude Code. Tem TUDO para continuar
 > a evolução do TabLM de onde paramos. **Sem segredos** (ficam só em `api/.env` e
-> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-26 (após PR #56).
+> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-26 (após PR #58).
 
 ## Resumo de 1 linha
 TabLM (Ribeira Empreendimentos) está **migrado e no ar**: Next.js (frontend) +
@@ -129,7 +129,7 @@ docs/CONTINUAR.md  ESTE arquivo
   então `CORS_ORIGINS=http://localhost:3000` no Render não bloqueia o app em produção.
   Por correção, mude no Render para `https://ribeira-tabelas-tablm.vercel.app`.
 
-## O que entrou após PR #19 (56 PRs no total)
+## O que entrou após PR #19 (58 PRs no total)
 - **PR #20** — docs: handoff atualizado.
 - **PR #21** — **Busca na Carteira** (search em `/incorporadoras` e detalhe).
 - **PR #22** — **Diff por unidade** entre versões na Aba Tabela (Adicionadas /
@@ -332,6 +332,22 @@ docs/CONTINUAR.md  ESTE arquivo
   empreendimento (#47): × no canto, confirm, opacity-50 durante a
   ação, `preventDefault + stopPropagation` no clique para não disparar
   o Link.
+- **PR #58** — Nova rota **`/empreendimentos`**: visão global
+  cross-incorporadora que faltava na Carteira. Server component
+  carrega todos empreendimentos + incorporadoras; client
+  `ListaGlobalEmpreendimentos` tem busca + 4 selects (Incorporadora,
+  Padrão, Cidade, Bairro com cascata pela cidade), URL sync,
+  "Limpar filtros", 3 KPIs do subset, cards-link pro dossiê com
+  chips/KPIs em destaque e Baixar CSV (sexta tela). Atalho discreto
+  "Ver todos os empreendimentos →" no PageHeader de
+  `/incorporadoras` leva pra rota nova. Coexiste sem conflito com
+  `/empreendimentos/[id]`.
+
+## Smoke test manual
+
+Roteiro completo das 17 features novas em [docs/SMOKE_TEST.md](SMOKE_TEST.md)
+— 6 seções com critérios de aceite e prompt pronto pra usar com Claude in
+Chrome ou Cowork. Use antes de qualquer nova rodada de feature.
 
 ## Próximos passos sugeridos
 

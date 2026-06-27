@@ -2,10 +2,23 @@
 
 > Documento único com **tudo** que importa para continuar o trabalho em qualquer
 > janela: estado, arquitetura, PRs feitos, decisões, gotchas e próximos passos.
-> Complementar a [`CONTINUAR.md`](CONTINUAR.md) (handoff curto) e
-> [`DEPLOY.md`](DEPLOY.md) (guia operacional). Última atualização: 2026-06-26 (após PR #56).
+> Complementar a [`CONTINUAR.md`](CONTINUAR.md) (handoff curto),
+> [`DEPLOY.md`](DEPLOY.md) (guia operacional) e
+> [`SMOKE_TEST.md`](SMOKE_TEST.md) (roteiro de teste manual das features
+> novas). Última atualização: 2026-06-26 (após PR #58).
 
-> **Addendum desta sessão (PR #56):**
+> **Addendum desta sessão (PR #58 + SMOKE_TEST.md):**
+> - **#58 — Nova rota `/empreendimentos`** com visão global
+>   cross-incorporadora (server component + client component). 4 selects
+>   (Inc/Padrão/Cidade/Bairro em cascata) + URL sync + KPIs do subset +
+>   sexta tela com export CSV. Atalho discreto na `/incorporadoras` leva
+>   pra rota nova.
+> - **`docs/SMOKE_TEST.md`** — roteiro de teste manual cobrindo as 17
+>   features mergeadas nesta sessão (PRs #31–#58). 6 seções com
+>   critérios de aceite, pré-requisitos de setup e um prompt pronto
+>   pra Claude in Chrome / Cowork executar.
+>
+> **Addendum anterior (PR #56):**
 > - **#56 — Excluir incorporadora direto da Carteira.** Botão × no
 >   card; server action detecta o 409 do backend (DELETE bloqueia
 >   quando há empreendimentos vinculados) e mostra mensagem amigável
