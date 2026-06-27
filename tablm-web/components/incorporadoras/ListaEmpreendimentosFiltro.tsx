@@ -5,6 +5,7 @@ import { useMemo, useState, useTransition } from "react";
 
 import { excluirEmpreendimento } from "@/app/(dashboard)/incorporadoras/actions";
 import { Chip } from "@/components/ui/Chip";
+import { baixarCsv, montarCsv } from "@/lib/csv";
 import type { Empreendimento, EventoPromocional } from "@/types";
 
 const campo =
@@ -81,6 +82,43 @@ export function ListaEmpreendimentosFiltro({ lista, eventos = [] }: Props) {
             {filtradas.length} encontrado(s)
           </span>
         )}
+        <button
+          type="button"
+          onClick={() => {
+            if (filtradas.length === 0) return;
+            const cabecalho = [
+              "nome",
+              "bairro",
+              "cidade",
+              "padrao",
+              "preco_m2_medio",
+              "ticket_medio",
+              "vgv_total",
+              "vso",
+              "unidades_vendidas",
+              "unidades_disponiveis",
+              "total_unidades",
+            ];
+            const linhas = filtradas.map((e) => [
+              e.nome,
+              e.bairro ?? "",
+              e.cidade ?? "",
+              e.padrao ?? "",
+              e.preco_m2_medio ?? "",
+              e.ticket_medio ?? "",
+              e.vgv_total ?? "",
+              e.vso ?? "",
+              e.unidades_vendidas ?? "",
+              e.unidades_disponiveis ?? "",
+              e.total_unidades_calc ?? e.total_unidades ?? "",
+            ]);
+            baixarCsv("empreendimentos.csv", montarCsv(cabecalho, linhas));
+          }}
+          disabled={filtradas.length === 0}
+          className="ml-auto text-[12.5px] font-bold text-royal hover:underline disabled:text-faint disabled:no-underline"
+        >
+          Baixar CSV
+        </button>
       </div>
 
       {erroExclusao && (

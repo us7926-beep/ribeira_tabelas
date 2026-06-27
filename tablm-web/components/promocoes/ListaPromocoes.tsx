@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { Tabs } from "@/components/ui/Tabs";
+import { baixarCsv, montarCsv } from "@/lib/csv";
 import { diasAteVencer } from "@/lib/promocoes";
 import type { Empreendimento, EventoPromocional, Incorporadora } from "@/types";
 
@@ -243,7 +244,39 @@ export function ListaPromocoes({
             Limpar filtros
           </button>
         )}
-        <div className="ml-auto">
+        <div className="ml-auto flex gap-2">
+          <Button
+            variante="secondary"
+            onClick={() => {
+              const cabecalho = [
+                "empreendimento",
+                "incorporadora",
+                "descricao",
+                "condicoes_comerciais",
+                "data_inicio",
+                "data_fim",
+                "dias_ate_vencer",
+              ];
+              const linhas = filtrados.map((ev) => {
+                const emp = mapEmp.get(ev.empreendimento_id);
+                const inc = emp ? mapInc.get(emp.incorporadora_id) : undefined;
+                const dias = diasAteVencer(ev.data_fim);
+                return [
+                  emp?.nome ?? "",
+                  inc?.nome ?? "",
+                  ev.descricao ?? "",
+                  ev.condicoes_comerciais ?? "",
+                  ev.data_inicio ?? "",
+                  ev.data_fim ?? "",
+                  dias === null ? "" : String(dias),
+                ];
+              });
+              baixarCsv("promocoes.csv", montarCsv(cabecalho, linhas));
+            }}
+            disabled={filtrados.length === 0}
+          >
+            Baixar CSV
+          </Button>
           <Button variante="secondary" onClick={abrirNovo}>
             + Nova promoção
           </Button>
