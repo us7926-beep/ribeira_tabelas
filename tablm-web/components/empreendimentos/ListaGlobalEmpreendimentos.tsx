@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { KpiCard } from "@/components/ui/KpiCard";
@@ -49,6 +50,16 @@ export function ListaGlobalEmpreendimentos({
   const [padrao, setPadrao] = useState(padraoInicial ?? TODOS);
   const [cidade, setCidade] = useState(cidadeInicial ?? TODOS);
   const [bairro, setBairro] = useState(bairroInicial ?? TODOS);
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
+
+  function alternarSelecao(id: string) {
+    setSelecionados((prev) => {
+      const novo = new Set(prev);
+      if (novo.has(id)) novo.delete(id);
+      else novo.add(id);
+      return novo;
+    });
+  }
 
   const atualizarUrl = useCallback(
     (chave: string, valor: string, vazio: string) => {
@@ -326,13 +337,29 @@ export function ListaGlobalEmpreendimentos({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {filtrados.map((emp) => {
             const inc = mapInc.get(emp.incorporadora_id);
+            const marcado = selecionados.has(emp.id);
             return (
               <Link
                 key={emp.id}
                 href={`/empreendimentos/${emp.id}`}
-                className="bg-white border border-line rounded-[14px] p-[18px_20px] shadow-[0_1px_3px_rgba(20,40,90,0.05)] hover:border-royal transition-colors block"
+                className={`relative bg-white border rounded-[14px] p-[18px_20px] shadow-[0_1px_3px_rgba(20,40,90,0.05)] hover:border-royal transition-colors block ${marcado ? "border-royal ring-[3px] ring-royal/[0.12]" : "border-line"}`}
               >
-                <div className="flex items-start justify-between gap-2 mb-1">
+                <input
+                  type="checkbox"
+                  checked={marcado}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    alternarSelecao(emp.id);
+                  }}
+                  onChange={() => {
+                    /* gerenciado pelo onClick — readOnly evita warning */
+                  }}
+                  readOnly
+                  aria-label={`Selecionar ${emp.nome} para comparar`}
+                  className="absolute top-3 right-3 w-4 h-4 cursor-pointer accent-royal"
+                />
+                <div className="flex items-start justify-between gap-2 mb-1 pr-6">
                   <div className="font-bold text-ink text-[15px] min-w-0 truncate">
                     {emp.nome}
                   </div>
@@ -366,6 +393,28 @@ export function ListaGlobalEmpreendimentos({
               </Link>
             );
           })}
+        </div>
+      )}
+
+      {selecionados.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 bg-ink text-white rounded-[14px] shadow-[0_8px_24px_rgba(20,40,90,0.25)] px-4 py-3">
+          <span className="text-[13.5px] font-semibold">
+            {selecionados.size} selecionado{selecionados.size === 1 ? "" : "s"}
+          </span>
+          <button
+            type="button"
+            onClick={() => setSelecionados(new Set())}
+            className="text-[12.5px] text-white/70 hover:text-white"
+          >
+            Limpar
+          </button>
+          <Link href={`/comparar?ids=${Array.from(selecionados).join(",")}`}>
+            <Button variante="primary" disabled={selecionados.size < 2}>
+              {selecionados.size < 2
+                ? "Selecione mais 1 para comparar"
+                : `Comparar (${selecionados.size})`}
+            </Button>
+          </Link>
         </div>
       )}
     </div>
