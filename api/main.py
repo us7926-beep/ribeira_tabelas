@@ -842,8 +842,11 @@ async def criar_tabela_precos(
                     df, tipo="Nosso", incorporadora="", produto="",
                     cidade="", bairro="", padrao="",
                 )
-                # Mapeia DataFrame para lista de dicionarios "unidades"
-                unidades = df.to_dict(orient="records") if df is not None else []
+                # Normaliza para o schema canônico (preco_total, area_m2, ...)
+                # que o frontend e o sparkline trio em AbaTabela esperam.
+                # Antes usavamos df.to_dict cru, o que mantinha nomes do CSV
+                # (ex.: "valor") e quebrava kpisDaVersao.
+                unidades = mercado_api.normalizar_unidades(df)
                 condicoes = mercado_api.montar_condicoes_simples(resultado.get("kpis"))
                 raw = {"kpis": resultado.get("kpis"), "linhas": resultado.get("linhas")}
         except ValueError as exc:
