@@ -37,7 +37,10 @@ function moedaCurta(n: number | null | undefined): string {
 interface PontoVso {
   mes: string;
   acumulado: number;
+  /** % capado em 100 para o desenho do gráfico. */
   vso: number;
+  /** % sem cap. Quando > 100, vendas excedem total_unidades cadastrado. */
+  vsoReal: number;
 }
 
 /** Gráfico de área SVG do VSO acumulado por mês.
@@ -306,16 +309,18 @@ export function AbaVendasMensais({ empreendimentoId, totalUnidades }: Props) {
 
   const maxUn = vendas.reduce((a, v) => Math.max(a, v.unidades_vendidas), 0);
 
-  const serieVso = useMemo(() => {
+  const serieVso = useMemo<PontoVso[]>(() => {
     if (!totalUnidades || totalUnidades <= 0 || vendas.length === 0) return [];
     const ordenadas = [...vendas].sort((a, b) => a.mes.localeCompare(b.mes));
     let acc = 0;
     return ordenadas.map((v) => {
       acc += v.unidades_vendidas;
+      const vsoReal = (acc / totalUnidades) * 100;
       return {
         mes: v.mes,
         acumulado: acc,
-        vso: Math.min(100, (acc / totalUnidades) * 100),
+        vso: Math.min(100, vsoReal),
+        vsoReal,
       };
     });
   }, [vendas, totalUnidades]);
@@ -380,26 +385,37 @@ export function AbaVendasMensais({ empreendimentoId, totalUnidades }: Props) {
         )}
       </Card>
 
-      {totalUnidades && totalUnidades > 0 && serieVso.length > 0 && (
-        <Card variant="lg">
-          <div className="flex items-baseline justify-between gap-3 mb-2 flex-wrap">
-            <div>
-              <div className="text-[16px] font-bold text-ink">VSO acumulado</div>
-              <div className="text-[12.5px] text-muted mt-0.5">
-                Velocidade de venda sobre <b className="text-ink tnum">{totalUnidades}</b>{" "}
-                unidades totais ·{" "}
-                <b className="text-ink tnum">
-                  {serieVso[serieVso.length - 1].acumulado}
-                </b>{" "}
-                vendidas até{" "}
-                <b className="text-ink">{formatarMes(serieVso[serieVso.length - 1].mes)}</b>.
+      {totalUnidades && totalUnidades > 0 && serieVso.length > 0 && (() => {
+        const ultimo = serieVso[serieVso.length - 1];
+        const vsoExcedido = ultimo.vsoReal > 100.01;
+        return (
+          <Card variant="lg">
+            <div className="flex items-baseline justify-between gap-3 mb-2 flex-wrap">
+              <div>
+                <div className="text-[16px] font-bold text-ink">VSO acumulado</div>
+                <div className="text-[12.5px] text-muted mt-0.5">
+                  Velocidade de venda sobre <b className="text-ink tnum">{totalUnidades}</b>{" "}
+                  unidades totais ·{" "}
+                  <b className="text-ink tnum">{ultimo.acumulado}</b> vendidas até{" "}
+                  <b className="text-ink">{formatarMes(ultimo.mes)}</b>.
+                </div>
               </div>
+              <Chip tom={vsoExcedido ? "warn" : "royal"}>
+                {ultimo.vsoReal.toFixed(1)}% atual
+              </Chip>
             </div>
-            <Chip tom="royal">{serieVso[serieVso.length - 1].vso.toFixed(1)}% atual</Chip>
-          </div>
-          <GraficoVso serie={serieVso} totalUnidades={totalUnidades} />
-        </Card>
-      )}
+            {vsoExcedido && (
+              <div className="rounded-[12px] bg-warn-bg text-warn-strong text-[13px] px-4 py-3 border border-warn-line mb-3">
+                Vendas acumuladas (<b className="tnum">{ultimo.acumulado}</b>) excedem o
+                total cadastrado (<b className="tnum">{totalUnidades}</b>). Verifique
+                <b> total_unidades</b> na Aba Ficha Técnica — o gráfico mostra 100% mas
+                o número real é <b className="tnum">{ultimo.vsoReal.toFixed(1)}%</b>.
+              </div>
+            )}
+            <GraficoVso serie={serieVso} totalUnidades={totalUnidades} />
+          </Card>
+        );
+      })()}
 
       <Card variant="lg">
         <div className="text-[16px] font-bold text-ink mb-3">Adicionar mês</div>
