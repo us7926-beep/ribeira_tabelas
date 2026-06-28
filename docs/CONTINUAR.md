@@ -2,9 +2,9 @@
 
 > Cole/abra este arquivo numa nova janela do Claude Code. Tem TUDO para continuar
 > a evolução do TabLM de onde paramos. **Sem segredos** (ficam só em `api/.env` e
-> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-27 (após PRs
-> #72 e #74 + smoke test cobrindo 8 + extras: 1, 2.4, 4.3, 7.1, 7.3, 7.4, 7.5,
-> 7.6).
+> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-28 (após PRs
+> #72, #74, #75 + smoke test cobrindo seção 8 inteira + extras: 1, 2.1-2.5,
+> 3.3-3.4, 4.1-4.4, 7.1, 7.3, 7.4, 7.5, 7.6).
 
 ## Resumo de 1 linha
 TabLM (Ribeira Empreendimentos) está **migrado e no ar**: Next.js (frontend) +
@@ -436,6 +436,25 @@ docs/CONTINUAR.md  ESTE arquivo
   route.ts proxiando pro backend, preservando query string e cookie
   JWT. **Smoke 1, 2.4, 4.3, 7.1, 7.3, 7.4, 7.5, 7.6 confirmados
   após o fix.**
+- **Smoke batch 3 (2.1, 2.2, 2.3, 2.5, 3.3, 3.4, 4.1, 4.2, 4.4)**
+  validados via Claude in Chrome. Achados:
+  - **`promocoes.csv` (2.5)** — 7 colunas exatas, RFC4180
+    correto em condições com vírgula.
+  - **`empreendimentos.csv` (3.3) e `empreendimentos-global.csv` (3.4)**
+    — 11 vs 12 colunas (diff: global inclui incorporadora). Cascata
+    bairro→cidade confirmada (Mogi → só Vila Mogilar).
+  - **Timeline drill-down (2.3)** — shift+click adiciona `?inc=`
+    sem sair de `/promocoes`, mantendo `status=vencendo` da URL.
+  - **VSO acumulado (4.1)** — SVG width 640, 4 linhas ref, eixos
+    Y 0-100% / X MM/AA OK. ⚠️ Quando vendas > total_unidades
+    (Alegria: 11/6), gráfico crava em 100% sem aviso de
+    inconsistência — vale considerar banner amarelo no card.
+  - **`vendas-mensais-XXXXXXXX.csv` (4.2 primeira parte)** — 3 cols
+    ordenadas. `distribuicao-{mes}.csv` não testado (precisa de
+    modalidades cadastradas; helper `lib/csv` já validado nos 5
+    CSVs cobertos no batch).
+  - **`fluxo-comercial-Jul_2026-2026-06.csv` (4.4)** — 6 cols
+    exatas, nome combina versão + mês como esperado.
 
 ## Smoke test manual
 

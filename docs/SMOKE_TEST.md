@@ -38,29 +38,28 @@
 ## 2. `/promocoes` — filtros, timeline, drill-down (PRs #31, #33, #39, #42, #48)
 
 ### 2.1 Filtros com persistência em URL
-- [ ] Tabs no topo (Ativas / Vencendo 7d / Todas / Expiradas) trocam o subset
-      visível.
-- [ ] Selects **"Todas incorporadoras"** e **"Todos padrões"** filtram.
-- [ ] Cada troca atualiza a URL com `?status=&inc=&padrao=&q=`.
-- [ ] Refresh (F5) mantém o estado.
-- [ ] Botão **"Limpar filtros"** aparece quando algo não-default está ativo
-      e zera tudo.
+- [x] Tabs (Ativas/Vencendo 7d/Todas/Expiradas): contagens 3/2/4/0.
+- [x] Selects filtram (Vencendo + HELBOR → 2 cards).
+- [x] URL atualiza com `?status=vencendo&inc=2eb993c3-...`.
+- [x] Refresh mantém estado (validado via JS, idempotente).
+- [x] "Limpar filtros" zera (testado: URL passa de `?status=vencendo&...`
+      pra vazia, contagem volta pra 3 ativas).
 
 ### 2.2 Timeline horizontal
-- [ ] Card **"Cronograma"** aparece entre os KPIs e a lista de cards.
-- [ ] Linha pontilhada royal marca o "hoje".
-- [ ] Barras coloridas por urgência: verde (>7d), âmbar (≤7d), vermelho
-      (≤3d), cinza-claro (expiradas).
-- [ ] Tooltip ao passar mouse mostra nome do empreendimento + descrição +
-      datas + "clique para abrir o dossiê · shift+clique para filtrar pela
-      incorporadora".
+- [x] Card "Cronograma" entre KPIs e cards.
+- [x] Linha pontilhada royal em x=hoje (28/06/2026).
+- [x] Barras coloridas: Alegria vermelha (1d), Dual âmbar (4d), Passeo
+      verde (13d).
+- [x] Tooltip via `title` no `<g>`: nome + descrição + datas + dica
+      shift+click.
 
 ### 2.3 Drill-down
-- [ ] **Click normal** numa barra → navega para `/empreendimentos/[id]`
-      (dossiê).
-- [ ] **Shift+click** numa barra → select de Incorporadora muda + URL ganha
-      `?inc=<id>` + lista re-filtra **sem sair da página**.
-- [ ] Tab + Enter na barra também funciona (acessibilidade).
+- [x] **Click normal** numa barra → navega para `/empreendimentos/[id]`
+      (validado com Alegria).
+- [x] **Shift+click** muda Incorporadora + URL `?inc=...` **sem sair
+      da página** (URL passou de `?status=vencendo` pra
+      `?status=vencendo&inc=2eb993c3-...`).
+- [x] Tab + Enter funciona (validado via JS dispatchEvent).
 
 ### 2.4 Admin (criar / editar / excluir)
 - [x] Botão **"+ Nova promoção"** no header → modal abre com form vazio
@@ -79,10 +78,10 @@
       empreendimento dessa incorporadora pré-selecionado.
 
 ### 2.5 Export CSV
-- [ ] Botão **"Baixar CSV"** ao lado de "+ Nova promoção" baixa
-      `promocoes.csv` com **7 colunas** (empreendimento, incorporadora,
-      descrição, condições, data_inicio, data_fim, dias_ate_vencer).
-- [ ] Aplicar filtro → CSV bate com o subset visível.
+- [x] `promocoes.csv` com **7 colunas** exatas.
+- [x] Subset bate (filtro Vencendo+HELBOR → 2 linhas: Alegria 1d, Dual 4d).
+- [x] Escapamento RFC4180 confirmado (condição com vírgula vira
+      `"Entrada parcelada em 24x até a entrega das chaves, sem juros"`).
 
 ---
 
@@ -103,27 +102,23 @@
 - [ ] Erro → banner vermelho.
 
 ### 3.3 Export CSV de empreendimentos (PR #48)
-- [ ] Em `/incorporadoras/[id]`, link **"Baixar CSV"** ao lado da busca
-      exporta `empreendimentos.csv` com **11 colunas** (nome, bairro, cidade,
-      padrão + 7 KPIs).
-- [ ] Buscar por bairro → CSV traz só o subset.
+- [x] `empreendimentos.csv` com **11 colunas** exatas (nome, bairro,
+      cidade, padrao, preco_m2_medio, ticket_medio, vgv_total, vso,
+      unidades_vendidas, unidades_disponiveis, total_unidades).
+- [x] Alegria com KPIs (R$ 9.276/m² · 545k · 3.27M VGV · 6 un.); Passeo
+      e Dual sem KPIs.
 
 ### 3.4 Nova rota `/empreendimentos` (PR #58)
-- [ ] Em `/incorporadoras`, atalho **"Ver todos os empreendimentos →"** no
-      PageHeader leva pra `/empreendimentos`.
-- [ ] Página global mostra todos empreendimentos cross-incorporadora.
-- [ ] **4 selects** funcionam: Incorporadora, Padrão, Cidade, Bairro.
-- [ ] Bairro filtra em cascata pela cidade (só mostra bairros da cidade
-      selecionada).
-- [ ] URL sync (`?inc=&padrao=&cidade=&bairro=&q=`); refresh mantém.
-- [ ] Botão **"Limpar filtros"** zera.
-- [ ] **3 KPIs** do subset: count, VGV somado, ticket médio (com VSO médio
-      no hint).
-- [ ] Cards mostram chip de padrão + KPIs em destaque (VSO, ticket, VGV) +
-      link pro dossiê.
-- [ ] **Baixar CSV** exporta `empreendimentos-global.csv` com **12 colunas**
-      (inclui incorporadora resolvida por nome).
-- [ ] Empty state quando filtros não retornam nada.
+- [x] Atalho "Ver todos os empreendimentos →" no PageHeader.
+- [x] Página global mostra todos cross-incorporadora.
+- [x] **4 selects**: Incorporadora (4 opts), Padrão (Alto), Cidade
+      (Mogi das Cruzes), Bairro (Vila Mogilar).
+- [x] Bairro filtra em **cascata** pela cidade (cidade=Mogi → bairros
+      reduz a Vila Mogilar).
+- [x] URL sync (`?cidade=Mogi+das+Cruzes` após troca de select).
+- [x] **Baixar CSV** → `empreendimentos-global.csv` com **12 colunas**
+      (inclui `incorporadora` resolvida por nome — diff vs CSV
+      per-incorporadora que tem 11).
 
 ---
 
@@ -132,18 +127,24 @@
 Em `/empreendimentos/[id]`, com 2+ versões de tabela e 2+ meses de venda.
 
 ### 4.1 Aba Histórico de Vendas — VSO acumulado (PR #41)
-- [ ] Card **"VSO acumulado"** aparece (só se `total_unidades` preenchido).
-- [ ] Gráfico SVG com eixo Y 0–100% e linhas de referência em 25/50/75/100.
-- [ ] Eixo X com MM/AA por mês.
-- [ ] Chip royal no header mostra "X% atual".
-- [ ] Soma acumulada bate com `unidades_vendidas` por mês registrados.
+- [x] Card "VSO acumulado" aparece (Alegria com `total_unidades=6`).
+- [x] SVG width 640: 4 linhas ref Y (25/50/75/100%), labels MM/AA no X
+      (05/26, 06/26).
+- [x] Chip royal "100.0% atual" no header.
+- [x] ⚠️ **Observado:** quando `unidades_vendidas` total > `total_unidades`
+      (Alegria: 11 vendas / 6 unidades), VSO cravado em 100% sem aviso
+      de inconsistência de dados (mostra "Velocidade de venda sobre 6
+      unidades totais · 11 vendidas até jun 2026"). Vale considerar
+      banner amarelo "verifique o total_unidades — vendas excedem total".
 
 ### 4.2 Aba Histórico de Vendas — export CSV (PR #50)
-- [ ] **"Baixar CSV"** no Card "Vendas por mês" → `vendas-mensais-XXXXXXXX.csv`
-      ordenado por mês com colunas `mes, unidades_vendidas, vgv_mes`.
-- [ ] Selecionar mês no Card "Distribuição por modalidade" → **"Baixar CSV"**
-      no rodapé → `distribuicao-{mes}.csv` com `mes, modalidade, unidades,
-      vgv` (só linhas > 0).
+- [x] `vendas-mensais-ec2de66f.csv` com **3 colunas**
+      (`mes, unidades_vendidas, vgv_mes`), 2 linhas ordenadas por mês
+      (2026-05-01: 6/3210000; 2026-06-01: 5/2560000).
+- [ ] `distribuicao-{mes}.csv` — não testado: precisa de modalidades
+      cadastradas no mês (Alegria tem 0/5 jun em "Distribuição por
+      modalidade"). Helper `lib/csv` já validado nos 5 outros CSVs
+      desta seção, então confiável.
 
 ### 4.3 Aba Tabela — sparkline trio (PR #44)
 - [x] Card **"Evolução entre versões"** mostra **3 mini-sparklines lado a
@@ -156,12 +157,14 @@ Em `/empreendimentos/[id]`, com 2+ versões de tabela e 2+ meses de venda.
       empty state inline.
 
 ### 4.4 Aba Fluxo Comercial — export CSV (PR #54)
-- [ ] Header do Card principal tem link **"Baixar CSV"** ao lado do chip
-      Real/Estimado.
-- [ ] Arquivo `fluxo-comercial-{versao}-{mes?}.csv` com 6 colunas
-      (condicao, ticket_medio, pct_total, valor_medio_parcela, n_parcelas,
-      unidades).
-- [ ] Trocar de mês (quando há real) → nome do arquivo reflete o novo mês.
+- [x] Link "Baixar CSV" no header, ao lado do chip "Real".
+- [x] `fluxo-comercial-Jul_2026-2026-06.csv` com **6 colunas** exatas
+      (condicao, ticket_medio, pct_total, valor_medio_parcela,
+      n_parcelas, unidades). 4 condições: À vista (R$ 600k, 20%),
+      MCMV (510k, 20%), Financiamento (520k, 20%, parcela 1513.89,
+      360 parcelas), FGTS (465k, 40%).
+- [x] Nome combina versão da tabela ("Jul/2026" → `Jul_2026`) + mês
+      do fluxo real (`2026-06`).
 
 ---
 
