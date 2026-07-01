@@ -1271,20 +1271,12 @@ async def incc_reajustar(
 
 
 # --------------------------------------------------------------------------- #
-# CV CRM (Ribeira) — passthrough autenticado por Bearer Token
+# CV CRM (Ribeira) — passthrough autenticado via JWT (v3)
 # --------------------------------------------------------------------------- #
 @app.get("/cvcrm/empreendimentos/{id_empreendimento}/tabelas-preco")
 def cvcrm_tabelas_preco(id_empreendimento: str, _: str = Depends(security.usuario_autenticado)):
     try:
         return cvcrm_api.listar_tabelas_preco_empreendimento(id_empreendimento)
-    except RuntimeError as exc:
-        raise HTTPException(status_code=502, detail=str(exc))
-
-
-@app.get("/cvcrm/series-tabela-preco")
-def cvcrm_series_tabela_preco(_: str = Depends(security.usuario_autenticado)):
-    try:
-        return cvcrm_api.listar_series_tabela_preco()
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 

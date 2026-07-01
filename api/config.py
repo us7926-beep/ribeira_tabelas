@@ -88,11 +88,18 @@ def notificacoes_remetente() -> str:
 
 
 # --------------------------------------------------------------------------- #
-# CV CRM (Ribeira) — leitura de tabelas de preço via Bearer Token.
+# CV CRM (Ribeira) — auth v3 (JWT) via email+senha do usuário técnico.
 # --------------------------------------------------------------------------- #
 def cvcrm_base_url() -> str:
     return os.environ.get("CVCRM_BASE_URL", "")
 
 
-def cvcrm_token() -> str:
-    return os.environ.get("CVCRM_TOKEN", "")
+def cvcrm_email() -> str:
+    return os.environ.get("CVCRM_EMAIL", "")
+
+
+def cvcrm_senha() -> str:
+    """Senha do usuário técnico. NUNCA logar/expor.
+    Usada só pra chamar POST /v3/auth/token → recebe JWT (6h de validade).
+    """
+    return os.environ.get("CVCRM_SENHA", "")
