@@ -85,3 +85,21 @@ def notificacoes_remetente() -> str:
     """Quando vazio, cai no padrão de teste do Resend (não exige domínio
     verificado, mas vai pra Spam fácil)."""
     return os.environ.get("NOTIFICACOES_EMAIL_REMETENTE", "TabLM <onboarding@resend.dev>")
+
+
+# --------------------------------------------------------------------------- #
+# CV CRM (Ribeira) — auth v3 (JWT) via email+senha do usuário técnico.
+# --------------------------------------------------------------------------- #
+def cvcrm_base_url() -> str:
+    return os.environ.get("CVCRM_BASE_URL", "")
+
+
+def cvcrm_email() -> str:
+    return os.environ.get("CVCRM_EMAIL", "")
+
+
+def cvcrm_senha() -> str:
+    """Senha do usuário técnico. NUNCA logar/expor.
+    Usada só pra chamar POST /v3/auth/token → recebe JWT (6h de validade).
+    """
+    return os.environ.get("CVCRM_SENHA", "")
