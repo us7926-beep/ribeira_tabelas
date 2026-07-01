@@ -13,7 +13,7 @@ from fastapi import Body, Depends, FastAPI, Form, Header, HTTPException, UploadF
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from . import config, db, financiamento, fluxo_simulador, gemini, incc_api, mercado_api, notificacoes, security, vendas_api
+from . import config, cvcrm_api, db, financiamento, fluxo_simulador, gemini, incc_api, mercado_api, notificacoes, security, vendas_api
 
 app = FastAPI(title="TabLM API", version="0.1.0")
 app.add_middleware(
@@ -1268,6 +1268,25 @@ async def incc_reajustar(
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=f"Falha ao reajustar: {exc}")
+
+
+# --------------------------------------------------------------------------- #
+# CV CRM (Ribeira) — passthrough de leitura das tabelas de preço
+# --------------------------------------------------------------------------- #
+@app.get("/cvcrm/tabelas-preco")
+def cvcrm_tabelas_preco(_: str = Depends(security.usuario_autenticado)):
+    try:
+        return cvcrm_api.listar_tabelas_preco()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+
+@app.get("/cvcrm/series-tabela-preco")
+def cvcrm_series_tabela_preco(_: str = Depends(security.usuario_autenticado)):
+    try:
+        return cvcrm_api.listar_series_tabela_preco()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
 
 
 # --------------------------------------------------------------------------- #

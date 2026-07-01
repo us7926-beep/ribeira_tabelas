@@ -85,3 +85,18 @@ def notificacoes_remetente() -> str:
     """Quando vazio, cai no padrão de teste do Resend (não exige domínio
     verificado, mas vai pra Spam fácil)."""
     return os.environ.get("NOTIFICACOES_EMAIL_REMETENTE", "TabLM <onboarding@resend.dev>")
+
+
+# --------------------------------------------------------------------------- #
+# CV CRM (Ribeira) — API externa para tabelas de preço.
+# --------------------------------------------------------------------------- #
+def cvcrm_base_url() -> str:
+    return os.environ.get("CVCRM_BASE_URL", "")
+
+
+def cvcrm_email() -> str:
+    return os.environ.get("CVCRM_EMAIL", "")
+
+
+def cvcrm_token() -> str:
+    return os.environ.get("CVCRM_TOKEN", "")
