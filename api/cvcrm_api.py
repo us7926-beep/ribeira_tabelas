@@ -118,6 +118,66 @@ def listar_tabelas_preco_empreendimento(id_empreendimento: str) -> list[dict]:
     )
 
 
+# Códigos de `situacao` das unidades no CV CRM (confirmado no Mapa de
+# Disponibilidade da Ribeira, 2026-07-01): a legenda do painel é
+# Disponível/Reservada/Vendida/Bloqueada e a única unidade "Bloqueada
+# (FORA VENDA)" bate com situacao=4 na API.
+SITUACAO_DISPONIVEL = 1
+SITUACAO_RESERVADA = 2
+SITUACAO_VENDIDA = 3
+SITUACAO_BLOQUEADA = 4
+
+_UNIDADES_POR_PAGINA = 100
+_MAX_PAGINAS = 50  # trava de segurança (5000 unidades)
+
+
+def contar_situacao_unidades(id_empreendimento: str | int) -> dict:
+    """Pagina todas as unidades ativas do empreendimento no CV CRM e conta
+    por situação. Devolve dict com total + contagens + vso derivado.
+
+    Só considera `ativoPainel = true` (unidades visíveis, igual ao painel).
+    """
+    contagem: dict[int, int] = {}
+    total = 0
+    pagina = 1
+    while pagina <= _MAX_PAGINAS:
+        dados = _get(
+            f"/v4/cadastros/empreendimentos/{id_empreendimento}/unidades"
+            f"?pagina={pagina}&registros_por_pagina={_UNIDADES_POR_PAGINA}"
+        )
+        linhas = _lista(dados)
+        if not linhas:
+            break
+        for u in linhas:
+            if not u.get("ativoPainel", True):
+                continue
+            total += 1
+            sit = u.get("situacao")
+            contagem[sit] = contagem.get(sit, 0) + 1
+        total_paginas = 1
+        if isinstance(dados, dict):
+            total_paginas = int(dados.get("pagination", {}).get("totalPaginas", 1) or 1)
+        if pagina >= total_paginas:
+            break
+        pagina += 1
+
+    vendidas = contagem.get(SITUACAO_VENDIDA, 0)
+    disponiveis = contagem.get(SITUACAO_DISPONIVEL, 0)
+    reservadas = contagem.get(SITUACAO_RESERVADA, 0)
+    bloqueadas = contagem.get(SITUACAO_BLOQUEADA, 0)
+    outras = total - vendidas - disponiveis - reservadas - bloqueadas
+    vso = round(vendidas / total * 100, 2) if total else 0.0
+    return {
+        "total_unidades": total,
+        "vendidas": vendidas,
+        "disponiveis": disponiveis,
+        "reservadas": reservadas,
+        "bloqueadas": bloqueadas,
+        "outras": outras,
+        "vso": vso,
+    }
+
+
 def invalidar_cache_jwt() -> None:
     """Zera o cache — útil quando a env muda ou pra forçar renovação."""
     _cache_jwt["token"] = ""

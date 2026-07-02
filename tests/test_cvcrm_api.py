@@ -185,3 +185,93 @@ def test_deve_extrair_data_quando_resposta_vem_envelopada(mocker, monkeypatch):
     )
 
     assert cvcrm_api.listar_tabelas_preco_empreendimento("42") == [{"id": 7}]
+
+
+def _pagina(mocker, unidades, total_paginas=1):
+    return _resposta(mocker, dados={
+        "data": unidades,
+        "pagination": {"totalPaginas": total_paginas},
+    })
+
+
+def test_deve_contar_situacao_e_calcular_vso_quando_uma_pagina(mocker, monkeypatch):
+    """Espelha o TOTAL BRAZ CUBAS real: 193 vendidas / 6 disp / 1 bloq → VSO 96.5%."""
+    _envs(monkeypatch)
+    from api import cvcrm_api
+    cvcrm_api.invalidar_cache_jwt()
+
+    unidades = (
+        [{"situacao": 3, "ativoPainel": True}] * 193
+        + [{"situacao": 1, "ativoPainel": True}] * 6
+        + [{"situacao": 4, "ativoPainel": True}] * 1
+    )
+    mocker.patch(
+        "api.cvcrm_api.requests.post", return_value=_resposta_jwt(mocker, token="J")
+    )
+    mocker.patch(
+        "api.cvcrm_api.requests.get", return_value=_pagina(mocker, unidades)
+    )
+
+    r = cvcrm_api.contar_situacao_unidades(2)
+    assert r["total_unidades"] == 200
+    assert r["vendidas"] == 193
+    assert r["disponiveis"] == 6
+    assert r["bloqueadas"] == 1
+    assert r["vso"] == 96.5
+
+
+def test_deve_ignorar_unidades_inativas_quando_conta_situacao(mocker, monkeypatch):
+    _envs(monkeypatch)
+    from api import cvcrm_api
+    cvcrm_api.invalidar_cache_jwt()
+
+    unidades = [
+        {"situacao": 3, "ativoPainel": True},
+        {"situacao": 3, "ativoPainel": False},   # não conta
+        {"situacao": 1, "ativoPainel": True},
+    ]
+    mocker.patch(
+        "api.cvcrm_api.requests.post", return_value=_resposta_jwt(mocker, token="J")
+    )
+    mocker.patch(
+        "api.cvcrm_api.requests.get", return_value=_pagina(mocker, unidades)
+    )
+
+    r = cvcrm_api.contar_situacao_unidades(2)
+    assert r["total_unidades"] == 2
+    assert r["vendidas"] == 1
+    assert r["vso"] == 50.0
+
+
+def test_deve_paginar_ate_o_fim_quando_multiplas_paginas(mocker, monkeypatch):
+    _envs(monkeypatch)
+    from api import cvcrm_api
+    cvcrm_api.invalidar_cache_jwt()
+
+    pag1 = _pagina(mocker, [{"situacao": 3, "ativoPainel": True}] * 2, total_paginas=2)
+    pag2 = _pagina(mocker, [{"situacao": 1, "ativoPainel": True}] * 3, total_paginas=2)
+    mocker.patch(
+        "api.cvcrm_api.requests.post", return_value=_resposta_jwt(mocker, token="J")
+    )
+    mocker.patch("api.cvcrm_api.requests.get", side_effect=[pag1, pag2])
+
+    r = cvcrm_api.contar_situacao_unidades(2)
+    assert r["total_unidades"] == 5
+    assert r["vendidas"] == 2
+    assert r["disponiveis"] == 3
+    assert r["vso"] == 40.0
+
+
+def test_deve_retornar_vso_zero_quando_sem_unidades(mocker, monkeypatch):
+    _envs(monkeypatch)
+    from api import cvcrm_api
+    cvcrm_api.invalidar_cache_jwt()
+
+    mocker.patch(
+        "api.cvcrm_api.requests.post", return_value=_resposta_jwt(mocker, token="J")
+    )
+    mocker.patch("api.cvcrm_api.requests.get", return_value=_pagina(mocker, []))
+
+    r = cvcrm_api.contar_situacao_unidades(2)
+    assert r["total_unidades"] == 0
+    assert r["vso"] == 0.0

@@ -21,6 +21,8 @@ export interface Empreendimento {
   cnpj_spe?: string | null;
   ri?: string | null;
   criado_em?: string;
+  /** id numérico do empreendimento no CV CRM (Ribeira). Usado pra sincronizar VSO. */
+  cvcrm_id?: number | null;
   /** KPIs derivados das planilhas. Preenchidos por POST /empreendimentos/{id}/kpis. */
   preco_m2_medio?: number | null;
   ticket_medio?: number | null;
