@@ -97,6 +97,53 @@ def test_deve_levantar_erro_amigavel_quando_auth_retorna_401(mocker, monkeypatch
         cvcrm_api.listar_tabelas_preco_empreendimento("42")
 
 
+def test_deve_levantar_erro_amigavel_quando_auth_retorna_400(mocker, monkeypatch):
+    """Produção responde 400 'Usuário ou senha inválidos' (não 401)."""
+    _envs(monkeypatch)
+    from api import cvcrm_api
+    cvcrm_api.invalidar_cache_jwt()
+
+    mocker.patch(
+        "api.cvcrm_api.requests.post", return_value=_resposta(mocker, status=400)
+    )
+
+    with pytest.raises(RuntimeError, match="CVCRM_EMAIL/CVCRM_SENHA"):
+        cvcrm_api.listar_tabelas_preco_empreendimento("42")
+
+
+def test_deve_extrair_jwt_quando_auth_vem_envelopado_com_timestamp(mocker, monkeypatch):
+    """Formato real da produção: {status, code, data: {access_token,
+    expires_in: '<unix timestamp em string>'}}."""
+    _envs(monkeypatch)
+    from api import cvcrm_api
+    cvcrm_api.invalidar_cache_jwt()
+
+    import time
+    futuro = int(time.time()) + 21600
+    mocker.patch(
+        "api.cvcrm_api.requests.post",
+        return_value=_resposta(mocker, dados={
+            "status": "success",
+            "code": 200,
+            "data": {
+                "access_token": "JWT-ENVELOPADO",
+                "token_type": "Bearer",
+                "expires_in": str(futuro),
+            },
+        }),
+    )
+    patch_get = mocker.patch(
+        "api.cvcrm_api.requests.get", return_value=_resposta(mocker, dados=[])
+    )
+
+    cvcrm_api.listar_tabelas_preco_empreendimento("2")
+
+    headers = patch_get.call_args.kwargs["headers"]
+    assert headers["Authorization"] == "Bearer JWT-ENVELOPADO"
+    # O timestamp absoluto foi respeitado — cache expira no futuro certo.
+    assert abs(cvcrm_api._cache_jwt["expira_em"] - futuro) < 2
+
+
 def test_deve_levantar_runtime_error_quando_senha_ausente(monkeypatch):
     monkeypatch.setenv("CVCRM_BASE_URL", "https://exemplo.cvcrm.com.br/api")
     monkeypatch.setenv("CVCRM_EMAIL", "tec@ribeira.com.br")
