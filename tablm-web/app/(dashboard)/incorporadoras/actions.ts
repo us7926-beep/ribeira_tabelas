@@ -85,13 +85,24 @@ export async function excluirEmpreendimento(
 export async function atualizarEmpreendimento(
   id: string,
   incorporadoraId: string,
-  dados: { nome?: string; cidade?: string; bairro?: string; padrao?: string },
+  dados: {
+    nome?: string;
+    cidade?: string;
+    bairro?: string;
+    padrao?: string;
+    cvcrm_id?: number | null;
+  },
 ): Promise<{ ok: true } | { ok: false; erro: string }> {
   if (!id) return { ok: false, erro: "ID ausente" };
-  const corpo: Record<string, string> = {};
-  for (const [k, v] of Object.entries(dados)) {
+  const { cvcrm_id, ...textos } = dados;
+  const corpo: Record<string, string | number> = {};
+  for (const [k, v] of Object.entries(textos)) {
     const trim = (v ?? "").trim();
     if (trim) corpo[k] = trim;
+  }
+  // cvcrm_id é numérico — não passa pelo trim de string.
+  if (typeof cvcrm_id === "number" && Number.isFinite(cvcrm_id)) {
+    corpo.cvcrm_id = cvcrm_id;
   }
   if (Object.keys(corpo).length === 0) {
     return { ok: false, erro: "Nada para atualizar" };

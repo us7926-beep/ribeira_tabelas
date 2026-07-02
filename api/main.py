@@ -643,6 +643,7 @@ _FICHA_CAMPOS = {
     "unidades_comerciais", "total_unidades", "estoque",
     "pavimentos", "torres", "elevadores_por_torre",
     "data_lancamento", "data_entrega", "cnpj_spe", "ri",
+    "cvcrm_id",
 }
 
 
@@ -1279,6 +1280,38 @@ def cvcrm_tabelas_preco(id_empreendimento: str, _: str = Depends(security.usuari
         return cvcrm_api.listar_tabelas_preco_empreendimento(id_empreendimento)
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
+
+
+@app.post("/empreendimentos/{id_}/sincronizar-vso-cvcrm")
+def sincronizar_vso_cvcrm(id_: str, _: str = Depends(security.usuario_autenticado)):
+    """Conta as unidades por situação no CV CRM e grava VSO no empreendimento.
+
+    Requer `cvcrm_id` preenchido no empreendimento (id numérico do CV CRM).
+    Preços não vêm por aqui — dependem do módulo CVDW (ainda bloqueado).
+    """
+    emp = _db_ou_503(db.obter, "empreendimentos", id_)
+    if emp is None:
+        raise HTTPException(status_code=404, detail="Empreendimento não encontrado")
+    cvcrm_id = emp.get("cvcrm_id")
+    if not cvcrm_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Empreendimento sem cvcrm_id. Preencha o id do CV CRM na ficha primeiro.",
+        )
+    try:
+        c = cvcrm_api.contar_situacao_unidades(cvcrm_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+    campos = {
+        "unidades_vendidas": c["vendidas"],
+        "unidades_disponiveis": c["disponiveis"],
+        "total_unidades_calc": c["total_unidades"],
+        "vso": c["vso"],
+        "kpis_atualizados_em": datetime.now(timezone.utc).isoformat(),
+    }
+    empreendimento = _db_ou_503(db.atualizar, "empreendimentos", id_, campos)
+    return {"ok": True, "contagem": c, "empreendimento": empreendimento}
 
 
 # --------------------------------------------------------------------------- #
