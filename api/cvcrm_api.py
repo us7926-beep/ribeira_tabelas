@@ -3,9 +3,17 @@
 Auth via JWT Bearer conforme o fluxo v3 documentado (desenvolvedor.
 cvcrm.com.br/docs/como-autenticar-nas-apis-do-cv-crm-com-bearer-token):
 
-  1. POST /api/v3/auth/token {email, senha, painel: "gestor"}
-     → devolve {access_token, token_type: "Bearer", expires_in: 21600s}
+  1. POST {CVCRM_BASE_URL}/v3/auth/token {email, senha, painel: "gestor"}
   2. Chamadas subsequentes usam `Authorization: Bearer <access_token>`.
+
+Confirmado em produção (2026-07-01) contra a instância da Ribeira:
+- A base é o DOMÍNIO DO CLIENTE (https://ribeira.cvcrm.com.br/api).
+  O host integracao.cvcrm.com.br responde 403 "Token de acesso
+  inválido" para JWTs v3 — só serve pro fluxo v1 (email+token).
+- O response de auth vem ENVELOPADO: {status, code, data: {access_token,
+  token_type, expires_in}}. A doc mostra sem envelope; toleramos ambos.
+- `expires_in` chega como TIMESTAMP UNIX ABSOLUTO em string (ex.:
+  "1782980700"), não duração em segundos como diz a doc.
 
 O JWT é cacheado em memória e renovado 60s antes de expirar. Sem cache
 persistente — cada processo do backend renova o próprio.
@@ -48,20 +56,31 @@ def _obter_jwt() -> str:
         headers={"accept": "application/json"},
         timeout=_TIMEOUT,
     )
-    if resposta.status_code == 401:
-        raise RuntimeError("CV CRM recusou credenciais (401). Verifique CVCRM_EMAIL/CVCRM_SENHA.")
+    if resposta.status_code in (400, 401):
+        raise RuntimeError(
+            "CV CRM recusou credenciais. Verifique CVCRM_EMAIL/CVCRM_SENHA "
+            "e se CVCRM_BASE_URL aponta pro domínio do cliente "
+            "(ex.: https://ribeira.cvcrm.com.br/api)."
+        )
     resposta.raise_for_status()
     try:
         dados = resposta.json()
     except Exception as exc:  # noqa: BLE001
         raise RuntimeError(f"Resposta de auth do CV CRM inválida: {exc}") from exc
 
-    token = dados.get("access_token")
+    # Produção envelopa em {"data": {...}}; a doc mostra sem envelope.
+    corpo = dados.get("data") if isinstance(dados.get("data"), dict) else dados
+    token = corpo.get("access_token")
     if not token:
         raise RuntimeError("CV CRM não devolveu access_token no login.")
-    expires_in = int(dados.get("expires_in") or 21600)
+    expires_in = int(corpo.get("expires_in") or 21600)
+    # Produção manda timestamp unix absoluto; a doc diz duração em segundos.
+    if expires_in > 1_000_000_000:
+        expira_em = float(expires_in)
+    else:
+        expira_em = agora + expires_in
     _cache_jwt["token"] = token
-    _cache_jwt["expira_em"] = agora + expires_in
+    _cache_jwt["expira_em"] = expira_em
     return token
 
 
