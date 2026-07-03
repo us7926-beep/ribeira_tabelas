@@ -194,8 +194,9 @@ def _pagina(mocker, unidades, total_paginas=1):
     })
 
 
-def test_deve_contar_situacao_e_calcular_vso_quando_uma_pagina(mocker, monkeypatch):
-    """Espelha o TOTAL BRAZ CUBAS real: 193 vendidas / 6 disp / 1 bloq → VSO 96.5%."""
+def test_deve_contar_situacao_e_calcular_vso_quando_paginas_cheias(mocker, monkeypatch):
+    """Páginas cheias (200 = 2×100) exigem uma chamada extra que volta
+    vazia — é ela que encerra a paginação, nunca a metadata."""
     _envs(monkeypatch)
     from api import cvcrm_api
     cvcrm_api.invalidar_cache_jwt()
@@ -205,12 +206,16 @@ def test_deve_contar_situacao_e_calcular_vso_quando_uma_pagina(mocker, monkeypat
         + [{"situacao": 1, "ativoPainel": True}] * 6
         + [{"situacao": 4, "ativoPainel": True}] * 1
     )
+    cheia = cvcrm_api._UNIDADES_POR_PAGINA
+    paginas = [
+        _pagina(mocker, unidades[:cheia]),
+        _pagina(mocker, unidades[cheia:]),
+        _pagina(mocker, []),  # página vazia encerra
+    ]
     mocker.patch(
         "api.cvcrm_api.requests.post", return_value=_resposta_jwt(mocker, token="J")
     )
-    mocker.patch(
-        "api.cvcrm_api.requests.get", return_value=_pagina(mocker, unidades)
-    )
+    mocker.patch("api.cvcrm_api.requests.get", side_effect=paginas)
 
     r = cvcrm_api.contar_situacao_unidades(2)
     assert r["total_unidades"] == 200
@@ -243,23 +248,41 @@ def test_deve_ignorar_unidades_inativas_quando_conta_situacao(mocker, monkeypatc
     assert r["vso"] == 50.0
 
 
-def test_deve_paginar_ate_o_fim_quando_multiplas_paginas(mocker, monkeypatch):
+def test_deve_paginar_ate_o_fim_quando_metadata_zerada_apos_pagina_1(mocker, monkeypatch):
+    """Regressão do bug real (TOTAL BRAZ CUBAS, 245 unidades): a API da
+    Ribeira devolve totalPaginas correto só na página 1 e ZERO nas
+    seguintes. A contagem confiava na metadata e parava em 200. A
+    terminação correta é por página vazia/curta, nunca por totalPaginas."""
     _envs(monkeypatch)
     from api import cvcrm_api
     cvcrm_api.invalidar_cache_jwt()
 
-    pag1 = _pagina(mocker, [{"situacao": 3, "ativoPainel": True}] * 2, total_paginas=2)
-    pag2 = _pagina(mocker, [{"situacao": 1, "ativoPainel": True}] * 3, total_paginas=2)
+    cheia = cvcrm_api._UNIDADES_POR_PAGINA
+    pag1 = _pagina(mocker, [{"situacao": 3, "ativoPainel": True}] * cheia, total_paginas=3)
+    # Página 2 cheia com metadata zerada (comportamento real da Ribeira).
+    pag2 = _pagina(mocker, [{"situacao": 3, "ativoPainel": True}] * cheia, total_paginas=0)
+    # Página 3 curta (45) encerra a paginação.
+    pag3 = _pagina(
+        mocker,
+        [{"situacao": 3, "ativoPainel": True}] * 38
+        + [{"situacao": 1, "ativoPainel": True}] * 6
+        + [{"situacao": 4, "ativoPainel": True}] * 1,
+        total_paginas=0,
+    )
     mocker.patch(
         "api.cvcrm_api.requests.post", return_value=_resposta_jwt(mocker, token="J")
     )
-    mocker.patch("api.cvcrm_api.requests.get", side_effect=[pag1, pag2])
+    patch_get = mocker.patch(
+        "api.cvcrm_api.requests.get", side_effect=[pag1, pag2, pag3]
+    )
 
     r = cvcrm_api.contar_situacao_unidades(2)
-    assert r["total_unidades"] == 5
-    assert r["vendidas"] == 2
-    assert r["disponiveis"] == 3
-    assert r["vso"] == 40.0
+    assert r["total_unidades"] == 245
+    assert r["vendidas"] == 238
+    assert r["disponiveis"] == 6
+    assert r["bloqueadas"] == 1
+    assert r["vso"] == 97.14
+    assert patch_get.call_count == 3  # leu as 3 páginas, sem 4ª chamada
 
 
 def test_deve_retornar_vso_zero_quando_sem_unidades(mocker, monkeypatch):
