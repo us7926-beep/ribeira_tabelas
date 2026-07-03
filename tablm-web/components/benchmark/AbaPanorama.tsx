@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/Card";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { KpiDelta } from "@/components/ui/KpiDelta";
 import {
+  faixaPrecoM2,
   pontosScatter,
   precoM2,
   rankingAmeaca,
@@ -41,6 +42,28 @@ export function AbaPanorama({ incorporadoras, empreendimentos, ribeiraId }: Prop
   const dots = pontosScatter(empreendimentos, ribeiraId);
   const ameacas = rankingAmeaca(incorporadoras, empreendimentos, ribeiraId);
 
+  // Delta REAL vs média da praça (não estimativa fixa). Só aparece quando
+  // há base de comparação (meu preço + pelo menos 1 concorrente).
+  const mediaGeral = todosPrecos.length
+    ? todosPrecos.reduce((a, p) => a + p, 0) / todosPrecos.length
+    : 0;
+  const deltaMediaPct =
+    meuPrecoMedio && mediaGeral && empreendimentos.length > 1
+      ? ((meuPrecoMedio - mediaGeral) / mediaGeral) * 100
+      : null;
+
+  // Régua Y do mapa: 4 marcas derivadas da MESMA faixa que normaliza os
+  // pontos (faixaPrecoM2) — topo = max, base = min.
+  const faixa = faixaPrecoM2(empreendimentos);
+  const marcasRegua =
+    faixa.max > 0
+      ? [1, 2 / 3, 1 / 3, 0].map(
+          (f) => faixa.min + (faixa.max - faixa.min) * f,
+        )
+      : [];
+  const formatarRegua = (v: number) =>
+    v >= 1000 ? `R$ ${(v / 1000).toFixed(1).replace(".", ",")}k` : `R$ ${Math.round(v)}`;
+
   return (
     <div className="flex flex-col gap-5 tablm-up">
       {/* KPIs */}
@@ -53,12 +76,20 @@ export function AbaPanorama({ incorporadoras, empreendimentos, ribeiraId }: Prop
         <KpiCard
           rotulo="Seu preço/m²"
           valor={meuPrecoMedio ? formatarBRL(meuPrecoMedio) : "—"}
-          delta={<KpiDelta direcao="alta">6,7% acima da média</KpiDelta>}
+          delta={
+            deltaMediaPct != null ? (
+              <KpiDelta direcao={deltaMediaPct >= 0 ? "alta" : "baixa"}>
+                {`${Math.abs(deltaMediaPct).toFixed(1).replace(".", ",")}% ${
+                  deltaMediaPct >= 0 ? "acima" : "abaixo"
+                } da média`}
+              </KpiDelta>
+            ) : undefined
+          }
         />
         <KpiCard
           rotulo="Share na praça"
           valor={`${share}%`}
-          delta={<KpiDelta direcao="alta">+2 p.p. no trimestre</KpiDelta>}
+          hint={`${meus.length} de ${total} produtos na base`}
         />
         <KpiCard
           rotulo="Pressão de preço"
@@ -75,12 +106,11 @@ export function AbaPanorama({ incorporadoras, empreendimentos, ribeiraId }: Prop
             Preço/m² (vertical) × velocidade de vendas — VSO (horizontal)
           </div>
           <div className="flex gap-3">
-            {/* régua Y */}
+            {/* régua Y — derivada da faixa real dos pontos */}
             <div className="flex flex-col justify-between items-end pb-[22px] text-[10.5px] font-semibold text-[#B7C0D0] tnum">
-              <span>R$ 13k</span>
-              <span>R$ 11k</span>
-              <span>R$ 9k</span>
-              <span>R$ 7k</span>
+              {marcasRegua.map((v, i) => (
+                <span key={i}>{formatarRegua(v)}</span>
+              ))}
             </div>
             <div className="flex-1">
               <div

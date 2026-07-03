@@ -266,7 +266,7 @@ export default function VendasKpis({ empreendimentos = [] }: Props) {
                     ? " + distribuição por modalidade detectada"
                     : ""}{" "}
                   no Histórico de Vendas do empreendimento. Use{" "}
-                  <b>Operação → Vendas</b> sempre que receber uma nova tabela.
+                  <b>Análise de Vendas</b> sempre que receber uma nova tabela.
                 </div>
               </div>
               <Chip tom="royal">Opcional</Chip>
