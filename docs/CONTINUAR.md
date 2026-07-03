@@ -2,9 +2,52 @@
 
 > Cole/abra este arquivo numa nova janela do Claude Code. Tem TUDO para continuar
 > a evolução do TabLM de onde paramos. **Sem segredos** (ficam só em `api/.env` e
-> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-06-28 (após PRs
-> #72, #74, #75 + smoke test cobrindo seção 8 inteira + extras: 1, 2.1-2.5,
-> 3.3-3.4, 4.1-4.4, 7.1, 7.3, 7.4, 7.5, 7.6).
+> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-07-03 (após PRs
+> #76-#84: integração CV CRM completa com sync de VSO + 2 lotes da auditoria
+> de UI/UX).
+
+## Addendum 2026-07-01→03 (PRs #76-#84)
+
+- **Integração CV CRM (PRs #78, #79, #80, #81, #82)** — funcionando
+  fim-a-fim em produção:
+  - Auth JWT v3: `POST {ribeira.cvcrm.com.br/api}/v3/auth/token` com
+    email+senha do usuário técnico **TabLM Integração** (id 264, criado
+    nesta sessão) → access_token cacheado (expira 6h). Response vem
+    envelopado em `{data:{...}}` e `expires_in` é timestamp absoluto.
+    Envs no Render: `CVCRM_BASE_URL`, `CVCRM_EMAIL`, `CVCRM_SENHA`.
+  - **Sync de VSO** (`POST /empreendimentos/{id}/sincronizar-vso-cvcrm` +
+    botão "↻ Sincronizar VSO do CV CRM" na Aba Tabela): pagina
+    `/v4/.../unidades` (situação 1=disp, 2=res, 3=vendida, 4=bloq,
+    confirmado no Mapa de Disponibilidade) e grava
+    vendidas/disponíveis/total/vso no empreendimento. Coluna nova
+    `cvcrm_id` (migration aplicada) editável no ✎ do card.
+  - **PR #82 (bug sério)**: a API zera `pagination.totalPaginas` da
+    página 2 em diante — a contagem parava em 200. Fix: paginar até
+    página vazia/curta. Pós-fix os 6 empreendimentos Ribeira batem com
+    o painel (TOTAL 238/245=97,1%; SOMA 389/494; MÁXIMO 42/291; etc.).
+  - **Preços por unidade BLOQUEADOS** atrás do módulo CVDW (403) —
+    pendente abrir chamado no suporte CV CRM. Ver memória
+    `cvcrm_cvdw_precos_bloqueado`.
+- **Auditoria de UI/UX (23 achados) + 2 lotes de fix:**
+  - **PR #83 (Alta)**: /vendas entrou na Sidebar ("Análise de Vendas");
+    dados fake do Benchmark removidos/derivados de dados reais (delta
+    vs média calculado, régua do scatter via `faixaPrecoM2`, janelas de
+    oportunidade derivadas do heatmap, sem bairros fictícios); Tabs com
+    overflow; catch de fetch em AbaTabela/AbaVendasMensais; erro preso
+    do Fluxo Comercial; usuário da Sidebar via claim do JWT.
+  - **PR #84 (Média)**: átomo `ModalConfirmar` substituindo confirm()
+    (Documentos era delete SEM confirmação); `window.prompt` de renomear
+    → `ModalRenomearIncorporadora`; 4 modais legados (AbaTabela,
+    AbaFichaTecnica, AnaliseFlyer, ImportarEmpreendimentoBook) tinham o
+    MESMO bug de clipping do PR #72 → createPortal+Escape+role; datas
+    do flyer viraram type="date".
+  - **Lote 3 pendente** (próxima sessão): átomos Input/Select (classe
+    `campo` duplicada ×14), cores fora do token (badge sidebar, navy da
+    TabelaComparativa, tints ad-hoc), Tabs reimplementado em
+    AbaPromocoes/AnaliseFlyer, pending state em criar inc/emp, órfão
+    CalculoRendaFinanciamento, checkbox "manter conectado" decorativo,
+    overflow-x em grids, helpers duplicados (dataBR ×5, moeda ×6),
+    sidebar responsiva (drawer mobile).
 
 ## Resumo de 1 linha
 TabLM (Ribeira Empreendimentos) está **migrado e no ar**: Next.js (frontend) +
