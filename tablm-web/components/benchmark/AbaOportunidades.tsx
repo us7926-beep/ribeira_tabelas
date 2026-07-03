@@ -14,19 +14,41 @@ interface Props {
 
 interface Janela {
   faixa: string;
-  demanda: "Alta" | "Média" | "Baixa";
   oferta: string;
   janela: { rotulo: string; tom: "up" | "warn" | "neutro" };
 }
 
-const JANELAS: Janela[] = [
-  { faixa: "Alto · Vila Marina", demanda: "Alta", oferta: "0 produtos", janela: { rotulo: "Agir agora", tom: "up" } },
-  { faixa: "R$ 500-650 mil · Centro", demanda: "Alta", oferta: "1 produto", janela: { rotulo: "Curto prazo", tom: "warn" } },
-  { faixa: "Luxo · Jardim Aurora", demanda: "Média", oferta: "2 produtos", janela: { rotulo: "Médio prazo", tom: "neutro" } },
-];
+/** Deriva janelas do PRÓPRIO heatmap: célula sem concorrente (GAP) = agir
+ * agora; 1 concorrente = curto prazo; 2 = médio prazo. Nada inventado —
+ * some quando a base não tem espaço claro. */
+function derivarJanelas(
+  grid: ReturnType<typeof montarHeatmap>["grid"],
+  padroes: string[],
+): Janela[] {
+  const janelas: (Janela & { ordem: number })[] = [];
+  for (const row of grid) {
+    row.cells.forEach((cell, i) => {
+      const n = cell.gap ? 0 : cell.n;
+      if (n > 2) return;
+      janelas.push({
+        faixa: `${padroes[i]} · ${row.bairro}`,
+        oferta: n === 0 ? "0 produtos" : n === 1 ? "1 produto" : `${n} produtos`,
+        janela:
+          n === 0
+            ? { rotulo: "Agir agora", tom: "up" }
+            : n === 1
+              ? { rotulo: "Curto prazo", tom: "warn" }
+              : { rotulo: "Médio prazo", tom: "neutro" },
+        ordem: n,
+      });
+    });
+  }
+  return janelas.sort((a, b) => a.ordem - b.ordem).slice(0, 5);
+}
 
 export function AbaOportunidades({ empreendimentos, ribeiraId }: Props) {
   const { padroes, grid } = montarHeatmap(empreendimentos, ribeiraId);
+  const janelas = derivarJanelas(grid, padroes);
 
   return (
     <div className="flex flex-col gap-5 tablm-up">
@@ -92,29 +114,38 @@ export function AbaOportunidades({ empreendimentos, ribeiraId }: Props) {
           Janelas de oportunidade priorizadas
         </div>
         <div className="text-[12.5px] text-muted mb-4">
-          Cruze demanda observada × oferta atual para escolher onde atacar primeiro.
+          Derivadas do mapa acima: territórios × padrão com pouca ou nenhuma
+          concorrência direta cadastrada.
         </div>
-        <div className="overflow-hidden border border-line-soft rounded-[12px]">
-          <div className="grid grid-cols-[1.5fr_1fr_1fr_140px] bg-thead text-[12px] font-bold text-muted uppercase tracking-[0.4px]">
-            <div className="px-4 py-3">Faixa / Território</div>
-            <div className="px-4 py-3">Demanda</div>
-            <div className="px-4 py-3">Oferta atual</div>
-            <div className="px-4 py-3 text-right">Janela</div>
+        {janelas.length === 0 ? (
+          <div className="text-[13.5px] text-muted">
+            Nenhuma janela clara — todos os territórios mapeados têm 3+
+            produtos concorrentes. Cadastre mais empreendimentos na base para
+            refinar a leitura.
           </div>
-          {JANELAS.map((j) => (
-            <div
-              key={j.faixa}
-              className="grid grid-cols-[1.5fr_1fr_1fr_140px] border-t border-line-soft text-[14px] items-center"
-            >
-              <div className="px-4 py-[13px] font-semibold text-body">{j.faixa}</div>
-              <div className="px-4 py-[13px] font-bold text-ink">{j.demanda}</div>
-              <div className="px-4 py-[13px] tnum text-body">{j.oferta}</div>
-              <div className="px-4 py-[13px] text-right">
-                <Chip tom={j.janela.tom}>{j.janela.rotulo}</Chip>
+        ) : (
+          <div className="overflow-x-auto border border-line-soft rounded-[12px]">
+            <div className="min-w-[520px]">
+              <div className="grid grid-cols-[1.6fr_1fr_140px] bg-thead text-[12px] font-bold text-muted uppercase tracking-[0.4px]">
+                <div className="px-4 py-3">Padrão / Território</div>
+                <div className="px-4 py-3">Oferta concorrente</div>
+                <div className="px-4 py-3 text-right">Janela</div>
               </div>
+              {janelas.map((j) => (
+                <div
+                  key={j.faixa}
+                  className="grid grid-cols-[1.6fr_1fr_140px] border-t border-line-soft text-[14px] items-center"
+                >
+                  <div className="px-4 py-[13px] font-semibold text-body">{j.faixa}</div>
+                  <div className="px-4 py-[13px] tnum text-body">{j.oferta}</div>
+                  <div className="px-4 py-[13px] text-right">
+                    <Chip tom={j.janela.tom}>{j.janela.rotulo}</Chip>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+        )}
       </Card>
     </div>
   );

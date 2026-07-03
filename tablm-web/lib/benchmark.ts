@@ -81,14 +81,34 @@ export function acharRibeira(incs: Incorporadora[]): Incorporadora | undefined {
   );
 }
 
-/** Pontos do mapa de posicionamento. X = VSO (0-100), Y = preço/m² (7k..13k -> 0-100%). */
+/** Faixa real de preço/m² dos pontos exibidos no scatter (mesmos 12 do
+ * pontosScatter), com folga de 5% pra ninguém colar na borda. Alimenta a
+ * régua Y do mapa — a régua e a normalização usam a MESMA faixa. */
+export function faixaPrecoM2(empreendimentos: Empreendimento[]) {
+  const precos = empreendimentos.slice(0, 12).map(precoM2).filter((p) => p > 0);
+  if (precos.length === 0) return { min: 0, max: 0 };
+  let min = Math.min(...precos);
+  let max = Math.max(...precos);
+  if (min === max) {
+    // Todos iguais: abre uma janela de ±10% pro ponto cair no meio.
+    min *= 0.9;
+    max *= 1.1;
+  }
+  const folga = (max - min) * 0.05;
+  return { min: min - folga, max: max + folga };
+}
+
+/** Pontos do mapa de posicionamento. X = VSO (0-100), Y = preço/m²
+ * normalizado pela faixa REAL dos dados (faixaPrecoM2) -> 0-100%. */
 export function pontosScatter(
   empreendimentos: Empreendimento[],
   ribeiraId?: string,
 ) {
+  const { min, max } = faixaPrecoM2(empreendimentos);
+  const amplitude = max - min || 1;
   return empreendimentos.slice(0, 12).map((e) => {
     const p = precoM2(e);
-    const y = Math.max(2, Math.min(98, ((p - 7000) / (13000 - 7000)) * 100));
+    const y = Math.max(2, Math.min(98, ((p - min) / amplitude) * 100));
     return {
       label: e.nome,
       x: Math.max(2, Math.min(98, vso(e))),
@@ -171,15 +191,12 @@ export function montarHeatmap(
     const b = e.bairro?.trim() || "—";
     contagemBairro.set(b, (contagemBairro.get(b) ?? 0) + 1);
   }
+  // Só bairros REAIS da base — nada de preencher com nomes fictícios;
+  // com menos de 4 bairros o grid simplesmente tem menos linhas.
   const bairros = Array.from(contagemBairro.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, 4)
     .map(([n]) => n);
-  if (bairros.length < 4) {
-    for (const fb of ["Jardim Aurora", "Centro", "Vila Marina", "Parque Sul"]) {
-      if (!bairros.includes(fb) && bairros.length < 4) bairros.push(fb);
-    }
-  }
   const escala = [
     { bg: "#EAF0FE", text: "#2347C5" },
     { bg: "#C9D5F4", text: "#2347C5" },

@@ -125,12 +125,19 @@ export function AbaVendasMensais({ empreendimentoId, totalUnidades }: Props) {
   const [salvandoDist, setSalvandoDist] = useState(false);
   const [feedbackDist, setFeedbackDist] = useState("");
 
+  const [erroCarga, setErroCarga] = useState("");
+
   async function carregar() {
     setCarregando(true);
+    setErroCarga("");
     try {
       const r = await fetch(`/api/empreendimentos/${empreendimentoId}/vendas-mensais`);
       const d = await r.json();
+      if (!r.ok) throw new Error(d.detail ?? `Erro ${r.status}`);
       if (Array.isArray(d)) setVendas(d);
+    } catch (e) {
+      // Sem isso, falha de rede viraria o empty state "Nenhuma venda registrada".
+      setErroCarga((e as Error).message);
     } finally {
       setCarregando(false);
     }
@@ -363,6 +370,17 @@ export function AbaVendasMensais({ empreendimentoId, totalUnidades }: Props) {
         </div>
         {carregando ? (
           <div className="text-[13.5px] text-muted">Carregando…</div>
+        ) : erroCarga ? (
+          <div className="rounded-[12px] bg-down-bg text-down-strong text-[13.5px] px-4 py-3 border border-down-line flex items-center justify-between gap-3 flex-wrap">
+            <span>Não consegui carregar as vendas: {erroCarga}</span>
+            <button
+              type="button"
+              onClick={carregar}
+              className="font-bold underline hover:no-underline shrink-0"
+            >
+              Tentar de novo
+            </button>
+          </div>
         ) : vendas.length === 0 ? (
           <div className="text-[13.5px] text-muted">
             Nenhuma venda registrada ainda. Adicione o primeiro mês abaixo.

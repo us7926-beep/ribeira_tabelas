@@ -7,11 +7,13 @@ import { useEffect, useState } from "react";
 interface Props {
   vencendo7d?: number;
   vencendo3d?: number;
+  usuario?: string | null;
 }
 
 const NAV: { href: string; label: string }[] = [
   { href: "/benchmark", label: "Benchmark Competitivo" },
   { href: "/", label: "Dashboards de Vendas" },
+  { href: "/vendas", label: "Análise de Vendas" },
   { href: "/flyers", label: "Análise por IA" },
   { href: "/promocoes", label: "Promoções" },
   { href: "/incorporadoras", label: "Carteira" },
@@ -33,10 +35,14 @@ function formatarMoment() {
   return `${dd}/${mm} · ${hh}:${mi}`;
 }
 
-export default function Sidebar({ vencendo7d = 0, vencendo3d = 0 }: Props) {
+export default function Sidebar({ vencendo7d = 0, vencendo3d = 0, usuario }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const [momento, setMomento] = useState("");
+  const nomeExibido = usuario
+    ? usuario.charAt(0).toUpperCase() + usuario.slice(1)
+    : "Usuário";
+  const inicial = nomeExibido.charAt(0).toUpperCase();
 
   useEffect(() => {
     setMomento(formatarMoment());
@@ -120,10 +126,10 @@ export default function Sidebar({ vencendo7d = 0, vencendo3d = 0 }: Props) {
       {/* Rodapé: usuário + sair */}
       <div className="mt-4 flex items-center gap-3 bg-white/[0.08] rounded-[12px] p-[10px_12px]">
         <div className="size-9 rounded-full bg-white/15 grid place-items-center text-white font-bold text-[14px]">
-          L
+          {inicial}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-[13.5px] font-bold text-white">Leonardo</div>
+          <div className="text-[13.5px] font-bold text-white truncate">{nomeExibido}</div>
           <div className="text-[11px] text-white/55 tnum">{momento || "—"}</div>
         </div>
         <button

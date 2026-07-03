@@ -83,8 +83,8 @@ export default function LoginPage() {
         </div>
 
         <div className="relative grid grid-cols-3 gap-6">
-          <MiniStat valor="5" rotulo="módulos" />
-          <MiniStat valor="248" rotulo="unidades na base" />
+          <MiniStat valor="8" rotulo="módulos" />
+          <MiniStat valor="IA" rotulo="leitura de books e flyers" />
           <MiniStat valor="INCC-DI" rotulo="fonte oficial BCB" />
         </div>
       </div>

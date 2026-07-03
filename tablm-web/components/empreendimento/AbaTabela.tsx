@@ -340,12 +340,19 @@ export function AbaTabela({ empreendimentoId }: Props) {
     }
   }
 
+  const [erroCarga, setErroCarga] = useState("");
+
   async function carregar() {
     setCarregando(true);
+    setErroCarga("");
     try {
       const r = await fetch(`/api/empreendimentos/${empreendimentoId}/tabelas-precos`);
       const d = await r.json();
+      if (!r.ok) throw new Error(d.detail ?? `Erro ${r.status}`);
       if (Array.isArray(d)) setTabelas(d);
+    } catch (e) {
+      // Sem isso, falha de rede viraria o empty state "Nenhuma versão ainda".
+      setErroCarga((e as Error).message);
     } finally {
       setCarregando(false);
     }
@@ -481,6 +488,17 @@ export function AbaTabela({ empreendimentoId }: Props) {
 
         {carregando ? (
           <div className="text-[13.5px] text-muted mt-4">Carregando…</div>
+        ) : erroCarga ? (
+          <div className="mt-4 rounded-[12px] bg-down-bg text-down-strong text-[13.5px] px-4 py-3 border border-down-line flex items-center justify-between gap-3 flex-wrap">
+            <span>Não consegui carregar as versões: {erroCarga}</span>
+            <button
+              type="button"
+              onClick={carregar}
+              className="font-bold underline hover:no-underline shrink-0"
+            >
+              Tentar de novo
+            </button>
+          </div>
         ) : tabelas.length === 0 ? (
           <div className="text-[13.5px] text-muted mt-4">
             Nenhuma versão ainda. Envie a primeira tabela pelo botão acima.

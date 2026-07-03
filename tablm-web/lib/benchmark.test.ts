@@ -6,6 +6,7 @@ import {
   acharRibeira,
   corAmeaca,
   estoque,
+  faixaPrecoM2,
   montarHeatmap,
   paraMovimentos,
   pontosScatter,
@@ -130,6 +131,38 @@ describe("pontosScatter", () => {
     expect(pontos.slice(0, 3).every((p) => p.ours)).toBe(true);
     expect(pontos.slice(3).every((p) => !p.ours)).toBe(true);
   });
+
+  it("normaliza y pela faixa real: mais caro no topo, mais barato na base", () => {
+    const lista = [
+      emp({ id: "caro", preco_m2_medio: 12000, vso: 50 }),
+      emp({ id: "meio", preco_m2_medio: 9000, vso: 50 }),
+      emp({ id: "barato", preco_m2_medio: 6000, vso: 50 }),
+    ];
+    const [caro, meio, barato] = pontosScatter(lista);
+    expect(caro.y).toBeGreaterThan(meio.y);
+    expect(meio.y).toBeGreaterThan(barato.y);
+    expect(caro.y).toBeLessThanOrEqual(98);
+    expect(barato.y).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("faixaPrecoM2", () => {
+  it("devolve min/max reais com folga de 5%", () => {
+    const lista = [
+      emp({ id: "a", preco_m2_medio: 8000 }),
+      emp({ id: "b", preco_m2_medio: 10000 }),
+    ];
+    const { min, max } = faixaPrecoM2(lista);
+    expect(min).toBeLessThan(8000);
+    expect(max).toBeGreaterThan(10000);
+  });
+
+  it("abre janela quando todos os preços são iguais", () => {
+    const lista = [emp({ id: "a", preco_m2_medio: 9000 })];
+    const { min, max } = faixaPrecoM2(lista);
+    expect(min).toBeLessThan(9000);
+    expect(max).toBeGreaterThan(9000);
+  });
 });
 
 describe("rankingAmeaca", () => {
@@ -190,7 +223,8 @@ describe("montarHeatmap", () => {
     ];
     const { padroes, grid } = montarHeatmap(empsConcorrentes, "ribeira-id");
     expect(padroes).toEqual(["Econômico", "Médio", "Alto", "Luxo"]);
-    expect(grid).toHaveLength(4);
+    // Só bairros REAIS viram linhas — sem padding com nomes fictícios.
+    expect(grid).toHaveLength(2);
     const linhaCentro = grid.find((l) => l.bairro === "Centro");
     expect(linhaCentro).toBeTruthy();
     const celulaCentroAlto = linhaCentro!.cells[padroes.indexOf("Alto")];

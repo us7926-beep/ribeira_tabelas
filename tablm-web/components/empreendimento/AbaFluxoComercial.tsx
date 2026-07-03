@@ -64,6 +64,7 @@ export function AbaFluxoComercial({ empreendimentoId }: Props) {
   useEffect(() => {
     (async () => {
       setCarregando(true);
+      setErro(""); // limpa falha anterior — senão o painel fica preso no erro
       try {
         const qs = mesSelecionado ? `?mes=${mesSelecionado}` : "";
         const r = await fetch(`/api/empreendimentos/${empreendimentoId}/fluxo-comercial${qs}`);

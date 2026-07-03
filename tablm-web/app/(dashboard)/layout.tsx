@@ -1,6 +1,6 @@
 import Sidebar from "@/components/layout/Sidebar";
 import { api } from "@/lib/api";
-import { getToken } from "@/lib/auth";
+import { getToken, getUsuario } from "@/lib/auth";
 import { contarVencendo } from "@/lib/promocoes";
 import type { EventoPromocional } from "@/types";
 
@@ -10,6 +10,7 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const token = await getToken();
+  const usuario = await getUsuario();
   let vencendo7d = 0;
   let vencendo3d = 0;
   try {
@@ -24,7 +25,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex min-h-screen bg-canvas">
-      <Sidebar vencendo7d={vencendo7d} vencendo3d={vencendo3d} />
+      <Sidebar vencendo7d={vencendo7d} vencendo3d={vencendo3d} usuario={usuario} />
       <main className="flex-1 min-w-0 px-[38px] py-[30px]">
         <div className="max-w-[1160px] mx-auto">{children}</div>
       </main>
