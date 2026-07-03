@@ -5,9 +5,12 @@ import { revalidatePath } from "next/cache";
 import { api } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 
-/** "DD/MM/AAAA" -> "AAAA-MM-DD" (para colunas date do Postgres). Vazio -> null. */
-function paraISO(br: string): string | null {
-  const m = (br || "").trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+/** Normaliza data pra "AAAA-MM-DD" (coluna date do Postgres). Aceita ISO
+ * direto (input type="date") ou "DD/MM/AAAA" (texto da IA). Vazio -> null. */
+function paraISO(valor: string): string | null {
+  const s = (valor || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
 }
 

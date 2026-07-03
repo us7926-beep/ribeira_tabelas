@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -341,6 +342,20 @@ export function AbaTabela({ empreendimentoId }: Props) {
   }
 
   const [erroCarga, setErroCarga] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!modalAberto) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !enviando) setModalAberto(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [modalAberto, enviando]);
 
   async function carregar() {
     setCarregando(true);
@@ -840,13 +855,16 @@ export function AbaTabela({ empreendimentoId }: Props) {
         </>
       )}
 
-      {modalAberto && (
+      {modalAberto && mounted && createPortal(
         <div
-          className="fixed inset-0 bg-black/40 grid place-items-center p-4 z-50"
-          onClick={() => setModalAberto(false)}
+          className="fixed inset-0 z-50 flex items-start justify-center bg-ink/40 backdrop-blur-sm overflow-y-auto p-4 sm:p-8"
+          onClick={() => !enviando && setModalAberto(false)}
         >
           <div
-            className="bg-white rounded-[16px] border border-line w-full max-w-[640px] p-[22px] max-h-[90vh] overflow-auto shadow-[0_8px_22px_rgba(35,71,197,0.2)]"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Subir tabela de preços"
+            className="bg-white rounded-[16px] border border-line w-full max-w-[640px] p-[22px] mt-8 shadow-card"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-[11px] font-bold tracking-[1.6px] uppercase text-royal mb-1">
@@ -897,7 +915,11 @@ export function AbaTabela({ empreendimentoId }: Props) {
             )}
 
             <div className="mt-5 flex justify-end gap-2">
-              <Button variante="secondary" onClick={() => setModalAberto(false)}>
+              <Button
+                variante="secondary"
+                onClick={() => setModalAberto(false)}
+                disabled={enviando}
+              >
                 Cancelar
               </Button>
               <Button onClick={enviarTabela} disabled={enviando}>
@@ -905,7 +927,8 @@ export function AbaTabela({ empreendimentoId }: Props) {
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

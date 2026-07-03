@@ -3,11 +3,10 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 
-import {
-  atualizarIncorporadora,
-  excluirIncorporadora,
-} from "@/app/(dashboard)/incorporadoras/actions";
+import { excluirIncorporadora } from "@/app/(dashboard)/incorporadoras/actions";
+import { ModalRenomearIncorporadora } from "@/components/incorporadoras/ModalRenomearIncorporadora";
 import { Chip } from "@/components/ui/Chip";
+import { ModalConfirmar } from "@/components/ui/ModalConfirmar";
 import type { Incorporadora } from "@/types";
 
 const campo =
@@ -18,12 +17,14 @@ export function ListaIncorporadorasFiltro({ lista }: { lista: Incorporadora[] })
   const [busca, setBusca] = useState("");
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
   const [erroExclusao, setErroExclusao] = useState<string | null>(null);
+  const [alvoExclusao, setAlvoExclusao] = useState<Incorporadora | null>(null);
+  const [alvoRenome, setAlvoRenome] = useState<Incorporadora | null>(null);
   const [, startTransition] = useTransition();
 
-  function excluir(inc: Incorporadora) {
-    if (!confirm(`Excluir a incorporadora "${inc.nome}"? Só funciona se não houver empreendimentos vinculados.`)) {
-      return;
-    }
+  function confirmarExclusao() {
+    const inc = alvoExclusao;
+    if (!inc) return;
+    setAlvoExclusao(null);
     setExcluindoId(inc.id);
     setErroExclusao(null);
     startTransition(async () => {
@@ -32,18 +33,6 @@ export function ListaIncorporadorasFiltro({ lista }: { lista: Incorporadora[] })
         setErroExclusao(resultado.erro);
       }
       setExcluindoId(null);
-    });
-  }
-
-  function renomear(inc: Incorporadora) {
-    const novo = window.prompt(`Renomear "${inc.nome}":`, inc.nome);
-    if (novo === null) return; // cancelado
-    const trim = novo.trim();
-    if (!trim || trim === inc.nome) return;
-    setErroExclusao(null);
-    startTransition(async () => {
-      const r = await atualizarIncorporadora(inc.id, trim);
-      if (!r.ok) setErroExclusao(`Falha ao renomear: ${r.erro}`);
     });
   }
 
@@ -110,7 +99,7 @@ export function ListaIncorporadorasFiltro({ lista }: { lista: Incorporadora[] })
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    renomear(inc);
+                    setAlvoRenome(inc);
                   }}
                   aria-label={`Renomear ${inc.nome}`}
                   title="Renomear incorporadora"
@@ -123,7 +112,7 @@ export function ListaIncorporadorasFiltro({ lista }: { lista: Incorporadora[] })
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    excluir(inc);
+                    setAlvoExclusao(inc);
                   }}
                   disabled={excluindo}
                   aria-label={`Excluir ${inc.nome}`}
@@ -137,6 +126,18 @@ export function ListaIncorporadorasFiltro({ lista }: { lista: Incorporadora[] })
           })}
         </div>
       )}
+
+      <ModalConfirmar
+        aberto={alvoExclusao != null}
+        titulo={`Excluir "${alvoExclusao?.nome}"?`}
+        descricao="Só funciona se não houver empreendimentos vinculados — caso haja, exclua os empreendimentos primeiro."
+        onConfirmar={confirmarExclusao}
+        onCancelar={() => setAlvoExclusao(null)}
+      />
+      <ModalRenomearIncorporadora
+        incorporadora={alvoRenome}
+        onFechar={() => setAlvoRenome(null)}
+      />
     </div>
   );
 }
