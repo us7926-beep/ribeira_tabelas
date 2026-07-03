@@ -1,12 +1,19 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 
 import { registrarEventoDeFlyer } from "@/app/(dashboard)/flyers/actions";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Dropzone } from "@/components/ui/Dropzone";
 import type { DeteccaoFlyer, Empreendimento, Incorporadora } from "@/types";
+
+/** "DD/MM/AAAA" (texto da IA) -> "AAAA-MM-DD" (input type="date"). */
+function brParaISO(br: string): string {
+  const m = (br || "").trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : "";
+}
 
 const campo =
   "w-full px-[15px] py-[12px] rounded-[12px] border border-line bg-white text-[14px] outline-none focus:border-royal focus:ring-[3px] focus:ring-royal/[0.12] transition";
@@ -66,6 +73,20 @@ export default function AnaliseFlyer({
   const [dataFim, setDataFim] = useState("");
   const [condicoes, setCondicoes] = useState("");
   const [salvando, startSalvar] = useTransition();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!deteccao) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !salvando) setDeteccao(null);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [deteccao, salvando]);
 
   async function analisar() {
     if (!arquivo) return;
@@ -82,8 +103,8 @@ export default function AnaliseFlyer({
       setDeteccao(det);
       setNovoNome(det.nome_empreendimento ?? "");
       setDescricao(det.evento ?? "");
-      setDataInicio(det.data_inicio ?? "");
-      setDataFim(det.data_fim ?? "");
+      setDataInicio(brParaISO(det.data_inicio ?? ""));
+      setDataFim(brParaISO(det.data_fim ?? ""));
       setCondicoes(det.condicoes_comerciais ?? "");
       const detIncNome = (det.incorporadora ?? "").trim();
       const match = incorporadoras.find(
@@ -177,13 +198,16 @@ export default function AnaliseFlyer({
         </div>
       )}
 
-      {deteccao && (
+      {deteccao && mounted && createPortal(
         <div
-          className="fixed inset-0 bg-black/40 grid place-items-center p-4 z-50"
-          onClick={() => setDeteccao(null)}
+          className="fixed inset-0 z-50 flex items-start justify-center bg-ink/40 backdrop-blur-sm overflow-y-auto p-4 sm:p-8"
+          onClick={() => !salvando && setDeteccao(null)}
         >
           <div
-            className="bg-white rounded-[16px] border border-line w-full max-w-[560px] p-[22px] max-h-[90vh] overflow-auto shadow-[0_8px_22px_rgba(35,71,197,0.2)]"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Revisar detecção do flyer"
+            className="bg-white rounded-[16px] border border-line w-full max-w-[560px] p-[22px] mt-8 shadow-card"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-[11px] font-bold tracking-[1.6px] uppercase text-royal mb-1">
@@ -258,18 +282,28 @@ export default function AnaliseFlyer({
                 className={campo}
               />
               <div className="grid grid-cols-2 gap-2">
-                <input
-                  value={dataInicio}
-                  onChange={(e) => setDataInicio(e.target.value)}
-                  placeholder="Início DD/MM/AAAA"
-                  className={campo}
-                />
-                <input
-                  value={dataFim}
-                  onChange={(e) => setDataFim(e.target.value)}
-                  placeholder="Fim DD/MM/AAAA"
-                  className={campo}
-                />
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] font-bold tracking-[0.5px] uppercase text-muted">
+                    Início
+                  </span>
+                  <input
+                    type="date"
+                    value={dataInicio}
+                    onChange={(e) => setDataInicio(e.target.value)}
+                    className={campo}
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] font-bold tracking-[0.5px] uppercase text-muted">
+                    Fim
+                  </span>
+                  <input
+                    type="date"
+                    value={dataFim}
+                    onChange={(e) => setDataFim(e.target.value)}
+                    className={campo}
+                  />
+                </label>
               </div>
               <label className="text-[11px] font-bold tracking-[0.5px] uppercase text-muted">
                 Condições comerciais
@@ -283,7 +317,11 @@ export default function AnaliseFlyer({
             </div>
 
             <div className="mt-6 flex justify-end gap-2">
-              <Button variante="secondary" onClick={() => setDeteccao(null)}>
+              <Button
+                variante="secondary"
+                onClick={() => setDeteccao(null)}
+                disabled={salvando}
+              >
                 Cancelar
               </Button>
               <Button onClick={confirmar} disabled={salvando}>
@@ -291,7 +329,8 @@ export default function AnaliseFlyer({
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

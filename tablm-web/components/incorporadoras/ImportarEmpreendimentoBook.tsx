@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
@@ -42,6 +43,22 @@ export function ImportarEmpreendimentoBook({ incorporadoras }: Props) {
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState("");
   const [resultado, setResultado] = useState<RespostaImportar | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!aberto) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !enviando) {
+        setAberto(false);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [aberto, enviando]);
 
   function resetar() {
     setArquivo(null);
@@ -96,13 +113,16 @@ export function ImportarEmpreendimentoBook({ incorporadoras }: Props) {
         📄 Importar via book
       </Button>
 
-      {aberto && (
+      {aberto && mounted && createPortal(
         <div
-          className="fixed inset-0 bg-black/40 grid place-items-center p-4 z-50"
+          className="fixed inset-0 z-50 flex items-start justify-center bg-ink/40 backdrop-blur-sm overflow-y-auto p-4 sm:p-8"
           onClick={fechar}
         >
           <div
-            className="bg-white rounded-[16px] border border-line w-full max-w-[640px] p-[22px] max-h-[90vh] overflow-auto shadow-[0_8px_22px_rgba(35,71,197,0.2)]"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Importar empreendimento via book"
+            className="bg-white rounded-[16px] border border-line w-full max-w-[640px] p-[22px] mt-8 shadow-card"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-[11px] font-bold tracking-[1.6px] uppercase text-royal mb-1">
@@ -213,7 +233,8 @@ export function ImportarEmpreendimentoBook({ incorporadoras }: Props) {
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

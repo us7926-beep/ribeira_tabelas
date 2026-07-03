@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { Dropzone } from "@/components/ui/Dropzone";
+import { ModalConfirmar } from "@/components/ui/ModalConfirmar";
 import type { Documento } from "@/types";
 
 const TIPOS = [
@@ -81,10 +82,23 @@ export default function Documentos({
     else setErro(d.detail ?? "Não consegui gerar o link");
   }
 
-  function apagar(id: string) {
+  const [alvoExclusao, setAlvoExclusao] = useState<Documento | null>(null);
+  const [apagando, setApagando] = useState(false);
+
+  function confirmarApagar() {
+    const doc = alvoExclusao;
+    if (!doc) return;
+    setApagando(true);
+    setErro("");
     startApagar(async () => {
-      await apagarDocumento(id, empreendimentoId);
-      router.refresh();
+      const r = await apagarDocumento(doc.id, empreendimentoId);
+      if (!r.ok) {
+        setErro(`Falha ao apagar "${doc.nome}": ${r.erro}`);
+      } else {
+        router.refresh();
+      }
+      setApagando(false);
+      setAlvoExclusao(null);
     });
   }
 
@@ -147,7 +161,7 @@ export default function Documentos({
                   Baixar
                 </button>
                 <button
-                  onClick={() => apagar(doc.id)}
+                  onClick={() => setAlvoExclusao(doc)}
                   className="text-[13px] font-bold text-down hover:underline"
                 >
                   Apagar
@@ -157,6 +171,16 @@ export default function Documentos({
           ))}
         </div>
       )}
+
+      <ModalConfirmar
+        aberto={alvoExclusao != null}
+        titulo={`Apagar "${alvoExclusao?.nome}"?`}
+        descricao="O arquivo sai do repositório e do storage. A ação não pode ser desfeita."
+        rotuloConfirmar="Apagar"
+        ocupado={apagando}
+        onConfirmar={confirmarApagar}
+        onCancelar={() => !apagando && setAlvoExclusao(null)}
+      />
     </div>
   );
 }
