@@ -364,6 +364,103 @@ def test_normalizar_unidades_pula_linhas_sem_valor_nem_area():
 
 
 # --------------------------------------------------------------------------- #
+# Parser CSV no formato do CV CRM (fix smoke 2026-07-03): separador ';',
+# BOM UTF-8, header multilinha entre aspas, valores "R$ 1.234,56" / "40,9 m²"
+# e coluna FINANCIAMENTO numérica que não pode virar modalidade.
+# --------------------------------------------------------------------------- #
+_CSV_CVCRM = (
+    'UNIDADE;"ÁREA PRIVATIVA";SITUAÇÃO;"VALOR TOTAL";"ATO (1x) 5,00% \n'
+    '01/07/2026";"FINANCIAMENTO (1x) 80,00% \n'
+    '30/09/2026";"PARCELAS MENSAIS (36x) 9,95% \n'
+    '10/09/2026"\n'
+    'T1-011;"40,900 m²";Vendida;"R$ 357.934,53";"R$ 17.896,73";"R$ 286.347,62";"R$ 989,29"\n'
+    'T1-016;"42,190 m²";Disponível;"R$ 357.934,53";"R$ 17.896,73";"R$ 286.347,62";"R$ 989,29"\n'
+    'T2-014;"42,240 m²";Bloqueada;"R$ 357.934,53";"R$ 17.896,73";"R$ 286.347,62";"R$ 989,29"\n'
+)
+_CSV_CVCRM_BYTES = b"\xef\xbb\xbf" + _CSV_CVCRM.encode("utf-8")
+
+
+def test_ler_planilha_detecta_separador_ponto_e_virgula_e_bom():
+    from api import mercado_api
+
+    df = mercado_api.ler_planilha(_CSV_CVCRM_BYTES, "total braz cubas- 07-26.csv")
+    assert df.shape == (3, 7)
+    assert list(df.columns)[0] == "UNIDADE"  # BOM não vaza pro nome da coluna
+
+
+def test_ler_planilha_csv_latin1_nao_explode():
+    from api import mercado_api
+
+    csv = "unidade;área;preço\n101;50;1.000,50\n".encode("latin-1")
+    df = mercado_api.ler_planilha(csv, "tabela.csv")
+    assert df.shape == (1, 3)
+    assert "área" in df.columns
+
+
+def test_para_numero_formatos_brasileiros():
+    from src import mercado
+
+    assert mercado.para_numero("R$ 357.934,53") == 357934.53
+    assert mercado.para_numero("40,900 m²") == 40.9
+    assert mercado.para_numero("472.436") == 472436
+    assert mercado.para_numero("47.44") == 47.44
+    assert mercado.para_numero(1500) == 1500.0
+    assert mercado.para_numero("—") is None
+    assert mercado.para_numero("") is None
+    assert mercado.para_numero(None) is None
+
+
+def test_normalizar_unidades_formato_cvcrm_popula_schema_canonico():
+    from api import mercado_api
+
+    df = mercado_api.ler_planilha(_CSV_CVCRM_BYTES, "tabela.csv")
+    unidades = mercado_api.normalizar_unidades(df)
+    assert len(unidades) == 3
+    u = unidades[0]
+    assert u["unidade"] == "T1-011"
+    assert u["preco_total"] == 357934.53
+    assert u["area_m2"] == 40.9
+    assert u["situacao"] == "Vendida"
+    assert u["entrada"] == 17896.73
+    assert u["financiamento"] == 286347.62
+    assert u["parcelas_mensais"] == 989.29
+
+
+def test_vendas_kpis_cvcrm_nao_confunde_financiamento_com_modalidade(cliente):
+    """A coluna "FINANCIAMENTO (1x) 80%" traz valores R$ — não é rótulo de
+    modalidade. A guarda derruba a detecção explícita e a composição do
+    pagamento (entrada 5% < 25% do total) infere Financiamento."""
+    corpo = _post_vendas(cliente, _CSV_CVCRM_BYTES)
+    assert corpo["colunas"]["modalidade"] is None
+    assert corpo["colunas"]["modalidade_origem"] == "inferida"
+    kpis = corpo["kpis"]
+    assert kpis["total_unidades"] == 3
+    assert kpis["vendidas"] == 1
+    assert kpis["disponiveis"] == 1
+    assert kpis["vgv_total"] == pytest.approx(3 * 357934.53)
+    assert corpo["distribuicao"] == [
+        {"modalidade": "Financiamento", "unidades_vendidas": 1, "vgv": 357934.53}
+    ]
+
+
+def test_comparativo_formato_cvcrm_calcula_kpis(cliente):
+    corpo_resposta = cliente.post(
+        "/mercado/comparativo",
+        headers=_auth(cliente),
+        files={"arquivo": ("total braz cubas- 07-26.csv", _CSV_CVCRM_BYTES, "text/csv")},
+        data={
+            "tipo": "Nosso", "incorporadora": "Ribeira", "produto": "TOTAL",
+            "cidade": "Mogi das Cruzes", "bairro": "Braz Cubas", "padrao": "Econômico",
+        },
+    )
+    assert corpo_resposta.status_code == 200, corpo_resposta.text
+    corpo = corpo_resposta.json()
+    assert corpo["linhas"] == 3
+    assert corpo["kpis"]["ticket_medio"] == pytest.approx(357934.53)
+    assert corpo["colunas_detectadas"]["valor"] == "VALOR TOTAL"
+
+
+# --------------------------------------------------------------------------- #
 # PATCH /incorporadoras/{id} (renomear, PR feature/editar-incorporadora-card)
 # --------------------------------------------------------------------------- #
 def test_patch_incorporadora_body_vazio_retorna_400(cliente):

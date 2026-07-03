@@ -8,6 +8,8 @@ import unicodedata
 
 import pandas as pd
 
+from src import mercado
+
 STATUS_DISPONIVEL = {"disponivel", "livre", "disp", "d"}
 STATUS_VENDIDO = {"vendido", "vendida", "venda", "v"}
 STATUS_RESERVADO = {"reservado", "reservada", "reserva", "r"}
@@ -39,7 +41,7 @@ def _percentual(parte: int, total: int) -> float:
 def calcular_kpis(df: pd.DataFrame, col_unidade: str, col_valor: str, col_status: str) -> dict:
     """Calcula os KPIs de uma única tabela (visão atual)."""
     situacoes = df[col_status].apply(classificar_status)
-    valores = pd.to_numeric(df[col_valor], errors="coerce").fillna(0)
+    valores = mercado.para_numero_serie(df[col_valor]).fillna(0)
 
     total = len(df)
     disponiveis = int((situacoes == "disponivel").sum())
@@ -104,8 +106,8 @@ def comparar_tabelas_kpis(
 
     status_ant = ant[col_status].apply(classificar_status)
     status_atu = atu[col_status].apply(classificar_status)
-    valor_ant = pd.to_numeric(ant[col_valor], errors="coerce")
-    valor_atu = pd.to_numeric(atu[col_valor], errors="coerce")
+    valor_ant = mercado.para_numero_serie(ant[col_valor])
+    valor_atu = mercado.para_numero_serie(atu[col_valor])
 
     chaves_ant, chaves_atu = set(ant.index), set(atu.index)
     comuns = sorted(chaves_ant & chaves_atu)
