@@ -136,6 +136,13 @@ def contar_situacao_unidades(id_empreendimento: str | int) -> dict:
     por situação. Devolve dict com total + contagens + vso derivado.
 
     Só considera `ativoPainel = true` (unidades visíveis, igual ao painel).
+
+    NÃO usa `pagination.totalPaginas` para decidir quando parar: na Ribeira
+    a API só preenche a metadata na página 1 e devolve `totalPaginas: 0`
+    da página 2 em diante (confirmado em produção — TOTAL BRAZ CUBAS tem
+    245 unidades em 3 páginas e a metadata zerada fazia a contagem parar
+    em 200). Termina quando a página vem vazia ou menor que o tamanho
+    pedido.
     """
     contagem: dict[int, int] = {}
     total = 0
@@ -154,10 +161,7 @@ def contar_situacao_unidades(id_empreendimento: str | int) -> dict:
             total += 1
             sit = u.get("situacao")
             contagem[sit] = contagem.get(sit, 0) + 1
-        total_paginas = 1
-        if isinstance(dados, dict):
-            total_paginas = int(dados.get("pagination", {}).get("totalPaginas", 1) or 1)
-        if pagina >= total_paginas:
+        if len(linhas) < _UNIDADES_POR_PAGINA:
             break
         pagina += 1
 
