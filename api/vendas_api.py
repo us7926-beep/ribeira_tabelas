@@ -3,7 +3,7 @@ import re
 
 import pandas as pd
 
-from src import dashboard
+from src import dashboard, mercado
 
 
 def _detectar(df: pd.DataFrame, candidatos: list[str]) -> str | None:
@@ -38,15 +38,20 @@ def _inferir_modalidade_por_nome(valor: object) -> str | None:
 
 
 def _numero(v: object) -> float | None:
-    if v is None:
-        return None
-    try:
-        n = float(pd.to_numeric(v, errors="coerce"))
-    except (TypeError, ValueError):
-        return None
-    if pd.isna(n):
-        return None
-    return n
+    # Delegado ao helper de src/mercado (entende "R$ 1.234,56" e "40,9 m²").
+    return mercado.para_numero(v)
+
+
+def _parece_rotulo(serie: pd.Series) -> bool:
+    """True quando a coluna contém rótulos de texto (FGTS, À vista…), e não
+    números. Tabelas do CV CRM têm coluna "FINANCIAMENTO (1x) 80,00%" cheia
+    de valores R$ — sem esta guarda ela seria tratada como modalidade
+    "explícita" e a distribuição agruparia por valor monetário."""
+    s = serie.dropna().astype(str).str.strip()
+    s = s[s != ""]
+    if s.empty:
+        return False
+    return mercado.para_numero_serie(s).notna().mean() < 0.8
 
 
 def _inferir_modalidade_por_composicao(
@@ -102,7 +107,7 @@ def _agrupar_por_modalidade(
         unidades = int(len(sub))
         if unidades <= 0:
             continue
-        vgv_serie = pd.to_numeric(sub[col_valor], errors="coerce").dropna()
+        vgv_serie = mercado.para_numero_serie(sub[col_valor]).dropna()
         vgv = float(vgv_serie.sum()) if not vgv_serie.empty else None
         saida.append(
             {
@@ -142,6 +147,8 @@ def kpis(df: pd.DataFrame) -> dict:
         ["modalidade", "condic", "forma de pag", "forma pag", "tipo pag",
          "tipo de pag", "financiamento", "pagamento"],
     )
+    if col_modalidade is not None and not _parece_rotulo(df[col_modalidade]):
+        col_modalidade = None
 
     resultado = dashboard.calcular_kpis(df, col_unidade, col_valor, col_status)
     saida: dict = {

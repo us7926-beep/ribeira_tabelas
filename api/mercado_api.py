@@ -14,6 +14,32 @@ _EXTS_IA = (".pdf", ".png", ".jpg", ".jpeg")
 _RESULTADO_IA: dict | None = None
 
 
+def _decodificar_csv(conteudo: bytes) -> str:
+    """UTF-8 (com ou sem BOM) com fallback latin-1 — exports do CV CRM vêm
+    com BOM; planilhas antigas do Windows vêm em cp1252/latin-1."""
+    try:
+        return conteudo.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return conteudo.decode("latin-1")
+
+
+def _detectar_separador(amostra: str) -> str:
+    """Conta ';', ',' e tab fora de aspas e devolve o mais frequente.
+
+    Exports do CV CRM usam ';' com vírgula decimal e quebras de linha dentro
+    de aspas — o read_csv padrão (vírgula) tokeniza errado nesses arquivos.
+    """
+    contagem = {";": 0, ",": 0, "\t": 0}
+    em_aspas = False
+    for ch in amostra:
+        if ch == '"':
+            em_aspas = not em_aspas
+        elif not em_aspas and ch in contagem:
+            contagem[ch] += 1
+    melhor = max(contagem, key=lambda k: contagem[k])
+    return melhor if contagem[melhor] > 0 else ","
+
+
 def ler_planilha(conteudo: bytes, nome_arquivo: str) -> pd.DataFrame:
     """Lê o arquivo enviado e devolve um DataFrame com pelo menos valor e área."""
     global _RESULTADO_IA
@@ -37,10 +63,10 @@ def ler_planilha(conteudo: bytes, nome_arquivo: str) -> pd.DataFrame:
         _RESULTADO_IA = dados
         return df
 
-    buffer = io.BytesIO(conteudo)
     if nome.endswith(".csv"):
-        return pd.read_csv(buffer)
-    return pd.read_excel(buffer)
+        texto = _decodificar_csv(conteudo)
+        return pd.read_csv(io.StringIO(texto), sep=_detectar_separador(texto[:8192]))
+    return pd.read_excel(io.BytesIO(conteudo))
 
 
 def ultima_extracao_ia() -> dict | None:
@@ -77,13 +103,9 @@ def _detectar(df: pd.DataFrame, candidatos: list[str]) -> str | None:
 
 
 def _num(v) -> float | None:
-    try:
-        n = float(pd.to_numeric(v, errors="coerce"))
-    except (TypeError, ValueError):
-        return None
-    if pd.isna(n):
-        return None
-    return n
+    # Delegado ao helper de src/mercado, que entende formato BR e ruído
+    # tipo "R$ 351.299,19" / "40,900 m²" (exports do CV CRM).
+    return mercado.para_numero(v)
 
 
 def _texto(v) -> str | None:
@@ -110,7 +132,8 @@ def normalizar_unidades(df: pd.DataFrame) -> list[dict]:
 
     Reusa `_detectar` por substring case-insensitive nos nomes de coluna.
     `valor`/`preço`/`r$` -> `preco_total`; `area`/`m2`/`metragem` -> `area_m2`;
-    `unid`/`apto`/`apt`/`casa`/`lote`/`sala` -> `unidade`; etc.
+    `unid`/`apto`/`apt`/`casa`/`lote`/`sala` -> `unidade`; `situação`/`status`
+    -> `situacao` (texto, preserva Vendida/Disponível/Bloqueada do CV CRM); etc.
 
     Sem coluna de valor ou área, devolve [] (o caller decide se erra).
     """
@@ -123,6 +146,7 @@ def normalizar_unidades(df: pd.DataFrame) -> list[dict]:
     col_unidade = _detectar(df, ["unid", "apto", "apt", "casa", "lote", "sala"])
     col_andar = _detectar(df, ["andar", "pavimento"])
     col_vaga = _detectar(df, ["vaga"])
+    col_situacao = _detectar(df, ["situa", "status", "disponib"])
     col_entrada = _detectar(df, ["entrada", "ato"])
     col_parcelas = _detectar(df, ["parcela", "mensal"])
     col_financ = _detectar(df, ["financ"])
@@ -149,6 +173,10 @@ def normalizar_unidades(df: pd.DataFrame) -> list[dict]:
             s = _texto(linha.get(col_vaga))
             if s is not None:
                 registro["vaga"] = s
+        if col_situacao:
+            s = _texto(linha.get(col_situacao))
+            if s is not None:
+                registro["situacao"] = s
         for chave, col in (
             ("entrada", col_entrada),
             ("parcelas_mensais", col_parcelas),
