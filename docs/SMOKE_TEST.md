@@ -87,19 +87,41 @@
 
 ## 3. Carteira — `/incorporadoras` e `/empreendimentos` (PRs #47, #48, #56, #58)
 
-### 3.1 Excluir incorporadora (PR #56)
-- [ ] Card de incorporadora tem botão **×** no canto superior direito.
-- [ ] Clicar × numa incorporadora **sem empreendimentos** → confirm →
-      desaparece.
-- [ ] Clicar × numa incorporadora **com empreendimentos** → banner vermelho
-      no topo: "Esta incorporadora ainda tem empreendimentos vinculados…".
-- [ ] Card inteiro continua linkado pro dossiê — clique fora do × abre.
+### 3.1 Excluir incorporadora (PR #56 — executado 2026-07-27)
+- [x] Card tem botão **×** no canto superior direito (`aria-label="Excluir
+      <nome>"`).
+- [x] Clicar × numa incorporadora **sem empreendimentos** → `ModalConfirmar`
+      abre com título `Excluir "ZZ Smoke Teste"?`, corpo "Só funciona se
+      não houver empreendimentos vinculados — caso haja, exclua os
+      empreendimentos primeiro." → botão vermelho **Excluir** → card
+      desaparece (4 → 3 incorporadoras).
+- [x] Clicar × numa incorporadora **com empreendimentos** (ZZ Smoke Vinculo
+      com 1 ZZ Emp Smoke) → mesmo modal → clicar Excluir → **banner
+      vermelho amigável no topo**: "Esta incorporadora ainda tem
+      empreendimentos vinculados — exclua-os primeiro (entre na
+      incorporadora e use o × em cada card)." (sem "Erro 409" cru — o
+      server action detecta o 409 e traduz).
+- [x] Card inteiro continua linkado pro dossiê — clique fora do × leva a
+      `/incorporadoras/<id>` (validado indo pra ZZ Smoke Vinculo pra
+      criar o empreendimento).
 
-### 3.2 Excluir empreendimento (PR #47)
-- [ ] Em `/incorporadoras/[id]`, cada card de empreendimento tem botão **×**.
-- [ ] Confirm descreve o estrago (documentos, tabelas, vendas vinculados).
-- [ ] Durante exclusão, card vira **opacity-50 + pointer-events-none**.
-- [ ] Erro → banner vermelho.
+### 3.2 Excluir empreendimento (PR #47 — executado 2026-07-27)
+- [x] Em `/incorporadoras/[id]`, card de empreendimento tem botão **×**
+      (`aria-label="Excluir <nome>"`).
+- [x] **Confirm nativo com texto exato descrevendo o estrago**:
+      "Excluir o empreendimento "ZZ Emp Smoke 2"? Documentos, tabelas
+      de preços e histórico de vendas vinculados também somem. A ação
+      não pode ser desfeita." (menciona documentos + tabelas + vendas
+      conforme esperado).
+- [x] Confirmar → card some sem refresh, empty state "Nenhum
+      empreendimento ainda. Adicione o primeiro no formulário acima."
+      volta a aparecer.
+- [ ] `opacity-50 + pointer-events-none` durante a action — não
+      verificado por conta da velocidade da server action (executa
+      < 1s no smoke; comportamento confirmado no código
+      `excluirEmpreendimento` em `actions.ts`).
+- [x] Sem erro exposto (fluxo feliz). Erro → banner vermelho (regra
+      geral, mesmo padrão do 3.1).
 
 ### 3.3 Export CSV de empreendimentos (PR #48)
 - [x] `empreendimentos.csv` com **11 colunas** exatas (nome, bairro,
@@ -149,12 +171,28 @@ Em `/empreendimentos/[id]`, com 2+ versões de tabela e 2+ meses de venda.
 ### 4.3 Aba Tabela — sparkline trio (PR #44)
 - [x] Card **"Evolução entre versões"** mostra **3 mini-sparklines lado a
       lado**: Preço/m² (royal), Ticket médio (verde), VGV total (âmbar).
-      Validado no Alegria (Jun/2026 → Jul/2026).
-- [x] Cada mini tem título + chip de delta ▲4.8% vs versão inicial +
-      valor atual (R$ 9.276 / R$ 545 mil / R$ 3.3 mi) + linha SVG com
-      pontos e labels.
+      Validado no Alegria (Jun/2026 → Jul/2026) e reconfirmado 2026-07-27
+      no TOTAL BRAZ CUBAS com **3 versões** (Mai/Jun/Jul-2026), 3 pontos
+      por sparkline, delta ▲1.9% vs versão inicial em cada mini.
+- [x] Cada mini tem título + chip de delta + valor atual + linha SVG com
+      pontos e labels. TOTAL BRAZ CUBAS: R$ 8.842 / R$ 366 mil / R$ 89.7 mi.
 - [ ] Quando não há `area_m2` em ≥2 versões, mini de "Preço/m²" mostra
       empty state inline.
+
+### 4.5 Aba Tabela — Bônus: PDF via Gemini (2026-07-27)
+
+Prova fim-a-fim da extração de tabela de preços via Gemini com PDFs
+reais do CV CRM, com Padrão detectado corretamente:
+
+- [x] `MaXIMO_BRAZ_CUBAS_07_2026_Maximo_Braz_Cubas_SFH.pdf` (102,9 KB) →
+      291 unidades extraídas, R$ 10.899/m² médio, VGV R$ 139,7 mi, Padrão
+      **Medio**. Ticket R$ 480.027.
+- [x] `SOHO_GALERIA_07_2026_Tabela_Padrao_SOHO_Galeria.pdf` (58,1 KB) →
+      132 unidades extraídas, R$ 15.869/m² médio, VGV R$ 194,3 mi, Padrão
+      **Alto**. Ticket R$ 1.472.181.
+- [x] Ambos persistidos como versão de tabela Jul/2026 nos dossiês
+      respectivos (`/empreendimentos/2097803d-.../aba=tabela` e
+      `.../6de88a6d-...`).
 
 ### 4.4 Aba Fluxo Comercial — export CSV (PR #54)
 - [x] Link "Baixar CSV" no header, ao lado do chip "Real".
@@ -173,26 +211,48 @@ Em `/empreendimentos/[id]`, com 2+ versões de tabela e 2+ meses de venda.
 > Use 3 planilhas CSV de teste, todas com colunas básicas (`unidade, valor,
 > status`):
 
-### 5.1 Coluna `modalidade` explícita
-- [ ] Planilha com 4ª coluna `modalidade` (valores FGTS / Financiamento /
-      etc.) → Card **"Distribuição por modalidade detectada"** aparece **sem**
-      Chip "inferida" (comportamento antigo).
-- [ ] Subtítulo diz "Coluna **modalidade** da planilha".
+### 5.1 Coluna `modalidade` explícita (executado 2026-07-27)
+- [x] `inferencia_5_1_explicita.csv` (4ª coluna `modalidade` = FGTS/
+      Financiamento/MCMV) → Card **"Distribuição por modalidade detectada"**
+      aparece **sem** Chip "inferida".
+- [x] 3 modalidades: **FGTS 2 · R$ 510.000**, **Financiamento 1 · R$ 270.000**,
+      **MCMV 1 · R$ 280.000**. KPIs: 4 vendidas / 1 disponível / VSO 80% /
+      Ticket R$ 272.000.
 
-### 5.2 Inferência por **nome da unidade**
-- [ ] Planilha **sem** coluna modalidade, mas com unidades nomeadas
-      "Apt 101 FGTS", "Apt 102 MCMV", etc. → Card aparece **com** Chip âmbar
-      **"inferida automaticamente"**.
-- [ ] Distribuição agrupa FGTS, MCMV, etc. corretamente.
+### 5.2 Inferência por **nome da unidade** (executado 2026-07-27)
+- [x] `inferencia_5_2_por_nome.csv` (unidades "Apt 101 FGTS", "Apt 102
+      MCMV", "Apt 103 FGTS", "Apt 104 SBPE") → Card **com** Chip âmbar
+      **"inferida automaticamente"** e texto "A planilha não tinha coluna
+      de modalidade — a classificação foi deduzida do nome da unidade
+      (FGTS/MCMV/SBPE…) e da composição do pagamento".
+- [x] Agrupamento correto: **FGTS 2 · R$ 520.000**, **MCMV 1 · R$ 260.000**,
+      **SBPE 1 · R$ 280.000**.
 
-### 5.3 Inferência por **composição do pagamento**
-- [ ] Planilha sem coluna modalidade nem nome com FGTS/MCMV, mas com colunas
-      `entrada`, `valor_financiado`, `subsidio` → Card aparece com Chip
-      "inferida".
-- [ ] Classifica:
-  - `subsidio > 0` → **MCMV**
-  - `valor_financiado > 0` e `entrada < 25% do total` → **Financiamento**
-  - só entrada ≈ total → **À vista**
+### 5.3 Inferência por **composição do pagamento** (executado 2026-07-27)
+- [x] `inferencia_5_3_composicao.csv` (colunas `entrada`,
+      `valor_financiado`, `subsidio`, sem nome com FGTS/MCMV) → Card com
+      Chip "inferida".
+- [x] Classificação bateu regra a regra:
+  - Linha `subsidio=20000 > 0` → **MCMV**
+  - Linha `valor_financiado=285000` + `entrada=15000` (5% do total) →
+    **Financiamento**
+  - Linha só com entrada `295000` ≈ total `300000` → **À vista**
+
+### 5.4 Bônus — CSV real do CV CRM em `/vendas` (executado 2026-07-27)
+
+Prova fim-a-fim do fix do parser ([PR #86](https://github.com/us7926-beep/ribeira_tabelas/pull/86))
+via UI de produção:
+
+- [x] Subiu `total braz cubas- 07-26.csv` (28.431 bytes, sep `;`, BOM,
+      `R$` BR, coluna FINANCIAMENTO numérica) direto no `/vendas`.
+- [x] KPIs: **245 unidades · 238 vendidas · 6 disponíveis · VSO 97,1% ·
+      VGV R$ 89,7 mi · Ticket R$ 366.182** — bate com o painel do CV CRM
+      e com o sync das PRs #81/#82.
+- [x] Coluna `FINANCIAMENTO (1x) 80,00%` **não** virou modalidade
+      "explícita" (guarda `_parece_rotulo` do PR #86); classificação foi
+      pela composição do pagamento (`entrada 5%` < 25% → **Financiamento**).
+- [x] Card "Distribuição por modalidade" com Chip "inferida automaticamente",
+      1 modalidade: **Financiamento · 238 · R$ 87,1 mi**.
 
 ---
 
@@ -225,12 +285,26 @@ Em `/empreendimentos/[id]`, com 2+ versões de tabela e 2+ meses de venda.
 - [ ] Repetir em `/promocoes` e `/benchmark` — *não testado especificamente
       mas mesmo padrão de fix nos 3 componentes (#60 confirmou no código)*.
 
-### 7.2 Fix parser CSV de Tabela de Preços (PR #61)
+### 7.2 Fix parser CSV de Tabela de Preços (PR #61 + PR #86)
 
-- [ ] Subir 2 CSVs simples (`unidade,area_m2,valor`) com **preços diferentes** em versões distintas na Aba Tabela.
-- [ ] Card "Diferenças entre versões" agora mostra **N alteradas** (não mais "0").
-- [ ] Sparkline trio (Preço/m² + Ticket + VGV) popula com números reais.
-- [ ] Documentação do formato CSV aceito está em [`docs/DEPLOY.md`](DEPLOY.md) anexo.
+**Executado 2026-07-27 com os 3 exports reais do CV CRM
+(TOTAL BRAZ CUBAS mai/jun/jul-2026, 245 unidades cada, 28.431 bytes,
+MD5 batendo).** Subiu como versões Mai/2026, Jun/2026 e Jul/2026 no
+dossiê do TOTAL BRAZ CUBAS via injeção de `File` no `input[type=file]`
+da Aba Tabela.
+
+- [x] 3 versões persistidas com 245 unidades cada; header do card lista
+      "Jul/2026 · 01/07/2026 · Jun/2026 · 01/06/2026 · Mai/2026 · 01/05/2026".
+- [x] Card "Diferenças entre versões" com "**245 alteradas · 0 adicionadas
+      · 0 removidas**" (Jul vs Jun, match por andar+unidade). Tabela
+      detalhada mostra Antes/Depois/Δ pra Preço, Entrada, Mensais e
+      Financiamento em cada unidade.
+- [x] Sparkline trio popular com números reais — **Preço/m² R$ 8.842
+      ▲1.9%**, **Ticket R$ 366 mil ▲1.9%**, **VGV R$ 89.7 mi ▲1.9%**
+      (Mai→Jul).
+- [x] Formato do CV CRM (sep `;`, BOM UTF-8, `R$ 351.299,19`, `40,900 m²`)
+      documentado em [`docs/DEPLOY.md`](DEPLOY.md) anexo + fixado no
+      parser via [PR #86](https://github.com/us7926-beep/ribeira_tabelas/pull/86).
 
 ### 7.3 Editar empreendimento direto do card (PR #62)
 

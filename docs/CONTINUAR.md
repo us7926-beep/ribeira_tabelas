@@ -2,9 +2,62 @@
 
 > Cole/abra este arquivo numa nova janela do Claude Code. Tem TUDO para continuar
 > a evolução do TabLM de onde paramos. **Sem segredos** (ficam só em `api/.env` e
-> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-07-03 (após PRs
-> #76-#84: integração CV CRM completa com sync de VSO + 2 lotes da auditoria
-> de UI/UX).
+> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-07-27 (após
+> PR #86: parser CSV do CV CRM + smoke 7.2 / 4.3 / 4.5 / 5.x rodado em
+> produção com material real).
+
+## Addendum 2026-07-27 (PR #86 + smoke 7.2 / 4.3 / 4.5 / 5.x)
+
+- **[PR #86](https://github.com/us7926-beep/ribeira_tabelas/pull/86)** —
+  parser CSV aceita export do CV CRM (sep `;`, BOM UTF-8, `R$ 1.234,56`
+  BR, guarda `_parece_rotulo` que impede coluna FINANCIAMENTO numérica
+  virar modalidade explícita; campo `situacao` no schema). Suite: 139
+  pytest. Mergeada em master `7232162`.
+- **Smoke 7.2 + 4.3** (Tabela de Preços + sparkline trio) — 3 exports
+  reais do TOTAL BRAZ CUBAS (mai/jun/jul-2026, 245 unidades cada,
+  28.431 bytes MD5-idênticos) subidos via `File` injetado em prod.
+  Card "Diferenças entre versões" mostra **245 alteradas · 0 add · 0
+  rem** (Jul vs Jun). Sparkline trio popular: **R$ 8.842/m² · R$ 366 mil
+  ticket · R$ 89,7 mi VGV** com **▲1.9% Mai→Jul** em cada mini.
+- **Smoke 4.5 (bônus PDFs Gemini)** — MÁXIMO BRAZ CUBAS SFH (291 un,
+  R$ 10.899/m², Padrão Medio) e SOHO GALERIA (132 un, R$ 15.869/m²,
+  Padrão Alto) extraídos pelo Gemini e persistidos como versão Jul/2026.
+- **Smoke 5.x** — os 3 CSVs de inferência (explícita, por nome, por
+  composição) passaram + bônus **CSV real do CV CRM** direto no
+  `/vendas`: 238/245 vendidas = **VSO 97,1%**, coluna FINANCIAMENTO
+  **não** virou modalidade explícita, inferida como Financiamento pela
+  composição do pagamento (entrada 5% < 25%).
+- **Supabase pausou por inatividade** (`status: "INACTIVE"`) durante a
+  sessão. Backend do Render passou a responder **500** em todos os
+  endpoints que tocam DB (Carteira/Empreendimentos/Promoções); `/health`
+  continuou 200 porque só valida envs, não a conexão. Fix:
+  `mcp_supabase.restore_project` (~1-2 min de `COMING_UP` até
+  `ACTIVE_HEALTHY`); reconfirmar com `SELECT count(*) FROM
+  incorporadoras;` ou watch via
+  `curl -H "apikey: $KEY" .../rest/v1/incorporadoras?select=id&limit=1`
+  até 206. **Recomenda-se scheduled task** que pinga o Supabase 1x
+  por semana pra não pausar — ou upgrade pro Pro (US$25/mês) se o uso
+  ficar contínuo.
+- **Smoke 3.1/3.2 (deletes) ✓** — após restore, criei ZZ Smoke Teste
+  (vazia) → × → `ModalConfirmar` do PR #84 → some (**3.1 sem vínculo
+  passa**). Criei ZZ Smoke Vinculo + empreendimento ZZ Emp Smoke → ×
+  na incorporadora → banner amigável "Esta incorporadora ainda tem
+  empreendimentos vinculados — exclua-os primeiro" (**3.1 com vínculo
+  passa; server action traduz 409**). × no empreendimento → confirm
+  nativo "Excluir o empreendimento "ZZ Emp Smoke 2"? Documentos,
+  tabelas de preços e histórico de vendas vinculados também somem. A
+  ação não pode ser desfeita." → some (**3.2 passa, confirm descreve
+  o estrago corretamente**). Cleanup: ZZ Smoke Vinculo agora vazia →
+  × → some. Voltou pra 3 incorporadoras originais.
+- **Pendências operacionais (você):**
+  1. Chamado no suporte do CV CRM pedindo liberação das APIs do CVDW
+     pra desbloquear preços R$ por unidade (ver memória
+     [[cvcrm_cvdw_precos_bloqueado]]).
+  2. Configurar Resend + envs no Render/Vercel ([docs/DEPLOY.md](DEPLOY.md)
+     seção 4) — sem isso, PR #35 (email diário) fica inerte.
+  3. Rodar smoke 3.1/3.2 (deletes) quando o Supabase voltar — criar
+     incorporadora + empreendimento de teste via UI, validar × + confirm
+     no card, banner 409 amigável quando incorporadora tem vínculo.
 
 ## Addendum 2026-07-01→03 (PRs #76-#84)
 
