@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { ModalSelecionarEmpreendimentos } from "@/components/empreendimentos/ModalSelecionarEmpreendimentos";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
@@ -11,7 +12,7 @@ import { Dropzone } from "@/components/ui/Dropzone";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { KpiDelta } from "@/components/ui/KpiDelta";
 import { exportarTabelaCsv } from "@/lib/csv";
-import type { TabelaPrecos, UnidadePreco } from "@/types";
+import type { Empreendimento, TabelaPrecos, UnidadePreco } from "@/types";
 
 function moeda(n: number | null | undefined): string {
   if (n == null) return "—";
@@ -304,6 +305,34 @@ export function AbaTabela({ empreendimentoId }: Props) {
   /** Se marcado, chama /importar-book em vez de /tabelas-precos. */
   const [extrairFicha, setExtrairFicha] = useState(false);
 
+  // Comparação com outros empreendimentos.
+  const [modalCompararAberto, setModalCompararAberto] = useState(false);
+  const [empreendimentosDisponiveis, setEmpreendimentosDisponiveis] = useState<
+    Empreendimento[]
+  >([]);
+
+  async function abrirModalComparar() {
+    setModalCompararAberto(true);
+    if (empreendimentosDisponiveis.length > 0) return;
+    try {
+      const r = await fetch("/api/empreendimentos");
+      if (!r.ok) return;
+      const d: Empreendimento[] = await r.json();
+      setEmpreendimentosDisponiveis(d);
+    } catch {
+      // silencioso — modal ainda abre; se lista vazia, empty state
+    }
+  }
+
+  function irComparar(ids: string[]) {
+    setModalCompararAberto(false);
+    const qs = new URLSearchParams({
+      ids: ids.join(","),
+      modo: "unidades",
+    });
+    router.push(`/comparar?${qs.toString()}`);
+  }
+
   useEffect(() => {
     carregar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -445,6 +474,9 @@ export function AbaTabela({ empreendimentoId }: Props) {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            <Button variante="secondary" onClick={abrirModalComparar}>
+              🔍 Comparar com outros
+            </Button>
             <Button onClick={() => setModalAberto(true)}>+ Nova tabela</Button>
           </div>
         </div>
@@ -878,6 +910,16 @@ export function AbaTabela({ empreendimentoId }: Props) {
         </div>,
         document.body,
       )}
+
+      <ModalSelecionarEmpreendimentos
+        aberto={modalCompararAberto}
+        empreendimentos={empreendimentosDisponiveis}
+        idsSelecionados={[empreendimentoId]}
+        travarIds={[empreendimentoId]}
+        titulo="Comparar tabelas de outros empreendimentos"
+        onFechar={() => setModalCompararAberto(false)}
+        onConfirmar={irComparar}
+      />
     </div>
   );
 }
