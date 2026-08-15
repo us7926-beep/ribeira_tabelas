@@ -135,7 +135,50 @@ _PROMPT_FICHA_DOSSIE = (
     "distancia_metro_km como numero em km (ex.: 0.8 para 800 m). "
     "data_lancamento e data_entrega no formato YYYY-MM-DD. "
     "Use string vazia ou null nos campos nao encontrados (nunca invente). "
-    "Numeros como tipo number, nao string."
+    "Numeros como tipo number, nao string. "
+    "\n\nEXEMPLOS de resposta valida:\n"
+    "1) Book completo (Alegria Patteo Mogilar da Helbor):\n"
+    '{"nome":"Alegria Patteo Mogilar","bairro":"Vila Mogilar","cidade":"Mogi das Cruzes",'
+    '"padrao":"Alto","tipologias":"2 e 3 dorms","metragens":["64 m2","82 m2","98 m2"],'
+    '"total_unidades":180,"unidades_residenciais":180,"unidades_comerciais":null,'
+    '"tipo_uso":"residencial","pavimentos":22,"torres":2,"elevadores_por_torre":4,'
+    '"vagas_comunidade":null,"vagas_venda":220,"vagas_cobertas":220,'
+    '"distancia_metro_km":null,"data_lancamento":"2025-09-15","data_entrega":"2028-12-30",'
+    '"cnpj_spe":"12.345.678/0001-90","ri":"12345-RIM"}\n'
+    "2) Book pobre (so tem o nome e uma pista de padrao, o resto nao aparece):\n"
+    '{"nome":"Torres do Parque","bairro":null,"cidade":null,"padrao":"Medio",'
+    '"tipologias":null,"metragens":[],"total_unidades":null,'
+    '"unidades_residenciais":null,"unidades_comerciais":null,"tipo_uso":null,'
+    '"pavimentos":null,"torres":null,"elevadores_por_torre":null,'
+    '"vagas_comunidade":null,"vagas_venda":null,"vagas_cobertas":null,'
+    '"distancia_metro_km":null,"data_lancamento":null,"data_entrega":null,'
+    '"cnpj_spe":null,"ri":null}\n'
+    "Observe: prefira null a inventar. Nunca chute uma data ou um CNPJ."
+)
+
+
+# Campos que sao essenciais pra chamar a ficha de "bem extraida". Se vier
+# menos que _MIN_ESSENCIAIS preenchidos, disparamos retry com prompt de
+# reforco. Escolhidos por serem o que a IA erra menos e o que mais dor
+# quando falta.
+_CAMPOS_ESSENCIAIS = ("nome", "bairro", "cidade", "padrao", "tipologias")
+_MIN_ESSENCIAIS = 3
+
+
+_PROMPT_FICHA_REFORCO = (
+    "Voce ja tentou extrair a ficha deste documento uma vez, mas veio incompleta. "
+    "Os seguintes campos ficaram vazios ou nulos: {faltantes}. "
+    "Procure de novo, agora com atencao a esses campos especificamente. "
+    "Olhe cabecalhos, rodapes, tabelas de fluxo comercial, seccoes de 'MEMORIAL', "
+    "logos, endereco no rodape, dados de registro imobiliario no final do PDF, "
+    "textos em letra pequena. Dados podem estar em qualquer lugar do documento. "
+    "Responda APENAS um objeto JSON com as MESMAS chaves da tentativa anterior "
+    "({todas_chaves}). Preencha os campos que voce ja achou antes (repita os "
+    "valores) e os novos que conseguiu extrair agora. Se um campo continuar sem "
+    "aparecer mesmo depois de olhar tudo, use null. "
+    "REGRAS DE FORMATACAO: padrao entre Economico/Medio/Alto/Luxo; tipo_uso "
+    "entre residencial/comercial/misto; datas em YYYY-MM-DD; metragens como "
+    "array de strings; distancia_metro_km em km (numero); numeros como number."
 )
 
 
@@ -150,29 +193,25 @@ def _parse_numero(valor) -> float | None:
         return None
 
 
-def extrair_ficha_dossie(conteudo: bytes, nome: str) -> dict:
-    """Extrai ficha tecnica de um documento (PDF/imagem), com chaves alinhadas
-    ao schema atual de `empreendimentos`.
+_FICHA_CHAVES_INTEIRO = {
+    "total_unidades", "unidades_residenciais", "unidades_comerciais",
+    "pavimentos", "torres", "elevadores_por_torre",
+    "vagas_comunidade", "vagas_venda", "vagas_cobertas",
+}
+_FICHA_CHAVES_DECIMAL = {"distancia_metro_km"}
+_FICHA_CHAVES_TEXTO = {"nome", "bairro", "cidade", "padrao", "tipologias",
+                       "tipo_uso", "data_lancamento", "data_entrega",
+                       "cnpj_spe", "ri"}
+_FICHA_TODAS_CHAVES = (
+    _FICHA_CHAVES_TEXTO | _FICHA_CHAVES_INTEIRO | _FICHA_CHAVES_DECIMAL | {"metragens"}
+)
 
-    Retorna apenas as chaves preenchidas (omite vazias/None) — frontend so
-    aplica o que veio. Numeros normalizados (float ou int), metragens como
-    lista de strings.
-    """
-    dados = _gerar(conteudo, nome, _PROMPT_FICHA_DOSSIE)
-    if not isinstance(dados, dict):
-        return {}
 
-    chaves_inteiro = {
-        "total_unidades", "unidades_residenciais", "unidades_comerciais",
-        "pavimentos", "torres", "elevadores_por_torre",
-        "vagas_comunidade", "vagas_venda", "vagas_cobertas",
-    }
-    chaves_decimal = {"distancia_metro_km"}
-    chaves_texto = {"nome", "bairro", "cidade", "padrao", "tipologias",
-                    "tipo_uso", "data_lancamento", "data_entrega",
-                    "cnpj_spe", "ri"}
-
+def _normalizar_ficha(dados: dict) -> dict:
+    """Aplica tipagem + limpeza. Omite chaves vazias/None."""
     saida: dict = {}
+    if not isinstance(dados, dict):
+        return saida
     for chave, valor in dados.items():
         if valor in (None, "", []):
             continue
@@ -184,18 +223,65 @@ def extrair_ficha_dossie(conteudo: bytes, nome: str) -> dict:
                 normalizado = [texto] if texto else []
             if normalizado:
                 saida["metragens"] = normalizado
-        elif chave in chaves_inteiro:
+        elif chave in _FICHA_CHAVES_INTEIRO:
             num = _parse_numero(valor)
             if num is not None:
                 saida[chave] = int(num)
-        elif chave in chaves_decimal:
+        elif chave in _FICHA_CHAVES_DECIMAL:
             num = _parse_numero(valor)
             if num is not None:
                 saida[chave] = round(num, 1)
-        elif chave in chaves_texto:
+        elif chave in _FICHA_CHAVES_TEXTO:
             texto = str(valor).strip()
             if texto:
                 saida[chave] = texto
+    return saida
+
+
+def _essenciais_preenchidos(ficha: dict) -> int:
+    """Quantos campos essenciais vieram preenchidos (0-5)."""
+    return sum(1 for c in _CAMPOS_ESSENCIAIS if ficha.get(c))
+
+
+def extrair_ficha_dossie(conteudo: bytes, nome: str, retry_vazios: bool = True) -> dict:
+    """Extrai ficha tecnica de um documento (PDF/imagem), com chaves alinhadas
+    ao schema atual de `empreendimentos`.
+
+    Retorna apenas as chaves preenchidas (omite vazias/None) — frontend so
+    aplica o que veio. Numeros normalizados (float ou int), metragens como
+    lista de strings.
+
+    Quando ``retry_vazios=True`` (default), refaz UMA VEZ com prompt de
+    reforco se a extracao veio com menos que ``_MIN_ESSENCIAIS`` campos
+    essenciais preenchidos (nome/bairro/cidade/padrao/tipologias). O merge
+    prioriza os valores da 1a tentativa — o retry so preenche o que ficou
+    vazio, nunca sobrescreve.
+    """
+    dados = _gerar(conteudo, nome, _PROMPT_FICHA_DOSSIE)
+    saida = _normalizar_ficha(dados)
+
+    if not retry_vazios:
+        return saida
+    if _essenciais_preenchidos(saida) >= _MIN_ESSENCIAIS:
+        return saida
+
+    # Reforco: pergunta especificamente pelos campos que ficaram sem.
+    faltantes = [c for c in _FICHA_TODAS_CHAVES if not saida.get(c)]
+    if not faltantes:
+        return saida
+    prompt_reforco = _PROMPT_FICHA_REFORCO.format(
+        faltantes=", ".join(sorted(faltantes)),
+        todas_chaves=", ".join(sorted(_FICHA_TODAS_CHAVES)),
+    )
+    try:
+        dados_reforco = _gerar(conteudo, nome, prompt_reforco)
+    except RuntimeError:
+        # Reforco eh best-effort — se falhar, ficamos com o que veio antes.
+        return saida
+    reforco = _normalizar_ficha(dados_reforco)
+    # Merge: 1a tentativa vence; reforco so preenche o que faltou.
+    for chave, valor in reforco.items():
+        saida.setdefault(chave, valor)
     return saida
 
 
