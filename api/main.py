@@ -13,7 +13,7 @@ from fastapi import Body, Depends, FastAPI, Form, Header, HTTPException, UploadF
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from . import config, db, financiamento, fluxo_simulador, gemini, incc_api, mercado_api, notificacoes, security, vendas_api
+from . import config, db, financiamento, fluxo_simulador, gemini, geocode, incc_api, mercado_api, notificacoes, security, vendas_api
 
 app = FastAPI(title="TabLM API", version="0.1.0")
 app.add_middleware(
@@ -345,6 +345,32 @@ async def analisar_flyer(arquivo: UploadFile, _: str = Depends(security.usuario_
         return gemini.analisar_flyer(conteudo, arquivo.filename or "flyer.pdf")
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=str(exc))
+
+
+@app.get("/geocode")
+def geocode_endereco(
+    bairro: str = "",
+    cidade: str = "",
+    _: str = Depends(security.usuario_autenticado),
+):
+    """Resolve endereço via Nominatim (OpenStreetMap). Sem API key.
+
+    Query params:
+    - bairro (opcional): quando presente, tenta bairro+cidade primeiro
+    - cidade (obrigatório): sem cidade, retorna 400
+    Retorna {lat, lng, formatado} ou 404 quando nada foi resolvido.
+
+    Cache in-memory por processo — 2ª chamada pra mesma chave é grátis.
+    """
+    if not cidade.strip():
+        raise HTTPException(status_code=400, detail="cidade é obrigatória")
+    try:
+        resultado = geocode.geocode(bairro, cidade)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"Falha no geocode: {exc}")
+    if not resultado:
+        raise HTTPException(status_code=404, detail="Endereço não encontrado")
+    return resultado
 
 
 @app.post("/books/extrair")
