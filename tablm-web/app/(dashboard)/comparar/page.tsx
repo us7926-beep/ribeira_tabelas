@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { ComparativoEmpreendimentos } from "@/components/empreendimentos/ComparativoEmpreendimentos";
+import { CompararApp } from "@/components/empreendimentos/CompararApp";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { api } from "@/lib/api";
@@ -9,13 +9,16 @@ import type { Empreendimento, Incorporadora } from "@/types";
 
 export const dynamic = "force-dynamic";
 
+type Modo = "kpis" | "unidades";
+
 interface PageProps {
-  searchParams: Promise<{ ids?: string }>;
+  searchParams: Promise<{ ids?: string; modo?: string }>;
 }
 
 export default async function CompararPage({ searchParams }: PageProps) {
-  const { ids = "" } = await searchParams;
+  const { ids = "", modo = "kpis" } = await searchParams;
   const idLista = ids.split(",").filter(Boolean);
+  const modoInicial: Modo = modo === "unidades" ? "unidades" : "kpis";
   const token = await getToken();
   let empreendimentos: Empreendimento[] = [];
   let incorporadoras: Incorporadora[] = [];
@@ -45,7 +48,7 @@ export default async function CompararPage({ searchParams }: PageProps) {
       <PageHeader
         eyebrow="Comparar"
         title={`Comparativo de ${selecionados.length} empreendimento${selecionados.length === 1 ? "" : "s"}`}
-        subtitle="KPIs lado a lado para identificar o líder em cada métrica. Use os checkboxes em /empreendimentos para escolher quem entra."
+        subtitle="KPIs lado a lado ou unidade a unidade. Use o toggle abaixo para trocar entre visões."
       />
 
       {erro ? (
@@ -73,9 +76,10 @@ export default async function CompararPage({ searchParams }: PageProps) {
           </div>
         </Card>
       ) : (
-        <ComparativoEmpreendimentos
+        <CompararApp
           empreendimentos={selecionados}
           mapIncorporadora={mapInc}
+          modoInicial={modoInicial}
         />
       )}
     </>
