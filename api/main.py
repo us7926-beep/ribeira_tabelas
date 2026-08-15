@@ -347,6 +347,43 @@ async def analisar_flyer(arquivo: UploadFile, _: str = Depends(security.usuario_
         raise HTTPException(status_code=502, detail=str(exc))
 
 
+@app.post("/books/extrair")
+async def extrair_book(arquivo: UploadFile, _: str = Depends(security.usuario_autenticado)):
+    """Dry-run de análise de book: chama Gemini pra ficha + tabela e devolve
+    JSON pra preview. NÃO toca DB/Storage — dá pro frontend enfileirar N
+    arquivos e mostrar tabela antes de criar empreendimento (feito depois
+    via POST /empreendimentos/importar-book quando o usuário aprova).
+
+    Retorno:
+      {arquivo_nome, ficha: {nome, bairro, cidade, ...}, tabela: {unidades,
+       promocoes, padrao, incorporadora, nome_empreendimento, cidade, bairro},
+       erros: {ficha?: str, tabela?: str}}
+    Sempre 200 se pelo menos um dos dois extratores devolveu algo. 502 se
+    ambos falharem.
+    """
+    conteudo = await _ler_upload(arquivo)
+    nome = arquivo.filename or "book.pdf"
+
+    ficha: dict = {}
+    tabela: dict = {}
+    erros: dict = {}
+    try:
+        ficha = gemini.extrair_ficha_dossie(conteudo, nome)
+    except Exception as exc:  # noqa: BLE001
+        erros["ficha"] = str(exc)
+    try:
+        tabela = gemini.extrair_tabela_precos(conteudo, nome)
+    except Exception as exc:  # noqa: BLE001
+        erros["tabela"] = str(exc)
+
+    if not ficha and not tabela:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Falha na extração: ficha={erros.get('ficha')} · tabela={erros.get('tabela')}",
+        )
+    return {"arquivo_nome": nome, "ficha": ficha, "tabela": tabela, "erros": erros}
+
+
 # --------------------------------------------------------------------------- #
 # Hierarquia: incorporadoras -> empreendimentos
 # --------------------------------------------------------------------------- #
