@@ -12,6 +12,7 @@ import { AbaFluxoComercial } from "./AbaFluxoComercial";
 import { AbaPromocoes } from "./AbaPromocoes";
 import { AbaTabela } from "./AbaTabela";
 import { AbaVendasMensais } from "./AbaVendasMensais";
+import { CardDiagnostico } from "./CardDiagnostico";
 
 type Aba = "ficha" | "tabela" | "fluxo" | "vendas" | "promocoes" | "documentos";
 
@@ -58,6 +59,8 @@ export function EmpreendimentoDossie({
 
   return (
     <>
+      <CardDiagnostico empreendimentoId={empreendimento.id} />
+
       <Tabs abas={ABAS} ativa={aba} onTrocar={trocarAba} className="mb-5" />
 
       {aba === "ficha" && <AbaFichaTecnica empreendimento={empreendimento} />}
