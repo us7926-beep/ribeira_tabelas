@@ -303,43 +303,11 @@ export function AbaTabela({ empreendimentoId }: Props) {
   const [erro, setErro] = useState("");
   /** Se marcado, chama /importar-book em vez de /tabelas-precos. */
   const [extrairFicha, setExtrairFicha] = useState(false);
-  // Sincronização de VSO com o CV CRM.
-  const [sincronizando, setSincronizando] = useState(false);
-  const [vsoResultado, setVsoResultado] = useState<{
-    ok: boolean;
-    texto: string;
-  } | null>(null);
 
   useEffect(() => {
     carregar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empreendimentoId]);
-
-  async function sincronizarVsoCvcrm() {
-    setSincronizando(true);
-    setVsoResultado(null);
-    try {
-      const r = await fetch(
-        `/api/empreendimentos/${empreendimentoId}/sincronizar-vso-cvcrm`,
-        { method: "POST" },
-      );
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.detail ?? "Falha ao sincronizar");
-      const c = d.contagem ?? {};
-      setVsoResultado({
-        ok: true,
-        texto:
-          `VSO ${c.vso}% — ${c.vendidas} vendidas / ${c.disponiveis} disponíveis` +
-          (c.bloqueadas ? ` / ${c.bloqueadas} bloqueadas` : "") +
-          ` de ${c.total_unidades} unidades.`,
-      });
-      router.refresh();
-    } catch (e) {
-      setVsoResultado({ ok: false, texto: (e as Error).message });
-    } finally {
-      setSincronizando(false);
-    }
-  }
 
   const [erroCarga, setErroCarga] = useState("");
   const [mounted, setMounted] = useState(false);
@@ -477,29 +445,9 @@ export function AbaTabela({ empreendimentoId }: Props) {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <Button
-              variante="secondary"
-              onClick={sincronizarVsoCvcrm}
-              disabled={sincronizando}
-            >
-              {sincronizando ? "Sincronizando…" : "↻ Sincronizar VSO do CV CRM"}
-            </Button>
             <Button onClick={() => setModalAberto(true)}>+ Nova tabela</Button>
           </div>
         </div>
-
-        {vsoResultado && (
-          <div
-            className={
-              vsoResultado.ok
-                ? "mt-3 rounded-[12px] bg-up-bg text-up-strong text-[13px] px-4 py-3 border border-up-line"
-                : "mt-3 rounded-[12px] bg-down-bg text-down-strong text-[13px] px-4 py-3 border border-down-line"
-            }
-          >
-            {vsoResultado.ok ? "✓ " : ""}
-            {vsoResultado.texto}
-          </div>
-        )}
 
         {carregando ? (
           <div className="text-[13.5px] text-muted mt-4">Carregando…</div>

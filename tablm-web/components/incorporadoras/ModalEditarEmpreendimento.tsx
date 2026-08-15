@@ -21,7 +21,6 @@ export function ModalEditarEmpreendimento({ aberto, empreendimento, onFechar }: 
   const [cidade, setCidade] = useState("");
   const [bairro, setBairro] = useState("");
   const [padrao, setPadrao] = useState("");
-  const [cvcrmId, setCvcrmId] = useState("");
   const [erro, setErro] = useState("");
   const [, startTransition] = useTransition();
   const [salvando, setSalvando] = useState(false);
@@ -38,9 +37,6 @@ export function ModalEditarEmpreendimento({ aberto, empreendimento, onFechar }: 
     setCidade(empreendimento.cidade ?? "");
     setBairro(empreendimento.bairro ?? "");
     setPadrao(empreendimento.padrao ?? "");
-    setCvcrmId(
-      empreendimento.cvcrm_id != null ? String(empreendimento.cvcrm_id) : "",
-    );
   }, [aberto, empreendimento]);
 
   useEffect(() => {
@@ -62,7 +58,6 @@ export function ModalEditarEmpreendimento({ aberto, empreendimento, onFechar }: 
     setSalvando(true);
     setErro("");
     startTransition(async () => {
-      const cvcrmNum = cvcrmId.trim() ? Number(cvcrmId.trim()) : null;
       const r = await atualizarEmpreendimento(
         empreendimento!.id,
         empreendimento!.incorporadora_id,
@@ -71,7 +66,6 @@ export function ModalEditarEmpreendimento({ aberto, empreendimento, onFechar }: 
           cidade,
           bairro,
           padrao,
-          cvcrm_id: cvcrmNum != null && Number.isFinite(cvcrmNum) ? cvcrmNum : null,
         },
       );
       if (!r.ok) {
@@ -153,22 +147,6 @@ export function ModalEditarEmpreendimento({ aberto, empreendimento, onFechar }: 
               placeholder="Ex.: Alto, Médio, Econômico"
               className={campo}
             />
-          </label>
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[12.5px] font-bold text-body uppercase tracking-[0.4px]">
-              ID no CV CRM
-            </span>
-            <input
-              type="number"
-              inputMode="numeric"
-              value={cvcrmId}
-              onChange={(e) => setCvcrmId(e.target.value)}
-              placeholder="Ex.: 2 (deixe vazio se não usa CV CRM)"
-              className={campo}
-            />
-            <span className="text-[11.5px] text-muted">
-              Necessário pra sincronizar o VSO direto do CV CRM na Aba Tabela.
-            </span>
           </label>
 
           {erro && (
