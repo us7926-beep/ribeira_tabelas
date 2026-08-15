@@ -39,6 +39,12 @@ export default async function IncorporadorasPage() {
             >
               Ver todos os empreendimentos →
             </Link>
+            <Link
+              href="/analise-lote"
+              className="text-[12.5px] font-bold text-royal hover:underline"
+            >
+              📦 Análise em lote →
+            </Link>
             <ImportarEmpreendimentoBook incorporadoras={lista} />
           </div>
         }
