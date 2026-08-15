@@ -1271,6 +1271,103 @@ async def incc_reajustar(
 
 
 # --------------------------------------------------------------------------- #
+# Diagnóstico competitivo automático (Gemini)
+# --------------------------------------------------------------------------- #
+_KPIS_DIAGNOSTICO = (
+    "preco_m2_medio", "ticket_medio", "vso", "vgv_total",
+    "total_unidades_calc", "unidades_vendidas", "unidades_disponiveis",
+)
+_FICHA_DIAGNOSTICO = (
+    "nome", "bairro", "cidade", "padrao", "tipologias", "metragens",
+    "total_unidades", "pavimentos", "torres", "data_lancamento", "data_entrega",
+)
+
+
+def _empreendimento_para_diagnostico(emp: dict) -> dict:
+    return {chave: emp.get(chave) for chave in _FICHA_DIAGNOSTICO if emp.get(chave) not in (None, "", [])}
+
+
+def _kpis_para_diagnostico(emp: dict) -> dict:
+    return {chave: emp.get(chave) for chave in _KPIS_DIAGNOSTICO if emp.get(chave) not in (None, "")}
+
+
+def _concorrentes_para_diagnostico(emp: dict, todos: list[dict]) -> list[dict]:
+    """Filtra top 5 concorrentes por VGV com mesma cidade+padrão, exclui o próprio."""
+    cidade = (emp.get("cidade") or "").strip().lower()
+    padrao = (emp.get("padrao") or "").strip().lower()
+    if not cidade or not padrao:
+        return []
+    candidatos = [
+        outro for outro in todos
+        if outro.get("id") != emp.get("id")
+        and (outro.get("cidade") or "").strip().lower() == cidade
+        and (outro.get("padrao") or "").strip().lower() == padrao
+    ]
+    candidatos.sort(key=lambda x: x.get("vgv_total") or 0, reverse=True)
+    saida: list[dict] = []
+    for outro in candidatos[:5]:
+        saida.append({
+            "nome": outro.get("nome"),
+            "bairro": outro.get("bairro"),
+            **{chave: outro.get(chave) for chave in _KPIS_DIAGNOSTICO if outro.get(chave) not in (None, "")},
+        })
+    return saida
+
+
+@app.post("/empreendimentos/{id_}/diagnostico")
+def gerar_diagnostico(id_: str, _: str = Depends(security.usuario_autenticado)):
+    """Gera parecer competitivo via Gemini e salva em pareceres_empreendimento.
+
+    Contexto para a IA: ficha do empreendimento + KPIs próprios + KPIs de
+    até 5 concorrentes (mesma cidade+padrão, top por VGV, exclui o próprio).
+    """
+    emp = _db_ou_503(db.obter, "empreendimentos", id_)
+    if emp is None:
+        raise HTTPException(status_code=404, detail="Empreendimento não encontrado")
+    todos = _db_ou_503(db.listar, "empreendimentos")
+    ficha = _empreendimento_para_diagnostico(emp)
+    kpis = _kpis_para_diagnostico(emp)
+    concorrentes = _concorrentes_para_diagnostico(emp, todos)
+    if not kpis:
+        raise HTTPException(
+            status_code=400,
+            detail="Empreendimento sem KPIs cadastrados. Suba uma tabela em /vendas primeiro.",
+        )
+    try:
+        parecer = gemini.gerar_diagnostico_competitivo(ficha, kpis, concorrentes)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+    if not parecer.get("bullets"):
+        raise HTTPException(status_code=502, detail="IA não devolveu bullets utilizáveis")
+    registro = _db_ou_503(
+        db.inserir,
+        "pareceres_empreendimento",
+        {
+            "empreendimento_id": id_,
+            "resumo_executivo": parecer.get("resumo_executivo") or "",
+            "bullets": parecer["bullets"],
+            "contexto_snapshot": {"ficha": ficha, "kpis": kpis, "concorrentes": concorrentes},
+        },
+    )
+    return registro
+
+
+@app.get("/empreendimentos/{id_}/diagnostico")
+def obter_diagnostico(id_: str, _: str = Depends(security.usuario_autenticado)):
+    """Retorna o parecer mais recente + até 4 anteriores (histórico curto)."""
+    pareceres = _db_ou_503(
+        db.listar_ordenado,
+        "pareceres_empreendimento",
+        ordem="criado_em",
+        desc=True,
+        empreendimento_id=id_,
+    )
+    if not pareceres:
+        return {"atual": None, "historico": []}
+    return {"atual": pareceres[0], "historico": pareceres[1:5]}
+
+
+# --------------------------------------------------------------------------- #
 # Vendas (KPIs a partir de uma tabela com situação)
 # --------------------------------------------------------------------------- #
 @app.post("/vendas/kpis")

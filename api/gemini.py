@@ -199,6 +199,95 @@ def extrair_ficha_dossie(conteudo: bytes, nome: str) -> dict:
     return saida
 
 
+_PROMPT_DIAGNOSTICO = (
+    "Voce e um analista imobiliario senior. Vou te passar (1) a ficha e KPIs "
+    "de um empreendimento e (2) os KPIs de ate 5 concorrentes do mesmo "
+    "bairro/cidade/padrao. Sua tarefa: gerar um PARECER COMPETITIVO curto "
+    "com 3 a 5 bullets. Cada bullet e uma leitura FACTUAL da posicao (ex.: "
+    "preco vs media, VSO vs media, estoque, condicoes, timing), NUNCA "
+    "recomendacoes vagas do tipo 'reveja sua estrategia'. Se um KPI estiver "
+    "faltando, ignore-o em vez de inventar. "
+    "Responda APENAS um objeto JSON com estas chaves: "
+    "bullets (array com 3 a 5 objetos {texto, tag, kpi_referencia}), "
+    "resumo_executivo (string, 1 frase resumindo a posicao). "
+    "tag em uma destas opcoes: 'forca', 'fraqueza', 'oportunidade', 'risco', "
+    "'neutro'. kpi_referencia (opcional) e o nome do KPI principal citado "
+    "(ex.: 'preco_m2', 'vso', 'ticket', 'vgv', 'estoque'). "
+    "Bullets em portugues, cada um com 1 a 2 frases, com numeros concretos "
+    "quando disponiveis (%, R$, quantidade). NAO use markdown nem asteriscos "
+    "dentro do texto. NAO invente concorrentes que nao estao na lista."
+)
+
+
+def gerar_diagnostico_competitivo(
+    empreendimento: dict, kpis_proprios: dict, concorrentes: list[dict]
+) -> dict:
+    """Gera parecer competitivo curto via Gemini a partir de ficha + KPIs.
+
+    Insumos:
+    - empreendimento: campos da ficha (nome, bairro, cidade, padrao, ...)
+    - kpis_proprios: KPIs numericos (preco_m2, ticket, vgv, vso, estoque, ...)
+    - concorrentes: lista de dicts com nome + KPIs analogos, mesma
+      cidade+padrao, ordenados por VGV desc, tipicamente 3-5 itens.
+
+    Retorna: {bullets: [{texto, tag, kpi_referencia}], resumo_executivo}
+    """
+    from google import genai
+    from google.genai import errors, types
+
+    if not config.gemini_api_key():
+        raise RuntimeError("GEMINI_API_KEY ausente no ambiente.")
+
+    contexto = json.dumps(
+        {
+            "empreendimento": empreendimento,
+            "kpis_proprios": kpis_proprios,
+            "concorrentes": concorrentes,
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+    prompt = f"{_PROMPT_DIAGNOSTICO}\n\nDados:\n{contexto}"
+
+    cliente = genai.Client(api_key=config.gemini_api_key())
+    cfg = types.GenerateContentConfig(response_mime_type="application/json")
+
+    ultimo: Exception | None = None
+    for tentativa in range(_TENTATIVAS):
+        try:
+            resposta = cliente.models.generate_content(
+                model=config.gemini_model(), contents=[prompt], config=cfg
+            )
+            dados = json.loads(resposta.text)
+            break
+        except (errors.ServerError, json.JSONDecodeError) as exc:
+            ultimo = exc
+            time.sleep(2 * (tentativa + 1))
+    else:
+        raise RuntimeError(
+            f"Gemini indisponivel apos {_TENTATIVAS} tentativas: {ultimo}"
+        )
+
+    bullets_raw = dados.get("bullets") or []
+    tags_validas = {"forca", "fraqueza", "oportunidade", "risco", "neutro"}
+    bullets: list[dict] = []
+    for item in bullets_raw:
+        if not isinstance(item, dict):
+            continue
+        texto = str(item.get("texto") or "").strip()
+        if not texto:
+            continue
+        tag = str(item.get("tag") or "neutro").strip().lower()
+        if tag not in tags_validas:
+            tag = "neutro"
+        kpi_ref = str(item.get("kpi_referencia") or "").strip() or None
+        bullets.append({"texto": texto, "tag": tag, "kpi_referencia": kpi_ref})
+    return {
+        "bullets": bullets[:5],
+        "resumo_executivo": str(dados.get("resumo_executivo") or "").strip(),
+    }
+
+
 _PROMPT_BUSCA_EMPREENDIMENTO = (
     "Voce e um analista imobiliario. Pesquise dados publicos sobre o "
     "empreendimento abaixo e responda APENAS um objeto JSON com as chaves: "
