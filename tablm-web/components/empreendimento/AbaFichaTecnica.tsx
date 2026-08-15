@@ -185,20 +185,41 @@ export function AbaFichaTecnica({ empreendimento }: Props) {
     }
   }
 
+  /** Campos considerados "importantes" — quando vazios ganham chip warn
+   * "faltando" pra chamar atenção depois de uma extração ruim. */
+  const CAMPOS_IMPORTANTES = new Set<keyof Empreendimento>([
+    "nome", "bairro", "cidade", "padrao", "tipologias", "metragens",
+    "total_unidades", "data_lancamento", "data_entrega",
+  ]);
+
+  function valorEstaVazio(v: unknown): boolean {
+    if (v === null || v === undefined) return true;
+    if (typeof v === "string") return v.trim() === "";
+    if (Array.isArray(v)) return v.length === 0;
+    return false;
+  }
+
   function campo(rotulo: string, chave: keyof Empreendimento, tipo: "texto" | "numero" | "data" | "chips" = "texto", step?: string) {
+    const v = valorAtual(chave);
     return (
       <EditableField
         rotulo={rotulo}
-        valor={valorAtual(chave) as never}
+        valor={v as never}
         tipo={tipo}
         step={step}
         origemIA={origemIA.has(chave as string)}
+        vazioSuspeito={CAMPOS_IMPORTANTES.has(chave) && valorEstaVazio(v)}
         onSalvar={(novo) => atualizar(chave as string, novo)}
       />
     );
   }
 
   const temAlteracoes = Object.keys(alteracoes).length > 0;
+
+  // Contagem de campos importantes vazios pra o banner de alerta no topo.
+  const camposImportantesVazios = [...CAMPOS_IMPORTANTES].filter((c) =>
+    valorEstaVazio(valorAtual(c)),
+  );
 
   return (
     <div className="flex flex-col gap-5 tablm-up">
@@ -291,6 +312,18 @@ export function AbaFichaTecnica({ empreendimento }: Props) {
             <Chip tom="royal">via IA</Chip>
             <span className="text-[13px] text-muted">
               {origemIA.size} campo(s) preenchido(s) pela IA. Revise antes de salvar.
+            </span>
+          </div>
+        </Card>
+      )}
+
+      {camposImportantesVazios.length > 0 && origemIA.size === 0 && (
+        <Card>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Chip tom="warn">faltando</Chip>
+            <span className="text-[13px] text-body">
+              <b>{camposImportantesVazios.length}</b> campo(s) importante(s)
+              ainda vazio(s). Suba um book/memorial ou preencha à mão.
             </span>
           </div>
         </Card>

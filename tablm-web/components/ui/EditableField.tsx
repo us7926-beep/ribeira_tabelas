@@ -11,6 +11,11 @@ interface Props {
   valor: string | number | null | undefined | string[];
   tipo?: Tipo;
   origemIA?: boolean;
+  /** Marca visualmente que este campo está vazio e é considerado importante
+   * (nome/bairro/cidade/padrão/tipologias/metragens/datas). Ajuda a chamar
+   * atenção depois de uma extração ruim pra o usuário preencher à mão ou
+   * subir book de novo. */
+  vazioSuspeito?: boolean;
   placeholder?: string;
   step?: string;
   onSalvar: (novo: string | number | string[] | null) => void;
@@ -34,6 +39,7 @@ export function EditableField({
   valor,
   tipo = "texto",
   origemIA,
+  vazioSuspeito,
   placeholder,
   step,
   onSalvar,
@@ -76,11 +82,18 @@ export function EditableField({
   }
 
   const inputType = tipo === "numero" ? "number" : tipo === "data" ? "date" : "text";
+  // vazioSuspeito só quando a IA foi rodada e ficou sem preencher: prioridade
+  // origemIA > vazioSuspeito. Sem edição em curso.
+  const destacarVazio = vazioSuspeito && !origemIA && !editando;
 
   return (
     <div
       className={`bg-white border rounded-[12px] px-3 py-2.5 transition cursor-text ${
-        origemIA ? "border-royal ring-[3px] ring-royal/[0.12]" : "border-line hover:border-royal/40"
+        origemIA
+          ? "border-royal ring-[3px] ring-royal/[0.12]"
+          : destacarVazio
+            ? "border-warn-line bg-warn-bg/40"
+            : "border-line hover:border-royal/40"
       }`}
       onClick={() => !editando && setEditando(true)}
     >
@@ -88,7 +101,11 @@ export function EditableField({
         <div className="text-[11px] font-bold tracking-[0.5px] uppercase text-muted">
           {rotulo}
         </div>
-        {origemIA && <Chip tom="royal">via IA</Chip>}
+        {origemIA ? (
+          <Chip tom="royal">via IA</Chip>
+        ) : destacarVazio ? (
+          <Chip tom="warn">faltando</Chip>
+        ) : null}
       </div>
       {editando ? (
         <input
