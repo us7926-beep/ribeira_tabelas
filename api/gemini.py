@@ -100,13 +100,32 @@ _PROMPT_TABELA_PRECOS = (
 )
 
 
-def extrair_tabela_precos(conteudo: bytes, nome: str) -> dict:
+def extrair_tabela_precos(conteudo: bytes, nome: str, hibrido: bool = True) -> dict:
     """Extrai tabela de unidades + promoes de um PDF/imagem de lançamento.
 
     Retorna: nome_empreendimento, incorporadora, cidade, bairro, padrao,
     total_unidades, unidades (lista), promocoes (lista).
+
+    Quando ``hibrido=True`` e o arquivo é PDF, roda pdfplumber em paralelo
+    e usa seus valores numéricos (mais confiáveis que a leitura por LLM)
+    pra substituir os que o Gemini extraiu, preservando a estrutura
+    semântica que só o Gemini enxerga (padrao, incorporadora, promoções,
+    etc). Não afeta imagens.
     """
     dados = _gerar(conteudo, nome, _PROMPT_TABELA_PRECOS)
+    unidades = dados.get("unidades") or []
+
+    if hibrido and nome.lower().endswith(".pdf") and unidades:
+        try:
+            from . import pdf_tabelas
+
+            unidades_pdf = pdf_tabelas.extrair_tabelas_pdf(conteudo)
+            if unidades_pdf:
+                unidades = pdf_tabelas.mesclar_com_gemini(unidades, unidades_pdf)
+        except Exception:  # noqa: BLE001
+            # Best-effort: se pdfplumber quebrar, mantém Gemini puro.
+            pass
+
     return {
         "nome_empreendimento": _texto(dados.get("nome_empreendimento")),
         "incorporadora": _texto(dados.get("incorporadora")),
@@ -114,7 +133,7 @@ def extrair_tabela_precos(conteudo: bytes, nome: str) -> dict:
         "bairro": _texto(dados.get("bairro")),
         "padrao": _texto(dados.get("padrao")),
         "total_unidades": dados.get("total_unidades"),
-        "unidades": dados.get("unidades") or [],
+        "unidades": unidades,
         "promocoes": dados.get("promocoes") or [],
     }
 
