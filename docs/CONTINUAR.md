@@ -2,9 +2,136 @@
 
 > Cole/abra este arquivo numa nova janela do Claude Code. Tem TUDO para continuar
 > a evolução do TabLM de onde paramos. **Sem segredos** (ficam só em `api/.env` e
-> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-07-27 (após
-> PR #86: parser CSV do CV CRM + smoke 7.2 / 4.3 / 4.5 / 5.x rodado em
-> produção com material real).
+> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-08-17 (após
+> sprint de 8 PRs mudando o foco pro core: faxina CV CRM + diagnóstico
+> competitivo + comparar tabelas + batch de books + qualidade da varredura
+> + mapa geográfico).
+
+## Addendum 2026-08-15→17 (PRs #88–#95 + migration drop cvcrm_id)
+
+Sprint que **mudou o foco pro core** depois do usuário decidir "sem
+integrações agora — quero focar em análise de books, tabelas,
+benchmark". CV CRM saiu de vez; ganhos foram amplificar o core.
+
+- **[PR #88](https://github.com/us7926-beep/ribeira_tabelas/pull/88)** —
+  chore: remove integração CV CRM (faxina). Backend
+  (api/cvcrm_api.py, endpoints /cvcrm/*, envs CVCRM_*, cvcrm_id no
+  CAMPOS_EDITAVEIS_FICHA, test_cvcrm_api.py) + frontend (route
+  handlers, botão "↻ Sincronizar VSO", input cvcrm_id no modal
+  editar, campo cvcrm_id em types+actions.ts). -693 linhas líquidas.
+  Coluna cvcrm_id no DB ficou dormente **até 2026-08-17**, quando
+  usuário autorizou `ALTER TABLE empreendimentos DROP COLUMN
+  cvcrm_id;` via mcp_supabase. Faxina 100% completa.
+- **[PR #89](https://github.com/us7926-beep/ribeira_tabelas/pull/89)** —
+  Diagnóstico competitivo com Gemini. Nova aba/card no dossiê que
+  gera parecer de 3-5 bullets (força/fraqueza/oportunidade/risco)
+  a partir da ficha + KPIs + 5 concorrentes mais próximos. Nova
+  tabela `pareceres_empreendimento (id, empreendimento_id, texto,
+  bullets jsonb, resumo_executivo, contexto_snapshot jsonb,
+  criado_em)`. Endpoint POST /empreendimentos/{id}/diagnostico
+  (gera) + GET (último + histórico). Prompt tem normalização de
+  tag e cap de 5 bullets.
+- **[PR #90](https://github.com/us7926-beep/ribeira_tabelas/pull/90)** —
+  Comparar tabelas N × N com toggle KPIs | Unidade a unidade.
+  ModalSelecionarEmpreendimentos reusável (multiselect + busca +
+  travarIds pro empreendimento atual). Botão "🔍 Comparar com
+  outros" na Aba Tabela. /comparar ganha `?modo=` + Tabs. Novo
+  ComparativoUnidades: painel N colunas com checkbox por unidade +
+  tabela consolidada com Chip "menor" no menor preço/m². Aceita
+  mistura livre (2 do TOTAL + 3 do MÁXIMO + 1 do SOHO).
+- **[PR #91](https://github.com/us7926-beep/ribeira_tabelas/pull/91)** —
+  Batch de books via /analise-lote. Dropzone múltiplo → fila em
+  série com POST /books/extrair (dry-run — extrai ficha+tabela via
+  Gemini sem persistir). Cada linha: chip status, campos
+  extraídos, checkbox aprovar, seletor incorporadora (existente
+  por id OU nome novo pré-preenchido). Botão "Criar N
+  empreendimentos" dispara /empreendimentos/importar-book pra cada
+  aprovado. Link "abrir →" no fim. Entrypoint: "📦 Análise em
+  lote →" no PageHeader de /incorporadoras.
+- **[PR #92](https://github.com/us7926-beep/ribeira_tabelas/pull/92)** —
+  Qualidade da varredura A: retry seletivo + few-shot no prompt de
+  ficha. _CAMPOS_ESSENCIAIS = (nome, bairro, cidade, padrao,
+  tipologias); se veio <3, refaz 1x com _PROMPT_FICHA_REFORCO
+  listando faltantes. Merge conservador (setdefault — 1a
+  tentativa vence). Prompt principal ganhou 2 exemplos (book
+  completo Alegria + book pobre Torres do Parque). Novo param
+  `retry_vazios=True` default.
+- **[PR #93](https://github.com/us7926-beep/ribeira_tabelas/pull/93)** —
+  Qualidade da varredura B: PDFPlumber híbrido. Nova dep
+  `pdfplumber==0.11.4`. Novo módulo `api/pdf_tabelas.py`:
+  `extrair_tabelas_pdf(bytes)` mapeia colunas por palavra-chave
+  no header (word-boundary regex pra não confundir '33,03 m²' com
+  header 'M²'); suporta continuação (páginas seguintes sem repetir
+  header reusam o último mapa válido); `mesclar_com_gemini` só
+  substitui `area_m2` e `preco_total` (Gemini fica dono da
+  semântica de entrada/parcelas/financiamento — no CV CRM
+  "entrada" pode ser ATO puro OU soma ATO+SINAIS). Smoke real:
+  291 unidades MÁXIMO + 132 SOHO, valores exatos do PDF.
+- **[PR #94](https://github.com/us7926-beep/ribeira_tabelas/pull/94)** —
+  Qualidade da varredura C: feedback UI campos vazios.
+  EditableField ganha prop `vazioSuspeito` (borda amarela + chip
+  warn "faltando"). CAMPOS_IMPORTANTES = nome/bairro/cidade/
+  padrao/tipologias/metragens/total_unidades/data_lancamento/
+  data_entrega. Banner no topo da Ficha Técnica: "N campos
+  importantes ainda vazios. Suba um book/memorial ou preencha à
+  mão." Sem endpoint novo — o retry automático do PR #92 já
+  cobre reforço; UI só destaca.
+- **[PR #95](https://github.com/us7926-beep/ribeira_tabelas/pull/95)** —
+  Mapa geográfico. Nova rota /mapa com Leaflet + OpenStreetMap
+  (zero API key). Backend novo GET /geocode?bairro=X&cidade=Y
+  (`api/geocode.py` — Nominatim + lock global 1 rps + cache
+  in-memory + fallback pra cidade). Pin royal = Ribeira, cinza =
+  concorrente. Popup mostra ficha+KPIs+link dossiê. Filtros
+  Padrão + Tipo (Ribeira/concorrente). Deps novas: `leaflet@1.9.4`,
+  `react-leaflet@5.0.0`, `@types/leaflet`. Sidebar ganha item
+  "Mapa" entre Carteira e Simulador.
+
+**Migration Supabase 2026-08-17**: `drop_cvcrm_id_from_empreendimentos`
+aplicada via `mcp_supabase.apply_migration`. Backup dos 6 valores
+que existiam (caso queira reatar CV CRM no futuro): TOTAL BRAZ
+CUBAS=2, HAPPY BRAZ CUBAS=3, VISION COLINAS=4, SOMA GALERIA=5,
+SOHO GALERIA=10, MÁXIMO BRAZ CUBAS=11.
+
+**Smoke API híbrido 2026-08-17** (sem UI, via MCP Supabase +
+/health): 3 incorporadoras, 10 empreendimentos, 7 tabelas_precos,
+4 promoções, 9 tabelas com RLS. Todos os smokes prévios dos PRs
+#86/#91 estão persistidos (3 versões TOTAL BRAZ CUBAS, 1 MÁXIMO
+SFH, 1 SOHO Padrão, 2 Alegria).
+
+**Suite consolidada**: **154 pytest** (+15 do baseline pré-sprint)
+**+ 93 vitest** (+18) **+ tsc verde**.
+
+## Pendências operacionais (você)
+1. **Remover envs CVCRM_* do Render** — só higiene, não quebra
+   nada. Painel Render → tablm-api → Environment → deletar
+   `CVCRM_BASE_URL`, `CVCRM_EMAIL`, `CVCRM_SENHA`.
+2. **Revogar credenciais do usuário técnico "TabLM Integração"
+   (id 264) no painel do CV CRM** — opcional, higiene.
+3. **Configurar Resend** ([docs/DEPLOY.md](DEPLOY.md) seção 4) —
+   sem isso PR #35 (email diário) fica inerte. Sem urgência.
+4. **Considerar scheduled task** que pinga o Supabase 1x por
+   semana pra não pausar (repete de sprints anteriores; ainda não
+   feito).
+5. **Trocar Leaflet+OSM por Mapbox** se quiser tiles mais
+   bonitos (dark mode, satélite) — 1 linha em MapaLeaflet.tsx
+   + env NEXT_PUBLIC_MAPBOX_TOKEN. Tier grátis 50k views/mês.
+6. **Rodar smoke UI completo** (7 seções: visão geral, benchmark,
+   dossiê, mapa, análise em lote, comparar, simulador). Bloqueado
+   nesta sessão por senha/browser; feito só via API híbrida.
+
+## Ideias que ficaram na fila de futuro
+- **Radar de mercado** — dashboard "onde estão os lançamentos"
+  (bairro × padrão × mês) com gaps da Ribeira.
+- **Heatmap no mapa** — camada extra `leaflet.heat` mostrando
+  concentração de VGV por bairro.
+- **Reforço manual de extração** — botão "🔎 Reforçar" no dossiê
+  que reprocessa o book já anexado sem re-upload (precisa puxar
+  PDF do Storage).
+- **Notificações push web** — badge no browser quando concorrente
+  reajusta ou lança promoção.
+- **Melhoria**: endpoint `POST /tabelas-precos` não grava o PDF
+  em Storage nem registra em `documentos` (só `/importar-book`
+  faz isso). Considerar passar o `arquivo` também pro Storage.
 
 ## Addendum 2026-07-27 (PR #86 + smoke 7.2 / 4.3 / 4.5 / 5.x)
 
