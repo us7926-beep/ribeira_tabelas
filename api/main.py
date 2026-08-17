@@ -347,6 +347,36 @@ async def analisar_flyer(arquivo: UploadFile, _: str = Depends(security.usuario_
         raise HTTPException(status_code=502, detail=str(exc))
 
 
+@app.get("/health/heartbeat")
+def heartbeat_supabase():
+    """Bate uma query trivial no Supabase pra manter a conexão ativa e
+    evitar que o projeto pause por inatividade (free tier pausa em ~7 dias).
+
+    Público (sem auth) — só faz SELECT count no Supabase. Deve ser chamado
+    por um cron 1x/dia (Vercel Cron ou GitHub Actions).
+    """
+    import time as _time
+
+    inicio = _time.monotonic()
+    try:
+        # count leve — não puxa dados, só valida conexão + trigger de "atividade".
+        resposta = db.cliente().table("incorporadoras").select("id", count="exact").limit(1).execute()
+        n = resposta.count if hasattr(resposta, "count") else None
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "ok": False,
+            "supabase": False,
+            "erro": str(exc)[:200],
+            "tempo_ms": round((_time.monotonic() - inicio) * 1000),
+        }
+    return {
+        "ok": True,
+        "supabase": True,
+        "incorporadoras": n,
+        "tempo_ms": round((_time.monotonic() - inicio) * 1000),
+    }
+
+
 @app.get("/geocode")
 def geocode_endereco(
     bairro: str = "",
