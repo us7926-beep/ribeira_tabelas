@@ -28,6 +28,9 @@ function iconePin(cor: string): L.DivIcon {
 
 const PIN_RIBEIRA = iconePin("#2347C5"); // royal
 const PIN_CONCORRENTE = iconePin("#6B7689"); // muted
+// Pin manual usa cor sólida saturada pra sinalizar "posição ajustada" à distância.
+const PIN_RIBEIRA_MANUAL = iconePin("#0F2A8A"); // royal-forte
+const PIN_CONCORRENTE_MANUAL = iconePin("#374151"); // ink
 
 interface ItemPin {
   empreendimento: Empreendimento;
@@ -35,6 +38,11 @@ interface ItemPin {
   lat: number;
   lng: number;
   ehRibeira: boolean;
+  /** true = coordenada persistida no backend (manual OU geocode salvo).
+   * false = geocode ad-hoc só pra este render, ainda não gravado. */
+  persistido: boolean;
+  /** true = arrastado manualmente pelo usuário; pin fica em cor destacada. */
+  manual: boolean;
 }
 
 interface EstadoGeocode {
@@ -67,6 +75,19 @@ async function geocode(bairro: string, cidade: string): Promise<{ lat: number; l
   }
 }
 
+async function salvarGeoloc(id: string, lat: number, lng: number): Promise<boolean> {
+  try {
+    const r = await fetch(`/api/empreendimentos/${id}/geoloc`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ latitude: lat, longitude: lng }),
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 function AjustarBounds({ pins }: { pins: ItemPin[] }) {
   const mapa = useMap();
   useEffect(() => {
@@ -95,6 +116,9 @@ export function MapaLeaflet({ empreendimentos, incorporadoras }: Props) {
   const [filtroRibeira, setFiltroRibeira] = useState<"todos" | "ribeira" | "concorrente">(
     "todos",
   );
+  const [modoEdicao, setModoEdicao] = useState(false);
+  const [salvandoId, setSalvandoId] = useState<string | null>(null);
+  const [ultimoSalvo, setUltimoSalvo] = useState<{ id: string; nome: string } | null>(null);
   const abortadorRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -111,9 +135,28 @@ export function MapaLeaflet({ empreendimentos, incorporadoras }: Props) {
       let encontrados = 0;
       let falhas = 0;
       const proximos: ItemPin[] = [];
-      // Em série — respeita o rate limit do Nominatim mesmo se o backend cair
-      // no primeiro request (cache também ajuda).
+
+      // 1º passo: pin todos que JÁ tem lat/lng persistida — feedback instantâneo.
       for (const emp of empreendimentos) {
+        if (typeof emp.latitude !== "number" || typeof emp.longitude !== "number") continue;
+        const inc = mapaInc.get(emp.incorporadora_id);
+        proximos.push({
+          empreendimento: emp,
+          incorporadora: inc,
+          lat: emp.latitude,
+          lng: emp.longitude,
+          ehRibeira: ehRibeiraNome(inc?.nome),
+          persistido: true,
+          manual: emp.geoloc_manual === true,
+        });
+        encontrados += 1;
+      }
+      if (!cancelado) setPins([...proximos]);
+      setEstado({ carregando: true, encontrados, falhas });
+
+      // 2º passo: só os que não tem coords → Nominatim em série (rate limit).
+      for (const emp of empreendimentos) {
+        if (typeof emp.latitude === "number" && typeof emp.longitude === "number") continue;
         if (controller.signal.aborted || cancelado) return;
         const coords = await geocode(emp.bairro ?? "", emp.cidade ?? "");
         if (controller.signal.aborted || cancelado) return;
@@ -125,6 +168,8 @@ export function MapaLeaflet({ empreendimentos, incorporadoras }: Props) {
             lat: coords.lat,
             lng: coords.lng,
             ehRibeira: ehRibeiraNome(inc?.nome),
+            persistido: false,
+            manual: false,
           });
           encontrados += 1;
           setPins([...proximos]);
@@ -156,6 +201,32 @@ export function MapaLeaflet({ empreendimentos, incorporadoras }: Props) {
   const centroInicial: [number, number] = pins[0]
     ? [pins[0].lat, pins[0].lng]
     : [-23.5, -46.2]; // centro aproximado de SP
+
+  async function onDragFim(id: string, nome: string, lat: number, lng: number) {
+    setSalvandoId(id);
+    const ok = await salvarGeoloc(id, lat, lng);
+    setSalvandoId(null);
+    if (!ok) {
+      // Não faz revert automático — usuário arrasta de novo se quiser.
+      return;
+    }
+    setPins((atuais) =>
+      atuais.map((p) =>
+        p.empreendimento.id === id
+          ? { ...p, lat, lng, persistido: true, manual: true }
+          : p,
+      ),
+    );
+    setUltimoSalvo({ id, nome });
+    window.setTimeout(() => {
+      setUltimoSalvo((s) => (s?.id === id ? null : s));
+    }, 4000);
+  }
+
+  function iconePara(pin: ItemPin): L.DivIcon {
+    if (pin.manual) return pin.ehRibeira ? PIN_RIBEIRA_MANUAL : PIN_CONCORRENTE_MANUAL;
+    return pin.ehRibeira ? PIN_RIBEIRA : PIN_CONCORRENTE;
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -189,12 +260,30 @@ export function MapaLeaflet({ empreendimentos, incorporadoras }: Props) {
             <option value="concorrente">Concorrente</option>
           </select>
         </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={modoEdicao}
+            onChange={(e) => setModoEdicao(e.target.checked)}
+            className="accent-royal"
+          />
+          <span className="text-muted">
+            Editar posição{" "}
+            <span className="text-[11px] text-muted-2">(arrastar pins)</span>
+          </span>
+        </label>
         <div className="text-muted ml-auto">
-          {estado.carregando
-            ? `Geolocalizando… ${estado.encontrados} de ${empreendimentos.length}`
-            : `${pinsFiltrados.length} pins${
-                estado.falhas > 0 ? ` · ${estado.falhas} sem endereço resolvido` : ""
-              }`}
+          {salvandoId ? (
+            <span className="text-royal">Salvando…</span>
+          ) : ultimoSalvo ? (
+            <span className="text-success">✓ {ultimoSalvo.nome} realocado</span>
+          ) : estado.carregando ? (
+            `Geolocalizando… ${estado.encontrados} de ${empreendimentos.length}`
+          ) : (
+            `${pinsFiltrados.length} pins${
+              estado.falhas > 0 ? ` · ${estado.falhas} sem endereço resolvido` : ""
+            }`
+          )}
         </div>
       </div>
       <div
@@ -216,7 +305,14 @@ export function MapaLeaflet({ empreendimentos, incorporadoras }: Props) {
             <Marker
               key={p.empreendimento.id}
               position={[p.lat, p.lng]}
-              icon={p.ehRibeira ? PIN_RIBEIRA : PIN_CONCORRENTE}
+              icon={iconePara(p)}
+              draggable={modoEdicao}
+              eventHandlers={{
+                dragend: (e) => {
+                  const nova = e.target.getLatLng();
+                  onDragFim(p.empreendimento.id, p.empreendimento.nome, nova.lat, nova.lng);
+                },
+              }}
             >
               <Popup>
                 <div className="text-[13px] font-semibold text-ink">
@@ -258,6 +354,11 @@ export function MapaLeaflet({ empreendimentos, incorporadoras }: Props) {
                     </>
                   )}
                 </div>
+                {p.manual && (
+                  <div className="text-[11px] text-muted mt-2 italic">
+                    Posição ajustada manualmente
+                  </div>
+                )}
                 <Link
                   href={`/empreendimentos/${p.empreendimento.id}`}
                   className="block mt-2 text-[12px] font-bold text-royal hover:underline"

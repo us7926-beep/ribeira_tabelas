@@ -40,6 +40,11 @@ export interface Empreendimento {
   unidades_residenciais?: number | null;
   unidades_comerciais?: number | null;
   estoque?: number | null;
+  /** Coordenadas do pin no mapa. Preenchidas via geocode automático ou ajuste manual. */
+  latitude?: number | null;
+  longitude?: number | null;
+  /** Se true, o pin foi arrastado manualmente — não sobrescrever com geocode. */
+  geoloc_manual?: boolean | null;
 }
 
 /** Linha de unidade extraída de uma tabela de preços. */
