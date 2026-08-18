@@ -2,10 +2,80 @@
 
 > Cole/abra este arquivo numa nova janela do Claude Code. Tem TUDO para continuar
 > a evolução do TabLM de onde paramos. **Sem segredos** (ficam só em `api/.env` e
-> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-08-17 (após
-> sprint de 8 PRs mudando o foco pro core: faxina CV CRM + diagnóstico
-> competitivo + comparar tabelas + batch de books + qualidade da varredura
-> + mapa geográfico).
+> nos painéis de Render/Vercel; gitignored). Atualizado em 2026-08-18 (após
+> sprint de 5 PRs pós-mapa: heartbeat pro Supabase + refactor de testes +
+> pin manual arrastável + heatmap + arquivamento de PDFs no /tabelas-precos).
+
+## Addendum 2026-08-18 (PRs #97–#101 — heartbeat + refactor + mapa++ + storage)
+
+Sprint pós-#95: consolidar dívida técnica (refactor de testes), resolver
+operacional (Supabase pausando por inatividade), atacar pedido explícito
+do usuário sobre correção manual do pin no /mapa, adicionar heatmap
+como segunda leitura do mesmo mapa, e fechar gap de arquivamento no
+endpoint de tabelas.
+
+- **[PR #97](https://github.com/us7926-beep/ribeira_tabelas/pull/97)** —
+  Vercel Cron heartbeat pra manter Supabase acordado. Novo endpoint
+  público `/health/heartbeat` (SELECT count sem auth) + rota Next
+  `/api/cron/heartbeat` proxy + entrada em `vercel.json`
+  (`0 3 * * *` UTC = 0h BRT). Encerra a pendência **#4 do handoff
+  anterior** (pausas do free tier a cada ~7 dias). Timeout 45s no
+  Next cobre cold start do Render.
+- **[PR #98](https://github.com/us7926-beep/ribeira_tabelas/pull/98)** —
+  refactor(tests): split de `tests/test_api.py` (1336 linhas, 76
+  testes) em 13 arquivos por domínio funcional. `conftest.py` central
+  agora expõe `cliente` (TestClient), `get_token`, `auth_headers`,
+  `SENHA` e `post_vendas` como fixture/helpers reutilizáveis;
+  preserva as fixtures pré-existentes `mock_bcb` +
+  `_limpar_cache_incc` (INCC/BCB). Antes: 76 testes em 1 arquivo, 34s.
+  Agora: 146 testes em 22 arquivos, **12s** (parallel discovery melhora
+  ~3×). Arquivos: `test_health_e_auth`, `test_mercado`, `test_vendas`,
+  `test_benchmark_eventos`, `test_mercado_api_parser`,
+  `test_incorporadoras`, `test_financiamento`, `test_fluxo_simulador`,
+  `test_diagnostico`, `test_geocode`, `test_pdf_tabelas`,
+  `test_ficha_dossie`, `test_books_extrair`.
+- **[PR #99](https://github.com/us7926-beep/ribeira_tabelas/pull/99)** —
+  feat(mapa): pin arrastável pra corrigir geoloc automática. **Pedido
+  explícito do usuário**: Nominatim resolve por bairro+cidade, então
+  em endereços vagos o pin cai no centroide do polígono do bairro,
+  não no lote real — sem correção manual, KPIs de proximidade e
+  cluster futuros ficam enviesados. Migration adiciona
+  `empreendimentos.latitude/longitude/geoloc_manual`. Endpoint
+  `PATCH /empreendimentos/{id}/geoloc` valida coords no intervalo
+  antes de tocar no DB (400 se lixo, 404 se id inexistente). No
+  `/mapa`, carregamento em 2 passos: pina PRIMEIRO todos que já
+  têm coords persistidas (instantâneo, zero requests) → só depois
+  faz Nominatim pros restantes. Toggle "Editar posição" habilita
+  `draggable` nos markers; drag&drop → PATCH → grava
+  `geoloc_manual=true`. Pin manual usa cor sólida saturada (royal-forte
+  / ink) pra sinalizar "posição ajustada" à distância. Popup também
+  deixa explícito. Feedback UI: "Salvando…" durante request, "✓ X
+  realocado" por 4s após confirmar.
+- **[PR #100](https://github.com/us7926-beep/ribeira_tabelas/pull/100)** —
+  feat(tabelas-precos): arquiva PDF/CSV em Storage no POST
+  `/empreendimentos/{id}/tabelas-precos`. Antes só `/importar-book`
+  gravava o arquivo original. Agora o upload manual de tabela pelo
+  dossiê/benchmark também sobe pro Storage
+  (`{emp_id}/{uuid}-{nome_original}`) + entry em `documentos` com
+  `tipo='tabela_precos'`. Falha silenciosa — se o Storage cai, a
+  `tabelas_precos` ainda entra (arquivamento é oportunista, não é
+  dependência dura da extração de unidades). Encerra a **pendência
+  "Melhoria" do addendum anterior**.
+- **[PR #101](https://github.com/us7926-beep/ribeira_tabelas/pull/101)** —
+  feat(mapa): heatmap opcional de VGV / preço-m² sobre o /mapa.
+  Pins mostram posição, heatmap mostra concentração — leituras
+  complementares. Nova dep `leaflet.heat@^0.2.0`. Novo
+  `HeatmapCamada.tsx` encapsula `L.heatLayer` com montagem/
+  desmontagem via useMap+useEffect. Nova função pura
+  `normalizarPontosHeatmap` mapeia valores brutos em `[0.15..1]`
+  proporcional ao maior — piso em 0.15 evita que 1 empreendimento
+  gigante ofusque os menores. Select "Heatmap: Desligado | VGV total
+  | Preço/m²" reage aos filtros existentes (Padrão / Tipo). Zero
+  endpoint novo — deriva do que `/empreendimentos` já devolve.
+
+**Suite consolidada 2026-08-18**: **151 pytest** (+5 do geoloc + 3
+do storage — split não perdeu nenhum) **+ 98 vitest** (+5 do
+heatmap-utils) **+ tsc verde**.
 
 ## Addendum 2026-08-15→17 (PRs #88–#95 + migration drop cvcrm_id)
 
@@ -109,29 +179,33 @@ SFH, 1 SOHO Padrão, 2 Alegria).
    (id 264) no painel do CV CRM** — opcional, higiene.
 3. **Configurar Resend** ([docs/DEPLOY.md](DEPLOY.md) seção 4) —
    sem isso PR #35 (email diário) fica inerte. Sem urgência.
-4. **Considerar scheduled task** que pinga o Supabase 1x por
-   semana pra não pausar (repete de sprints anteriores; ainda não
-   feito).
+4. ~~**Considerar scheduled task** que pinga o Supabase~~ — **RESOLVIDO
+   em PR #97** (Vercel Cron diário `/api/cron/heartbeat`).
 5. **Trocar Leaflet+OSM por Mapbox** se quiser tiles mais
    bonitos (dark mode, satélite) — 1 linha em MapaLeaflet.tsx
    + env NEXT_PUBLIC_MAPBOX_TOKEN. Tier grátis 50k views/mês.
-6. **Rodar smoke UI completo** (7 seções: visão geral, benchmark,
-   dossiê, mapa, análise em lote, comparar, simulador). Bloqueado
-   nesta sessão por senha/browser; feito só via API híbrida.
+6. **Rodar smoke UI completo** (8 seções: visão geral, benchmark,
+   dossiê, mapa (incluindo drag&drop novo!), análise em lote,
+   comparar, simulador, editar-posição). Bloqueado nesta sessão
+   por senha/browser; feito só via API híbrida.
 
 ## Ideias que ficaram na fila de futuro
 - **Radar de mercado** — dashboard "onde estão os lançamentos"
   (bairro × padrão × mês) com gaps da Ribeira.
-- **Heatmap no mapa** — camada extra `leaflet.heat` mostrando
-  concentração de VGV por bairro.
 - **Reforço manual de extração** — botão "🔎 Reforçar" no dossiê
-  que reprocessa o book já anexado sem re-upload (precisa puxar
-  PDF do Storage).
+  que reprocessa o book já anexado sem re-upload. Com PR #100,
+  o PDF de tabela também está em Storage, então já dá pra puxar
+  qualquer documento anexado; falta só o botão + endpoint que
+  aceita `documento_id` no lugar de `arquivo`.
 - **Notificações push web** — badge no browser quando concorrente
   reajusta ou lança promoção.
-- **Melhoria**: endpoint `POST /tabelas-precos` não grava o PDF
-  em Storage nem registra em `documentos` (só `/importar-book`
-  faz isso). Considerar passar o `arquivo` também pro Storage.
+- **Refactor PR 2** — split de `api/main.py` (~1400 linhas) em
+  `api/routes/<dominio>.py`. Análogo ao PR #98 (que fez isso pros
+  testes). Puramente organização; comportamento preservado.
+- **Refactor PR 3** — consolidar helpers duplicados de formato
+  em `tablm-web/lib/format.ts` (BRL, %, m², km, datas). Hoje
+  cada componente reimplementa; grep por `toLocaleString('pt-BR')`
+  mostra o espalhamento.
 
 ## Addendum 2026-07-27 (PR #86 + smoke 7.2 / 4.3 / 4.5 / 5.x)
 
