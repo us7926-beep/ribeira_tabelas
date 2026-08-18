@@ -1014,6 +1014,29 @@ async def criar_tabela_precos(
         },
     )
 
+    # Arquiva o PDF/planilha original no Storage + entry em `documentos`. Se
+    # falhar, não bloqueia — o registro em tabelas_precos com as unidades já
+    # é o que importa; o arquivo é histórico pra auditoria/reprocesso futuro.
+    if arquivo and arquivo.filename:
+        nome_doc = PurePosixPath(arquivo.filename).name or "tabela.pdf"
+        caminho = f"{id_}/{uuid.uuid4().hex}-{nome_doc}"
+        try:
+            _db_ou_503(
+                db.upload_storage, caminho, conteudo,
+                arquivo.content_type or "application/octet-stream",
+            )
+            _db_ou_503(
+                db.inserir, "documentos",
+                {
+                    "empreendimento_id": id_,
+                    "nome": nome_doc,
+                    "tipo": "tabela_precos",
+                    "storage_path": caminho,
+                },
+            )
+        except Exception:  # noqa: BLE001 — arquivamento é oportunista
+            pass
+
     # Sincroniza snapshot de KPIs no empreendimento (mantem benchmark coerente).
     kpis = _montar_kpis_de_unidades(unidades)
     if kpis:
