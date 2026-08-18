@@ -285,6 +285,14 @@ class EmpreendimentoIn(BaseModel):
     padrao: str | None = None
 
 
+class GeolocIn(BaseModel):
+    """Coordenadas de um pin no mapa. Só entra por ajuste MANUAL (drag&drop).
+    O geocode automático (Nominatim) grava direto via /empreendimentos/{id}/kpis
+    ou processos internos, sem passar por aqui."""
+    latitude: float
+    longitude: float
+
+
 class EventoIn(BaseModel):
     empreendimento_id: str
     documento_id: str | None = None
@@ -757,6 +765,27 @@ def atualizar_ficha(
     if not registro:
         raise HTTPException(status_code=404, detail="Empreendimento nao encontrado")
     return {"ok": True, "campos_atualizados": list(campos.keys()), "empreendimento": registro}
+
+
+@app.patch("/empreendimentos/{id_}/geoloc")
+def atualizar_geoloc(
+    id_: str,
+    body: GeolocIn,
+    _: str = Depends(security.usuario_autenticado),
+):
+    """Grava lat/lng do pin (ajuste manual no /mapa) e marca geoloc_manual=true.
+    Marcador impede que geocode automático sobrescreva a correção depois."""
+    if not (-90.0 <= body.latitude <= 90.0) or not (-180.0 <= body.longitude <= 180.0):
+        raise HTTPException(status_code=400, detail="Coordenadas fora do intervalo válido")
+    registro = _db_ou_503(
+        db.atualizar,
+        "empreendimentos",
+        id_,
+        {"latitude": body.latitude, "longitude": body.longitude, "geoloc_manual": True},
+    )
+    if not registro:
+        raise HTTPException(status_code=404, detail="Empreendimento não encontrado")
+    return {"ok": True, "empreendimento": registro}
 
 
 @app.post("/empreendimentos/{id_}/ficha-dossie")
