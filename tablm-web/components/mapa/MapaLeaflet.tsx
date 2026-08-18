@@ -8,6 +8,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 
 import type { Empreendimento, Incorporadora } from "@/types";
+import { HeatmapCamada } from "./HeatmapCamada";
+import { normalizarPontosHeatmap } from "./heatmap-utils";
 
 // Corrige o ícone padrão do Leaflet (Next não serve os PNGs por padrão).
 // Usa data-URI de SVG minimalista com as cores do design system.
@@ -119,6 +121,7 @@ export function MapaLeaflet({ empreendimentos, incorporadoras }: Props) {
   const [modoEdicao, setModoEdicao] = useState(false);
   const [salvandoId, setSalvandoId] = useState<string | null>(null);
   const [ultimoSalvo, setUltimoSalvo] = useState<{ id: string; nome: string } | null>(null);
+  const [metricaHeatmap, setMetricaHeatmap] = useState<"nenhum" | "vgv" | "preco_m2">("nenhum");
   const abortadorRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -228,6 +231,14 @@ export function MapaLeaflet({ empreendimentos, incorporadoras }: Props) {
     return pin.ehRibeira ? PIN_RIBEIRA : PIN_CONCORRENTE;
   }
 
+  const pontosHeatmap = useMemo(() => {
+    if (metricaHeatmap === "nenhum") return [];
+    const chave = metricaHeatmap === "vgv" ? "vgv_total" : "preco_m2_medio";
+    return normalizarPontosHeatmap(
+      pinsFiltrados.map((p) => ({ lat: p.lat, lng: p.lng, valor: p.empreendimento[chave] })),
+    );
+  }, [pinsFiltrados, metricaHeatmap]);
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-3 flex-wrap text-[13px]">
@@ -272,6 +283,18 @@ export function MapaLeaflet({ empreendimentos, incorporadoras }: Props) {
             <span className="text-[11px] text-muted-2">(arrastar pins)</span>
           </span>
         </label>
+        <label className="flex items-center gap-2">
+          <span className="text-muted">Heatmap:</span>
+          <select
+            value={metricaHeatmap}
+            onChange={(e) => setMetricaHeatmap(e.target.value as typeof metricaHeatmap)}
+            className="px-2.5 py-1.5 rounded-[10px] border border-line bg-white text-[13px]"
+          >
+            <option value="nenhum">Desligado</option>
+            <option value="vgv">VGV total</option>
+            <option value="preco_m2">Preço/m²</option>
+          </select>
+        </label>
         <div className="text-muted ml-auto">
           {salvandoId ? (
             <span className="text-royal">Salvando…</span>
@@ -301,6 +324,7 @@ export function MapaLeaflet({ empreendimentos, incorporadoras }: Props) {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           <AjustarBounds pins={pinsFiltrados} />
+          {metricaHeatmap !== "nenhum" && <HeatmapCamada pontos={pontosHeatmap} />}
           {pinsFiltrados.map((p) => (
             <Marker
               key={p.empreendimento.id}
